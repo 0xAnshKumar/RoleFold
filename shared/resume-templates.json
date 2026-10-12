@@ -1,0 +1,112 @@
+[
+  {
+    "id": "classic",
+    "name": "Classic",
+    "modelledOn": "Harvard-style",
+    "bestFor": "Most people, conservative fields, senior profiles",
+    "order": [
+      "summary",
+      "experience",
+      "education",
+      "skills"
+    ],
+    "pdfFont": "Tinos",
+    "previewFont": "Georgia, 'Times New Roman', serif",
+    "nameAlign": "center",
+    "headingStyle": "rule",
+    "density": "regular",
+    "pages": "1–2"
+  },
+  {
+    "id": "tech",
+    "name": "Compact Tech",
+    "modelledOn": "Jake’s resume",
+    "bestFor": "Software engineers",
+    "order": [
+      "experience",
+      "projects",
+      "skills",
+      "education"
+    ],
+    "pdfFont": "Libertinus Serif",
+    "previewFont": "'Palatino Linotype', Palatino, Georgia, serif",
+    "nameAlign": "center",
+    "headingStyle": "smallcaps-rule",
+    "density": "compact",
+    "pages": "1"
+  },
+  {
+    "id": "modern",
+    "name": "Modern",
+    "modelledOn": "Clean sans-serif",
+    "bestFor": "Product, business and design-adjacent roles",
+    "order": [
+      "summary",
+      "experience",
+      "skills",
+      "education"
+    ],
+    "pdfFont": "Carlito",
+    "previewFont": "Calibri, Carlito, 'Segoe UI', Arial, sans-serif",
+    "nameAlign": "left",
+    "headingStyle": "accent",
+    "accent": "#1F4E79",
+    "density": "regular",
+    "pages": "1–2"
+  },
+  {
+    "id": "campus",
+    "name": "Campus",
+    "modelledOn": "Indian placement format",
+    "bestFor": "Freshers and students",
+    "order": [
+      "education",
+      "skills",
+      "projects",
+      "experience",
+      "achievements"
+    ],
+    "pdfFont": "Arimo",
+    "previewFont": "Arial, Arimo, Helvetica, sans-serif",
+    "nameAlign": "center",
+    "headingStyle": "plain-bold",
+    "density": "compact",
+    "pages": "1"
+  },
+  {
+    "id": "combination",
+    "name": "Combination",
+    "modelledOn": "Hybrid format",
+    "bestFor": "Career switchers and returning professionals",
+    "order": [
+      "skillsSummary",
+      "experience",
+      "projects",
+      "education"
+    ],
+    "pdfFont": "Arimo",
+    "previewFont": "Arial, Arimo, Helvetica, sans-serif",
+    "nameAlign": "left",
+    "headingStyle": "rule",
+    "density": "regular",
+    "pages": "1–2"
+  },
+  {
+    "id": "academic",
+    "name": "Academic CV",
+    "modelledOn": "Research CV",
+    "bestFor": "Researchers, faculty and PhD candidates",
+    "order": [
+      "education",
+      "experience",
+      "publications",
+      "skills"
+    ],
+    "pdfFont": "Tinos",
+    "previewFont": "Georgia, 'Times New Roman', serif",
+    "nameAlign": "left",
+    "headingStyle": "smallcaps-rule",
+    "density": "regular",
+    "pages": "2+"
+  }
+]

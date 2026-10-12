@@ -1,0 +1,93 @@
+/* The resume document. Plain and machine-readable by design; templates vary type, spacing and headings only. */
+.paper {
+  background: #fff;
+  color: #111;
+  font-size: 0.8125em; /* em, so thumbnails scale from their container */
+  line-height: 1.42;
+  padding: 7% 8%;
+  aspect-ratio: 1 / 1.414;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.compact {
+  font-size: 0.75em;
+  line-height: 1.32;
+}
+.head {
+  margin-bottom: 0.9em;
+}
+.name {
+  font: inherit;
+  font-size: 1.85em;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+.contact {
+  margin-top: 0.25em;
+  font-size: 0.92em;
+  color: #333;
+}
+.section {
+  margin-top: 0.8em;
+}
+.h {
+  font: inherit;
+  font-weight: 700;
+  font-size: 1em;
+  margin-bottom: 0.35em;
+}
+/* heading styles */
+.rule .h {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #111;
+  padding-bottom: 0.1em;
+}
+.smallcaps_rule .h {
+  font-variant: small-caps;
+  font-size: 1.12em;
+  letter-spacing: 0.03em;
+  border-bottom: 0.8px solid #111;
+  padding-bottom: 0.05em;
+}
+.accent .h {
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.92em;
+}
+.accent .name {
+  color: var(--accent);
+}
+.plain_bold .h {
+  text-transform: uppercase;
+  background: #f0f0f0;
+  padding: 0.15em 0.4em;
+}
+.entry {
+  margin-bottom: 0.55em;
+}
+.entryHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+}
+.org {
+  font-style: italic;
+}
+.list {
+  margin: 0.2em 0 0;
+  padding-left: 1.15em;
+}
+.list li + li {
+  margin-top: 0.12em;
+}
+.plain {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.active {
+  background: #ffe45c;
+}

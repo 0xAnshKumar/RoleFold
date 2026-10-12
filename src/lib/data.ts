@@ -1,0 +1,57 @@
+// Server-side loaders for the app screens. Each returns the src/lib/mock.ts shape, from the API when
+// it's live, or the sample data in demo mode (no NEXT_PUBLIC_DEV_USER, HUNT_DEMO=1, or API not ready).
+import { connection } from "next/server";
+import { cache } from "react";
+import { API_URL, ApiError, DEV_USER, api } from "./api";
+import * as mock from "./mock";
+import type { DraftGroup, Fact, Match, Profile, Resume, ResumeListItem, SavedJob, Usage } from "./mock";
+
+/** Per request. /readyz checks the database too, so "API up, Postgres not set up" is also demo. */
+export const isDemo = cache(async () => {
+  await connection();
+  if (!DEV_USER || process.env.HUNT_DEMO === "1") return true;
+  try {
+    return !(await fetch(`${API_URL}/readyz`, { signal: AbortSignal.timeout(1500) })).ok;
+  } catch {
+    return true;
+  }
+});
+
+async function load<T>(sample: T, live: () => Promise<T>): Promise<T> {
+  return (await isDemo()) ? sample : live();
+}
+
+const orNull = <T,>(p: Promise<T>) => p.catch((e) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e)));
+// List routes may be cursor-paginated ({items, next_cursor}) or bare arrays.
+const items = <T,>(r: T[] | { items: T[] }) => (Array.isArray(r) ? r : r.items);
+
+export const getUsage = cache(() =>
+  load(mock.usage, async () => {
+    const r = await api<{ period: string; metrics: Record<"tailored_resume" | "deep_match", { used: number; reserved: number; limit: number }> }>("/usage");
+    const [y, m] = r.period.split("-").map(Number);
+    const n = (k: "tailored_resume" | "deep_match") => ({ used: r.metrics[k].used + r.metrics[k].reserved, limit: r.metrics[k].limit });
+    return { tailored: n("tailored_resume"), matches: n("deep_match"), resetsOn: day(new Date(Date.UTC(y, m, 1))) } satisfies Usage;
+  }),
+);
+
+const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+export const getJobs = () => load(mock.savedJobs, async () => items(await api<SavedJob[] | { items: SavedJob[] }>("/jobs")));
+export const getMatch = (id: string) => load(mock.matches.find((m) => m.id === id) ?? null, () => orNull(api<Match>(`/jobs/${id}/match`)));
+export const getJob = (id: string) => load(mock.savedJobs.find((j) => j.id === id) ?? null, () => orNull(api<SavedJob>(`/jobs/${id}`)));
+export const getResumes = () => load(mock.resumeList, async () => items(await api<ResumeListItem[] | { items: ResumeListItem[] }>("/resumes")));
+export const getResume = (id: string) => load(mock.resumes.find((r) => r.id === id) ?? null, () => orNull(api<Resume>(`/resumes/${id}`)));
+
+// ---- GET /v1/profile returns the mock `profile` shape plus `facts` and `draftGroups` (api/app/routes/profile.py).
+
+type RawProfile = Profile & { facts: Fact[]; draftGroups: DraftGroup[] };
+
+const sample = { profile: mock.profile, facts: mock.facts, drafts: mock.draftGroups };
+
+/** Profile, confirmed facts and the draft queue, from one GET /v1/profile. */
+export const getProfile = cache(() =>
+  load(sample, async () => {
+    const { facts, draftGroups, ...profile } = await api<RawProfile>("/profile");
+    return { profile, facts, drafts: draftGroups };
+  }),
+);

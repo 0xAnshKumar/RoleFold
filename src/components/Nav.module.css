@@ -1,0 +1,123 @@
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 12px max(clamp(16px, 4vw, 32px), calc((100vw - 1240px) / 2 + 32px));
+  background: rgb(250 247 239 / 0.88);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  border-bottom: 1px solid rgb(217 211 195 / 0.7);
+}
+.brand {
+  font: 800 1.5rem/1 var(--font-display), sans-serif;
+  font-stretch: 115%;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+.nav {
+  display: flex;
+  gap: 4px;
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+.link:hover {
+  color: var(--text);
+  background: rgb(23 58 42 / 0.05);
+}
+.link[aria-current="page"] {
+  color: var(--on-primary);
+  background: var(--primary);
+}
+.icon {
+  width: 18px;
+  height: 18px;
+}
+.right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.queue {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-decoration: none;
+  background: var(--surface);
+}
+.queue:hover {
+  border-color: var(--text);
+}
+/* demo mode: a quiet pencil note, not an alert */
+.sample {
+  font: 500 0.75rem/1 var(--font-mono), monospace;
+  color: var(--text-muted);
+  padding: 6px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--partial);
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--highlighter);
+  color: var(--on-highlighter);
+  font: 800 0.8125rem/1 var(--font-display), sans-serif;
+}
+
+/* phones: icons + labels in a bottom bar for thumbs */
+@media (max-width: 699px) {
+  .bar {
+    padding: 10px 16px;
+  }
+  .nav {
+    position: fixed;
+    inset: auto 0 0 0;
+    justify-content: space-around;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--rule);
+  }
+  .link {
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 4px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+  }
+  .queue {
+    font-size: 0.75rem;
+    padding: 6px 10px;
+  }
+  .avatar {
+    display: none;
+  }
+}

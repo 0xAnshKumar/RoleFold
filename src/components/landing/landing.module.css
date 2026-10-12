@@ -1,0 +1,541 @@
+/* Landing: the loud volume of docs/DESIGN.md. One authored moment (the scroll story), quiet support around it. */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgb(250 247 239 / 0.88);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  border-bottom: 1px solid rgb(217 211 195 / 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px max(clamp(16px, 4vw, 40px), calc((100vw - 1320px) / 2 + 40px));
+}
+.brand {
+  font: 800 1.625rem/1 var(--font-display), sans-serif;
+  font-stretch: 115%;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+.topLinks {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.topLink {
+  text-decoration: none;
+  background: linear-gradient(var(--highlighter), var(--highlighter)) no-repeat 0 90% / 0% 40%;
+  transition: background-size 260ms var(--ease-out);
+}
+.topLink:hover {
+  background-size: 100% 40%;
+}
+
+/* ---------- hero ---------- */
+.hero {
+  --gutter: max(clamp(16px, 4vw, 40px), calc((100vw - 1320px) / 2 + 40px));
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  padding: clamp(16px, 4vh, 40px) var(--gutter) clamp(56px, 9vh, 104px);
+  min-height: calc(100svh - 76px);
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip; /* tilted cards and the seal never widen the page */
+}
+/* notebook paper on its own layer: faint ruling plus a margin line, fading out downward */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, transparent calc(var(--gutter) - 22px), rgb(196 92 78 / 0.3) calc(var(--gutter) - 22px) calc(var(--gutter) - 20px), transparent calc(var(--gutter) - 20px)),
+    repeating-linear-gradient(180deg, transparent 0 39px, rgb(23 58 42 / 0.07) 39px 40px);
+  -webkit-mask: linear-gradient(180deg, #000 60%, transparent);
+  mask: linear-gradient(180deg, #000 60%, transparent);
+}
+.heroText {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.mega {
+  font-size: clamp(3rem, 1.1rem + 6vw, 6rem);
+  font-stretch: 112%;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  max-width: 10.5ch;
+  text-wrap: balance;
+}
+.marker {
+  position: relative;
+  white-space: nowrap;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 100' preserveAspectRatio='none'%3E%3Cpath d='M6 58 C40 40 110 34 160 38 C210 42 260 36 294 46 L290 86 C240 78 180 84 120 82 C70 80 30 88 10 84 Z' fill='%23FFE45C'/%3E%3C/svg%3E")
+    no-repeat 0 62% / 100% 74%;
+  padding: 0 0.06em;
+  animation: swipe 760ms 700ms var(--ease-out) both;
+}
+@keyframes swipe {
+  from {
+    background-size: 0% 74%;
+  }
+}
+.lead {
+  font-size: clamp(1.125rem, 1rem + 0.45vw, 1.3125rem);
+  line-height: 1.55;
+  max-width: 44ch;
+  color: var(--text-muted);
+}
+.ctaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.bigBtn {
+  min-height: 56px;
+  padding: 0 28px;
+  font-size: 1.0625rem;
+  border-radius: 8px;
+}
+.textLink {
+  font-weight: 600;
+}
+.fine {
+  font: 500 0.8125rem/1 var(--font-mono), monospace;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* the desk you can stamp */
+.deskWrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.desk {
+  position: relative;
+  width: min(100%, 640px);
+  aspect-ratio: 640 / 600;
+  container-type: inline-size;
+  touch-action: manipulation;
+  border-radius: 12px;
+}
+.desk:focus-visible {
+  outline-offset: 10px;
+}
+.deskInner {
+  position: absolute;
+  inset: 0;
+  font-size: 2.15cqw;
+}
+.heroSheet {
+  position: absolute;
+  left: 28%;
+  top: 2%;
+  width: 70%;
+  height: 80%;
+  padding: 6.5% 6% 6.5% 12%;
+  background: #fff;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgb(23 58 42 / 0.12), 0 24px 48px -12px rgb(23 58 42 / 0.28);
+}
+.hsName {
+  font-size: 1.9em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.hsContact {
+  font-size: 0.78em;
+  color: #555;
+  margin: 0.3em 0 1.3em;
+}
+.hsHead {
+  font-size: 0.74em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #111;
+  padding-bottom: 0.25em;
+  margin: 1em 0 0.6em;
+}
+.hsRole {
+  font-size: 0.82em;
+  margin-bottom: 0.5em;
+}
+.hsRole span {
+  color: #666;
+  float: right;
+}
+.hsList {
+  margin: 0;
+  padding-left: 1.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55em;
+  font-size: 0.86em;
+  line-height: 1.42;
+}
+.hsMark {
+  background: linear-gradient(var(--highlighter), var(--highlighter)) no-repeat 0 0 / 0% 100%;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0 0.08em;
+}
+.hsTag {
+  display: inline-block;
+  margin-left: 0.4em;
+  padding: 0.05em 0.4em;
+  border-radius: 0.25em;
+  background: var(--primary);
+  color: var(--on-primary);
+  font: 600 0.78em/1.4 var(--font-mono), monospace;
+  vertical-align: 0.1em;
+}
+.hsLine {
+  display: block;
+  height: 0.45em;
+  width: 82%;
+  margin-top: 0.9em;
+  border-radius: 1em;
+  background: #ececec;
+}
+.hsShort {
+  width: 56%;
+  margin-top: 0.6em;
+}
+
+.heroFact {
+  position: absolute;
+  left: 0;
+  width: 34%;
+  padding: 3.2% 3.4% 4.6%;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgb(23 58 42 / 0.1), 0 18px 32px -10px rgb(23 58 42 / 0.3);
+}
+.heroFact0 {
+  top: 20%;
+}
+.heroFact1 {
+  top: 47%;
+}
+.hfMeta {
+  font: 500 0.74em/1 var(--font-mono), monospace;
+  color: var(--text-muted);
+  margin-bottom: 0.6em;
+}
+.hfText {
+  font-weight: 600;
+  font-size: 0.98em;
+  line-height: 1.32;
+  color: var(--text);
+}
+.hfMark {
+  background: linear-gradient(transparent 55%, rgb(255 228 92 / 0.85) 55%);
+}
+.inkStamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.35em 0.6em;
+  border: 0.17em solid currentColor;
+  border-radius: 0.3em;
+  font: 800 0.95em/1 var(--font-display), sans-serif;
+  font-stretch: 70%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  rotate: -7deg;
+  mix-blend-mode: multiply;
+  filter: url(#stamp-ink);
+  white-space: nowrap;
+}
+.inkGreen {
+  color: var(--supported);
+}
+.hfStamp {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  margin-top: 1.3em;
+  font-size: 0.82em;
+  display: inline-flex;
+}
+.heroJob {
+  position: absolute;
+  left: 8%;
+  top: 74%;
+  width: 52%;
+  padding: 3% 3.6%;
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: 8px;
+  box-shadow: 0 24px 40px -12px rgb(23 58 42 / 0.45);
+}
+.heroJob .hfMeta {
+  color: rgb(250 247 239 / 0.7);
+}
+.hjTitle {
+  font: 800 1.25em/1.1 var(--font-display), sans-serif;
+  font-stretch: 106%;
+  margin-bottom: 0.5em;
+}
+.hjRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.4em 0;
+  border-top: 1px dashed rgb(250 247 239 / 0.25);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+.hjRow :global(.stamp) {
+  font-size: 0.82em;
+  background-color: var(--surface);
+}
+.heroSeal {
+  position: absolute;
+  left: 56%;
+  top: 72%;
+  width: 21%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 3%;
+  border-radius: 50%;
+  border: 0.3em double var(--supported);
+  color: var(--supported);
+  background: rgb(255 253 248 / 0.85);
+  font: 800 0.92em/1.1 var(--font-display), sans-serif;
+  font-stretch: 70%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  filter: url(#stamp-ink);
+}
+
+.impression {
+  position: absolute;
+  translate: -50% -50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 6px 12px;
+  border: 3px solid var(--supported);
+  border-radius: 6px;
+  color: var(--supported);
+  font: 800 1.125rem/1 var(--font-display), sans-serif;
+  font-stretch: 70%;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  filter: url(#stamp-ink);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+/* ---------- receipt ---------- */
+.receiptBand {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(32px, 6vw, 96px);
+  align-items: center;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: clamp(80px, 14vh, 160px) clamp(16px, 4vw, 40px);
+}
+.receiptText {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.h2 {
+  font: 800 clamp(2.25rem, 1.2rem + 3.4vw, 4.25rem) / 0.98 var(--font-display), sans-serif;
+  font-stretch: 110%;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.body {
+  font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem);
+  line-height: 1.6;
+  max-width: 44ch;
+  color: var(--text-muted);
+}
+.receiptSlot {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+  border-top: 10px solid var(--text); /* the printer slot */
+  border-radius: 4px;
+  max-width: 460px;
+  justify-self: center;
+  width: 100%;
+}
+.receipt {
+  width: min(400px, 92%);
+  background: #fff;
+  color: #111;
+  padding: 28px 24px 34px;
+  font: 400 0.9rem/1.65 var(--font-mono), monospace;
+  box-shadow: 0 20px 40px rgb(23 58 42 / 0.16), 0 2px 4px rgb(23 58 42 / 0.08);
+  -webkit-mask: radial-gradient(circle 6px at 50% 100%, transparent 98%, #000) bottom / 16px 100% repeat-x;
+  mask: radial-gradient(circle 6px at 50% 100%, transparent 98%, #000) bottom / 16px 100% repeat-x;
+}
+.receipt hr {
+  border: 0;
+  border-top: 2px dashed #111;
+  margin: 12px 0;
+}
+.receiptHead {
+  font-weight: 800;
+  font-size: 1.1rem;
+  text-align: center;
+  letter-spacing: 0.18em;
+}
+.receiptSub {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #555;
+}
+.receiptRow {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.dots {
+  flex: 1;
+  border-bottom: 2px dotted #aaa;
+}
+.total {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.zero {
+  background: var(--highlighter);
+  padding: 0 8px;
+}
+.receiptFoot {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 0.78rem;
+}
+.barcode {
+  display: block;
+  width: 70%;
+  margin: 14px auto 0;
+}
+
+/* ---------- close + footer ---------- */
+.close {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+  padding: clamp(64px, 12vh, 140px) 20px;
+  border-top: 1px solid var(--rule);
+}
+.chai {
+  width: 150px;
+}
+.chai :global(.steam) {
+  animation: steam 2.4s ease-in-out 4;
+}
+.chai :global(.s2) {
+  animation-delay: 1.2s;
+}
+@keyframes steam {
+  50% {
+    opacity: 0.35;
+    transform: translateY(-5px);
+  }
+}
+.storyLine {
+  font-size: clamp(1.75rem, 1.1rem + 2vw, 2.75rem);
+  line-height: 1.3;
+  max-width: 24ch;
+}
+.point {
+  font: 800 clamp(1.5rem, 1.2rem + 1vw, 2rem) / 1 var(--font-display), sans-serif;
+  font-stretch: 108%;
+}
+.close .bigBtn {
+  margin-top: 8px;
+}
+
+.foot {
+  background: var(--primary);
+  color: var(--on-primary);
+  overflow: hidden;
+}
+.footRow {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 28px clamp(16px, 4vw, 40px);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: rgb(250 247 239 / 0.75);
+}
+.footLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+.footLinks a {
+  color: var(--on-primary);
+  text-decoration: none;
+}
+.footLinks a:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--highlighter);
+}
+.wordmark {
+  font: 800 clamp(7rem, 1rem + 27vw, 25rem) / 0.78 var(--font-display), sans-serif;
+  font-stretch: 125%;
+  letter-spacing: -0.06em;
+  text-align: center;
+  color: var(--highlighter);
+  margin-bottom: -0.09em;
+}
+.wordmarkDot {
+  color: var(--on-primary);
+}
+
+/* ---------- small screens ---------- */
+@media (max-width: 899px) {
+  .hero,
+  .receiptBand {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .topLink {
+    display: none;
+  }
+  .desk {
+    width: 100%;
+  }
+  .deskInner {
+    font-size: 2.4cqw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker {
+    animation: none;
+  }
+}

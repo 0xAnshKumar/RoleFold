@@ -1,0 +1,19 @@
+# Responsibility verb classes (TRD §7.4), English only (T-OQ-6).
+# Level order: contributed (1) < owned (2) < led (3) < managed (4).
+# A statement's strongest verb must not exceed its cited fact's responsibility level.
+# Verbs not listed here are neutral. List every inflection to match; matching is whole-word.
+version: 1
+language: en
+levels:
+  contributed: 1
+  owned: 2
+  led: 3
+  managed: 4
+verbs:
+  contributed: [contributed, contributing, assisted, assisting, supported, supporting, helped, helping,
+                participated, participating, collaborated, collaborating]
+  owned: [owned, owning, built, building, developed, developing, designed, designing, implemented,
+          implementing, delivered, delivering, created, creating, authored, launched, launching]
+  led: [led, leading, headed, heading, spearheaded, spearheading, directed, directing, drove, driving,
+        championed, orchestrated]
+  managed: [managed, managing, supervised, supervising, oversaw, overseeing, hired, mentored]

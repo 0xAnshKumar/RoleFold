@@ -1,0 +1,286 @@
+/* Shared app-surface pieces (the calm volume of docs/DESIGN.md): page header, sections, rows. */
+
+.page {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 32px) 120px;
+}
+
+/* page header on notebook paper */
+.header {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: clamp(32px, 5vw, 56px) 0 clamp(24px, 3vw, 36px);
+  margin-bottom: clamp(24px, 3vw, 40px);
+  border-bottom: 1px solid var(--rule);
+}
+.header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: repeating-linear-gradient(180deg, transparent 0 31px, rgb(23 58 42 / 0.06) 31px 32px);
+  -webkit-mask: linear-gradient(180deg, #000 40%, transparent);
+  mask: linear-gradient(180deg, #000 40%, transparent);
+}
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 760px;
+}
+.context {
+  font: 500 0.8125rem/1.3 var(--font-mono), monospace;
+  color: var(--text-muted);
+}
+.title {
+  font: 800 clamp(2rem, 1.3rem + 2.6vw, 3.5rem) / 1 var(--font-display), sans-serif;
+  font-stretch: 110%;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.sub {
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.1875rem);
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 60ch;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* sections */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: clamp(32px, 4vw, 48px);
+}
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.h2 {
+  font: 800 clamp(1.375rem, 1.1rem + 0.9vw, 1.875rem) / 1.1 var(--font-display), sans-serif;
+  font-stretch: 106%;
+  letter-spacing: -0.025em;
+}
+.note {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+}
+
+/* paper card: the base surface for app content */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  padding: clamp(18px, 2.4vw, 28px);
+}
+.cardFlat {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+}
+
+/* list rows inside a flat card */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rows > li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px clamp(16px, 2.4vw, 24px);
+  border-bottom: 1px solid var(--rule);
+}
+.rows > li:last-child {
+  border-bottom: 0;
+}
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rowTitle {
+  font: 700 1.0625rem/1.25 var(--font-display), sans-serif;
+  font-stretch: 104%;
+  text-decoration: none;
+}
+a.rowTitle:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--highlighter);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 3px;
+}
+.mono {
+  font: 500 0.8125rem/1.3 var(--font-mono), monospace;
+  color: var(--text-muted);
+}
+
+/* usage meter: a count against a limit, never a score */
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.meterTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.meterTrack {
+  height: 10px;
+  border-radius: 999px;
+  background: rgb(23 58 42 / 0.08);
+  overflow: hidden;
+}
+.meterFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+
+/* small round verdict seal for list rows */
+.miniSeal {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px double currentColor;
+  text-align: center;
+  padding: 8px;
+  font: 800 0.625rem/1.1 var(--font-display), sans-serif;
+  font-stretch: 70%;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  rotate: -8deg;
+  filter: url(#stamp-ink);
+}
+
+@media (max-width: 699px) {
+  .rows > li {
+    flex-wrap: wrap;
+  }
+}
+
+/* empty and error states: dashed box, margin-note caption, one action */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 22px;
+  border-radius: var(--r-lg);
+  border: 2px dashed var(--rule);
+}
+.empty :global(.margin-note) {
+  font-size: 1.375rem;
+}
+/* plain-language problem message next to the control it's about */
+.problem {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fde8e6;
+  color: #8a1c12;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* inline forms (profile edits, add a fact, new resume): labels above normal inputs */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.field legend {
+  margin-bottom: 6px;
+}
+.field :is(input, select, textarea) {
+  font-weight: 400;
+  font-size: 1rem;
+}
+.hint {
+  font-weight: 400;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  padding: 7px 12px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border-strong);
+  background: transparent;
+  font: 600 0.875rem/1 var(--font-body), sans-serif;
+  color: var(--text);
+}
+.chip[aria-pressed="true"],
+.chip[aria-checked="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+/* a calm one-liner for what an action does in sample data */
+.quiet {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+/* native modal: an overlay is paper on a desk, a soft short shadow plus a rule */
+.dialog {
+  width: min(480px, calc(100% - 32px));
+  margin: auto;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 6px 20px rgb(23 58 42 / 0.12);
+}
+.dialog::backdrop {
+  background: rgb(23 58 42 / 0.28);
+}
+.dialogTitle {
+  font: 800 1.375rem/1.15 var(--font-display), sans-serif;
+  font-stretch: 106%;
+}

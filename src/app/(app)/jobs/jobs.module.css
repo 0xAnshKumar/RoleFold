@@ -1,0 +1,117 @@
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-bottom: clamp(40px, 5vw, 64px);
+}
+.paste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: clamp(20px, 2.6vw, 32px);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  box-shadow: 0 1px 2px rgb(23 58 42 / 0.06), 0 24px 40px -28px rgb(23 58 42 / 0.4);
+}
+.pasteLabel {
+  font: 800 1.25rem/1.1 var(--font-display), sans-serif;
+  font-stretch: 106%;
+}
+.pasteArea {
+  min-height: 280px;
+  padding: 18px 20px;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--paper);
+  font-size: 1rem;
+  line-height: 1.6;
+  transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out);
+}
+.pasteArea:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--text);
+  background: #fff;
+}
+.pasteArea[aria-invalid="true"] {
+  border-color: var(--conflict);
+}
+.help {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+.count {
+  font-family: var(--font-mono), monospace;
+  margin-left: 6px;
+}
+.error {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fde8e6;
+  color: #8a1c12;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.pasteActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 4px;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.tips {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tipsHead {
+  font: 800 1rem/1.2 var(--font-display), sans-serif;
+  font-stretch: 104%;
+}
+.tips ul {
+  margin: 0;
+  padding-left: 1.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.45;
+  font-size: 0.9375rem;
+}
+.saved,
+.applied {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+.saved {
+  background: rgb(23 58 42 / 0.07);
+}
+/* not highlighter: yellow only marks proof */
+.applied {
+  background: var(--supported-bg);
+  color: var(--supported);
+}
+.pending {
+  color: var(--no-evidence);
+  border-style: dashed;
+  border-width: 2px;
+  rotate: 0deg;
+}
+
+@media (max-width: 899px) {
+  .top {
+    grid-template-columns: 1fr;
+  }
+  .pasteArea {
+    min-height: 220px;
+  }
+}

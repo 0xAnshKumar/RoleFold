@@ -1,0 +1,99 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.blockHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.always {
+  margin: 0;
+  padding: 14px 0 0;
+  list-style: none;
+  border-top: 1px dashed var(--border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9375rem;
+}
+.always li {
+  padding-left: 26px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.4 5 9 9.6 3' fill='none' stroke='%231E6B3A' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 0 0.25em / 14px no-repeat;
+}
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.toggle:last-child {
+  border-bottom: 0;
+}
+.toggle input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex: none;
+}
+.toggle > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.danger {
+  padding: clamp(18px, 2.4vw, 28px);
+  border-radius: var(--r-lg);
+  border: 1.5px solid #f1c4bf;
+  background: #fff7f6;
+  line-height: 1.55;
+}
+.deleteBtn {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 6px;
+  border: 1.5px solid var(--conflict);
+  background: #fff;
+  color: var(--conflict);
+  font: 700 0.9375rem/1 var(--font-body), sans-serif;
+}
+.deleteBtn:hover:not(:disabled) {
+  background: var(--conflict);
+  color: #fff;
+}
+.deleteBtn:disabled {
+  opacity: 0.5;
+}
+.deleted {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.dates {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+}
+.dates dt {
+  color: var(--text-muted);
+}
+.dates dd {
+  font: 600 0.9375rem/1.4 var(--font-mono), monospace;
+}
+
+@media (max-width: 799px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
