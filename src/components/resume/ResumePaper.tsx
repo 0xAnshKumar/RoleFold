@@ -2,7 +2,7 @@ import { resumeExtras, type Resume } from "@/lib/mock";
 import { HEADINGS, type SectionKey, type Template } from "@/lib/templates";
 import s from "./resumePaper.module.css";
 
-const NO_EXTRAS = { contact: "", summary: "", skillsSummary: [], projects: [], education: [], skills: [], achievements: [], publications: [] };
+const NO_EXTRAS = { contact: "", summary: "", skillsSummary: [], projects: [], education: [], skills: [], achievements: [], publications: [], languages: [] };
 
 /** The template's sections that have content, in its order (the export leaves empty ones out too: api/app/render.py). */
 export function shownSections(resume: Resume, template: Template, extras: typeof resumeExtras | null) {
@@ -17,6 +17,7 @@ export function shownSections(resume: Resume, template: Template, extras: typeof
     skills: x.skills.length > 0,
     achievements: x.achievements.length > 0,
     publications: x.publications.length > 0,
+    languages: x.languages.length > 0,
   };
   return template.order.filter((key) => has[key]);
 }
@@ -127,6 +128,7 @@ export default function ResumePaper({
         ))}
       </ul>
     ),
+    languages: x.languages.map((l) => <p key={l}>{l}</p>),
   };
 
   return (

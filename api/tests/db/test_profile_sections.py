@@ -35,6 +35,8 @@ def test_achievements_publications_and_breaks_reach_the_resume(pg, alice, monkey
     alice.write("POST", "/v1/career-gaps", {"start_month": "2023-02-14", "end_month": "2023-09-01",
                                            "reason_text": " Caregiving ", "show_on_resume": True})
     alice.write("POST", "/v1/career-gaps", {"start_month": "2020-01-01", "show_on_resume": False})
+    alice.write("POST", "/v1/languages", {"name": "Hindi", "proficiency": "Native"})
+    alice.write("POST", "/v1/languages", {"name": "Kannada"})
     assert alice.write("POST", "/v1/career-gaps", {"start_month": "2023-02-01", "end_month": "2022-01-01"}).status_code == 422
 
     p = alice.get("/v1/profile").json()
@@ -50,6 +52,7 @@ def test_achievements_publications_and_breaks_reach_the_resume(pg, alice, monkey
     assert [(e["title"], e["org"]) for e in doc["sections"]["experience"]["entries"]] == [
         ("Career break", "Caregiving"), ("Frontend Engineer", "Northwind Commerce")]
     assert view["extras"]["achievements"] == ["Speaker, React Bangalore meetup, 2024"]
+    assert doc["sections"]["languages"]["lines"] == view["extras"]["languages"] == ["Hindi (Native), Kannada"]
     assert [(s["title"], s.get("org")) for s in view["sections"]] == [
         ("Career break", "Caregiving"), ("Frontend Engineer", "Northwind Commerce")]
 

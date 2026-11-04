@@ -122,3 +122,17 @@ def test_dev_header_refused_in_production_but_bearer_works(idp, monkeypatch):
 
 def test_dev_header_outside_production():
     assert auth.resolve_subject(None, "alice") == "dev|alice"
+
+
+def test_admin_by_subject_list_or_verified_role_claim(idp, monkeypatch):
+    s = get_settings()
+    monkeypatch.setattr(s, "admin_subjects", "dev|root")
+    assert auth.is_admin(*auth.resolve_identity(None, "root"))
+    assert not auth.is_admin(*auth.resolve_identity(None, "alice"))
+    subject, claims = auth.resolve_identity(f"Bearer {token(groups=['staff', 'hunt-admin'])}", None)
+    assert not auth.is_admin(subject, claims)  # role claim not configured
+    monkeypatch.setattr(s, "admin_role_claim", "groups")
+    assert auth.is_admin(subject, claims)
+    assert auth.is_admin(*auth.resolve_identity(f"Bearer {token(groups='hunt-admin')}", None))
+    assert not auth.is_admin(*auth.resolve_identity(f"Bearer {token(groups=['staff'])}", None))
+    assert not auth.is_admin(*auth.resolve_identity(f"Bearer {token()}", None))

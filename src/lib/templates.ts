@@ -9,7 +9,7 @@
 
 import templates from "../../shared/resume-templates.json";
 
-export type SectionKey = "summary" | "skillsSummary" | "experience" | "projects" | "education" | "skills" | "achievements" | "publications";
+export type SectionKey = "summary" | "skillsSummary" | "experience" | "projects" | "education" | "skills" | "achievements" | "publications" | "languages";
 
 export type Template = {
   id: string;
@@ -37,4 +37,5 @@ export const HEADINGS: Record<SectionKey, string> = {
   skills: "Skills",
   achievements: "Achievements",
   publications: "Publications",
+  languages: "Languages",
 };

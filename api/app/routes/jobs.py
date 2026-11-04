@@ -51,19 +51,25 @@ def paste_job(body: PasteIn, ctx: WriteCtxDep):
         raise ApiError(422, "PASTE_TOO_SHORT", "That looks too short to be a full job description. Paste the whole "
                        "posting, including the requirements. This didn't use any of your monthly checks.",
                        {"min_chars": MIN_PASTE_CHARS})
-    uid = ctx.user.id
-    job = Job(owner_user_id=uid, apply_url=body.apply_url)
-    ctx.db.add(job)
-    ctx.db.flush()
+    job = Job(owner_user_id=ctx.user.id, apply_url=body.apply_url)
+    return ctx.respond(202, start_match(ctx.db, job, text))
+
+
+def start_match(db: Session, job: Job, text: str) -> dict:
+    """Store the job and its text, reserve one deep_match (402 PLAN_LIMIT_REACHED) and queue the match task.
+    Also used for a feed job the user opens (routes/feed.py)."""
+    uid = job.owner_user_id
+    db.add(job)
+    db.flush()
     jv = JobVersion(job_id=job.id, owner_user_id=uid, version=1, raw_text=text, description_hash=description_hash(text))
-    ctx.db.add(jv)
-    ctx.db.flush()
-    reservation_id = usage.reserve(ctx.db, uid, "deep_match", subject=str(jv.id))
+    db.add(jv)
+    db.flush()
+    reservation_id = usage.reserve(db, uid, "deep_match", subject=str(jv.id))
     task = enqueue(
-        ctx.db, user_id=uid, type="match", key=f"match:{jv.id}",
+        db, user_id=uid, type="match", key=f"match:{jv.id}",
         payload={"job_version_id": str(jv.id), "reservation_id": str(reservation_id) if reservation_id else None},
     )
-    return ctx.respond(202, {"job_id": job.id, "job_version_id": jv.id, "operation": operation(task)})
+    return {"job_id": job.id, "job_version_id": jv.id, "operation": operation(task)}
 
 
 # ---------------------------------------------------------------- reads

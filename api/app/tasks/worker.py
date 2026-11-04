@@ -1,8 +1,10 @@
-"""One worker for every task type: `python -m app.tasks.worker` (connects as hunt_worker).
+"""Task worker: `python -m app.tasks.worker [--types import,match]` (connects as hunt_worker).
 
-Only types in HANDLERS are claimed; other types stay queued until a handler is registered here.
+Only types in HANDLERS are claimed; other types stay queued until a handler is registered here. `--types`
+limits a process to some types so each pool can be scaled on its own (README "Scaling"); default: all.
 """
 
+import argparse
 import logging
 import time
 import uuid
@@ -11,6 +13,8 @@ from collections.abc import Callable
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from app.catalog.alerts import alert_digest
+from app.catalog.ingest import catalog_ingest
 from app.core import usage
 from app.core.config import get_settings
 from app.db.session import engine_for, set_user
@@ -31,15 +35,18 @@ HANDLERS: dict[str, Callable[[Session, queue.Claimed], dict | None]] = {
     "regenerate": regenerate_resume,
     "render": render_export,
     "tailor": tailor_resume,
+    # Job catalog and alerts (app/catalog); queued by `python -m app.catalog.cli tick`.
+    "catalog_ingest": catalog_ingest,
+    "alert_digest": alert_digest,
 }
 
 
-def run_once(engine: Engine) -> bool:
-    """Requeue expired leases, claim one task, run it. Returns False when there was nothing to do."""
+def run_once(engine: Engine, types: list[str] | None = None) -> bool:
+    """Requeue expired leases, claim one task (of `types`, default all), run it. False when nothing to do."""
     with engine.begin() as conn:
         queue.requeue_expired(conn)
     with engine.begin() as conn:
-        task = queue.claim(conn, list(HANDLERS))
+        task = queue.claim(conn, types or list(HANDLERS))
     if task is None:
         return False
     try:
@@ -70,15 +77,25 @@ def _fail(engine: Engine, task: queue.Claimed, code: str, message: str, retry: b
             usage.release(conn, uuid.UUID(reservation_id))
 
 
-def main() -> None:
+def parse_types(value: str | None) -> list[str]:
+    types = sorted({t.strip() for t in value.split(",") if t.strip()}) if value else sorted(HANDLERS)
+    if not types or set(types) - set(HANDLERS):
+        raise SystemExit(f"--types {value!r}: pick from {', '.join(sorted(HANDLERS))}")
+    return types
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Claim and run queued tasks.")
+    parser.add_argument("--types", help="comma-separated task types this process claims (default: all)")
+    types = parse_types(parser.parse_args(argv).types)
     logging.basicConfig(level=logging.INFO)
     settings = get_settings()
     if not settings.worker_database_url:
         raise SystemExit("WORKER_DATABASE_URL is not set (connect as hunt_worker).")
     engine = engine_for(settings.worker_database_url)
-    log.info("worker started; types=%s", sorted(HANDLERS))
+    log.info("worker started; types=%s", types)
     while True:
-        if not run_once(engine):
+        if not run_once(engine, types):
             time.sleep(settings.worker_poll_seconds)
 
 

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { FLOW_COOKIE, appUrl, cookieOptions, discover, oidc, safeNext } from "@/lib/auth";
+import { FLOW_COOKIE, appUrl, cookieOptions, discover, oidc, safeNext, sessionSecret } from "@/lib/auth";
 
 const b64url = (bytes: ArrayBuffer | Uint8Array) => Buffer.from(bytes as ArrayBuffer).toString("base64url");
 const random = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
     response_type: "code",
     client_id: cfg.clientId,
     redirect_uri: `${appUrl(req)}/auth/callback`,
-    scope: "openid email profile",
+    // offline_access = a refresh token, asked for only where the provider lists it and we can store it sealed.
+    scope: `openid email profile${sessionSecret() && d.scopes_supported?.includes("offline_access") ? " offline_access" : ""}`,
     state,
     nonce,
     code_challenge: b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))),

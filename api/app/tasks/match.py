@@ -41,6 +41,7 @@ from app.routes.profile import profile_version
 from app.tasks import llm
 from app.tasks.queue import Claimed, TaskError
 from app.truth import verdict as vr
+from app.truth.aliases import approved_aliases, norm
 from app.truth.redact import PLACEHOLDER_RE, redact, restore
 
 CUE_RULES_VERSION = "label-cues-1"
@@ -391,7 +392,7 @@ def assess(db: Session, job: Job, jv: JobVersion, analysis: MatchAnalysis) -> di
     v = vr.decide(requirements, eligibility, goal["status"], RULES)
     return {
         "id": str(job.id), "title": job.title or "Untitled role", "company": job.company or "",
-        "source": f"Pasted by you · {day(jv.observed_at)}",
+        "source": f"{'From your job feed' if job.catalog_job_id else 'Pasted by you'} · {day(jv.observed_at)}",
         "verdict": v.label, "reasons": reasons(v, requirements, eligibility),
         "eligibility": elig_rows, "requirements": req_rows, "goalFit": goal,
         "questions": [QUESTIONS.get(q, f"Is “{q}” a must-have for this role?") for q in v.open_questions],
@@ -460,6 +461,10 @@ def match_job(db: Session, task: Claimed) -> dict:
     reqs = [JobRequirement(owner_user_id=uid, job_version_id=jv.id, requirement_key=f"R{i}",
                            extraction_version=f"{extracted.prompt_version}+{CUE_RULES_VERSION}", **r)
             for i, r in enumerate(clean_requirements(out.requirements, text), 1)]
+    aliases = approved_aliases(db, [r.value or "" for r in reqs if r.category == "skill"])
+    for r in reqs:  # curator-approved aliases give unmapped skill requirements a skill id (TRD §6)
+        if r.category == "skill" and not r.skill_id:
+            r.skill_id = aliases.get(norm(r.value or ""))
     db.add_all(reqs)
     db.add_all(JobEligibility(owner_user_id=uid, job_version_id=jv.id, **e) for e in clean_eligibility(out.eligibility, text))
     db.flush()

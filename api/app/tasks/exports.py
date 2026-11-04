@@ -17,6 +17,7 @@ from app.db.models import (
     CareerGap,
     Education,
     Experience,
+    Language,
     Profile,
     Project,
     ResumeExport,
@@ -78,6 +79,8 @@ def resume_doc(db: Session, user: User, rv: ResumeVersion) -> dict:
     lines = {"achievement": [], "publication": []}
     for a in db.scalars(select(Achievement).where(Achievement.status == "confirmed").order_by(Achievement.created_at)):
         lines[a.kind].append(a.description)
+    langs = ", ".join(f"{x.name} ({x.proficiency})" if x.proficiency else x.name for x in db.scalars(
+        select(Language).where(Language.status == "confirmed").order_by(Language.created_at)))
     skills = ", ".join(s.raw_label for s in db.scalars(select(UserSkill).order_by(UserSkill.created_at)))
     headline = db.scalar(select(Profile.headline).where(Profile.user_id == user.id))
     return {
@@ -92,6 +95,7 @@ def resume_doc(db: Session, user: User, rv: ResumeVersion) -> dict:
             "skills": {"lines": [skills] if skills else []},
             "achievements": {"lines": lines["achievement"]},
             "publications": {"lines": lines["publication"]},
+            "languages": {"lines": [langs] if langs else []},
         },
     }
 

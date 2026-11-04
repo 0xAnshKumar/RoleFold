@@ -50,6 +50,7 @@ TEMPLATES = load_templates()
 HEADINGS = {
     "summary": "Summary", "skillsSummary": "Skills summary", "experience": "Experience", "projects": "Projects",
     "education": "Education", "skills": "Skills", "achievements": "Achievements", "publications": "Publications",
+    "languages": "Languages",
 }
 # PDF: Tinos/Carlito/Arimo (OFL) are vendored in api/fonts and system fonts are ignored, so every machine
 # renders the same PDF; Libertinus Serif is bundled with Typst.

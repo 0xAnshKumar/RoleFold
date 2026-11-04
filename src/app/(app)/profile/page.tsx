@@ -68,7 +68,7 @@ export default async function ProfilePage() {
               <h2 id="languages" className={a.h2}>
                 Languages
               </h2>
-              <p className={a.note}>Kept on your profile. No resume template has a languages section yet.</p>
+              <p className={a.note}>Confirmed languages go at the end of every resume.</p>
             </div>
             <Languages initial={profile.languages} demo={demo} />
           </section>

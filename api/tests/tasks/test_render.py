@@ -18,6 +18,7 @@ STATEMENTS = {
     "skills": "React, TypeScript, Jest",
     "achievements": "Won the 2019 college hackathon.",
     "publications": "Iyer R. Incremental rendering on low-end devices. 2020.",
+    "languages": "English (Fluent), Hindi (Native)",
     "skillsSummary": "Skills: React, TypeScript. Moved from support into frontend work.",
 }
 DOC = {
@@ -33,6 +34,7 @@ DOC = {
         "skills": {"lines": [STATEMENTS["skills"]]},
         "achievements": {"lines": [STATEMENTS["achievements"]]},
         "publications": {"lines": [STATEMENTS["publications"]]},
+        "languages": {"lines": [STATEMENTS["languages"]]},
     },
 }
 

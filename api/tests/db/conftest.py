@@ -22,6 +22,7 @@ ROLES = """
 CREATE ROLE hunt_owner LOGIN PASSWORD 'pw' NOBYPASSRLS;
 CREATE ROLE hunt_app LOGIN PASSWORD 'pw' NOBYPASSRLS;
 CREATE ROLE hunt_worker LOGIN PASSWORD 'pw' NOBYPASSRLS;
+CREATE ROLE hunt_admin LOGIN PASSWORD 'pw' BYPASSRLS;
 ALTER SCHEMA public OWNER TO hunt_owner;
 GRANT USAGE ON SCHEMA public TO hunt_app, hunt_worker;
 """
@@ -65,7 +66,8 @@ def pg():
         cfg.attributes["url"] = url("hunt_owner")
         command.upgrade(cfg, "head")
 
-        os.environ.update(DATABASE_URL=url("hunt_app"), WORKER_DATABASE_URL=url("hunt_worker"))
+        os.environ.update(DATABASE_URL=url("hunt_app"), WORKER_DATABASE_URL=url("hunt_worker"),
+                          ADMIN_DATABASE_URL=url("hunt_admin"))
         get_settings.cache_clear()
         yield SimpleNamespace(superuser=superuser, app=engine_for(url("hunt_app")), worker=engine_for(url("hunt_worker")))
         get_settings.cache_clear()

@@ -30,6 +30,8 @@ from app.tasks import llm
 from app.tasks.match import user_names
 from app.tasks.queue import Claimed, TaskError
 from app.truth import numbers
+from app.truth.aliases import approved_aliases
+from app.truth.aliases import norm as alias_norm
 from app.truth.checks import _verb_lexicon
 from app.truth.redact import redact, restore
 
@@ -184,10 +186,12 @@ def import_resume(db: Session, task: Claimed) -> dict:
             certs[norm(c.name)] = Certification(user_id=uid, origin="import", name=c.name)
             add("certification", certs[norm(c.name)])
     have = {s.lower() for s in db.scalars(select(UserSkill.raw_label))}
+    aliases = approved_aliases(db, [s.name for s in out.skills])
     for s in out.skills:
         if s.name.lower() not in have:
             have.add(s.name.lower())
-            add("skill", UserSkill(user_id=uid, raw_label=s.name, self_declared=True))
+            add("skill", UserSkill(user_id=uid, raw_label=s.name, self_declared=True,
+                                   skill_id=aliases.get(alias_norm(s.name))))
     langs = existing(Language, lambda r: norm(r.name))
     for lang in out.languages:
         if norm(lang.name) not in langs:

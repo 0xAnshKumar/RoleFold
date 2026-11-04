@@ -3,7 +3,12 @@
 `extract` (API process) runs this file as a separate `python -I` process: bytes in on stdin, JSON out on
 stdout, a wall-clock timeout here, and CPU/memory limits the child sets on itself before reading any input.
 The child runs this file by path without the app package, so module level imports only the stdlib.
-shortcut: no network namespace or seccomp (the child just never opens sockets); use a container/nsjail at deploy.
+
+No network (Linux): before reading input the child installs a seccomp filter that makes socket(), socketpair()
+and io_uring_setup() fail, so a parser exploit can reach neither the network nor local sockets (the DB, the
+Docker socket). It needs no privileges and works under Docker's default seccomp profile, which blocks
+`unshare --net` (checked: "unshare failed: Operation not permitted"). On Linux the child refuses to parse if
+the filter can't be installed. Other OSes (macOS dev) parse without it; never deploy on them.
 """
 
 import io
@@ -90,8 +95,43 @@ def _limit() -> None:
             pass
 
 
+# platform.machine() -> (AUDIT_ARCH_*, syscall numbers of socket, socketpair, io_uring_setup)
+_SECCOMP_ARCH = {"x86_64": (0xC000003E, (41, 53, 425)), "aarch64": (0xC00000B7, (198, 199, 425))}
+
+
+def seccomp_program(arch: int, blocked: tuple[int, ...]) -> list[tuple[int, int, int, int]]:
+    """Classic BPF (code, jt, jf, k): other ABIs are killed, x32 calls and `blocked` get EPERM, the rest run."""
+    ld_arch, ld_nr, jeq, jge, ret = (0x20, 0, 0, 4), (0x20, 0, 0, 0), 0x15, 0x35, 0x06
+    checks = [(jge, 0x40000000), *((jeq, nr) for nr in blocked)]  # nr >= 0x40000000: x86_64 x32 ABI
+    n = len(checks)
+    return [ld_arch, (jeq, 1, 0, arch), (ret, 0, 0, 0x80000000), ld_nr,  # 0x80000000 = SECCOMP_RET_KILL_PROCESS
+            *((code, n - i, 0, k) for i, (code, k) in enumerate(checks)),
+            (ret, 0, 0, 0x7FFF0000), (ret, 0, 0, 0x00050000 | 1)]  # SECCOMP_RET_ALLOW, SECCOMP_RET_ERRNO | EPERM
+
+
+def _no_network() -> None:
+    import ctypes
+    import platform
+
+    class Insn(ctypes.Structure):
+        _fields_ = [("code", ctypes.c_ushort), ("jt", ctypes.c_ubyte), ("jf", ctypes.c_ubyte), ("k", ctypes.c_uint32)]
+
+    class Prog(ctypes.Structure):
+        _fields_ = [("len", ctypes.c_ushort), ("filter", ctypes.POINTER(Insn))]
+
+    insns = [Insn(*i) for i in seccomp_program(*_SECCOMP_ARCH[platform.machine()])]
+    prog = Prog(len(insns), (Insn * len(insns))(*insns))
+    libc = ctypes.CDLL(None, use_errno=True)
+    ul = ctypes.c_ulong
+    # PR_SET_NO_NEW_PRIVS (38) lets an unprivileged process install a filter; PR_SET_SECCOMP (22), mode FILTER (2).
+    if libc.prctl(38, ul(1), ul(0), ul(0), ul(0)) or libc.prctl(22, ul(2), ctypes.byref(prog), ul(0), ul(0)):
+        raise OSError(ctypes.get_errno(), "seccomp filter not installed")
+
+
 if __name__ == "__main__":
     _limit()
+    if sys.platform == "linux":
+        _no_network()  # an exception here exits non-zero: the parent raises ParseFailed, nothing is parsed
     fmt, max_pages = sys.argv[1], int(sys.argv[2])
     try:
         result = parse(sys.stdin.buffer.read(), fmt, max_pages)

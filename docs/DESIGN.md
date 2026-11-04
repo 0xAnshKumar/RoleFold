@@ -198,12 +198,14 @@ Six templates, defined once in `shared/resume-templates.json` (typed in `src/lib
 
 | Template | Modelled on | Best for | Order |
 |---|---|---|---|
-| Classic | Harvard-style | Most people, senior (1–2 pages) | Summary, Experience, Education, Skills |
-| Compact Tech | Jake's resume | Software engineers | Experience, Projects, Skills, Education |
-| Modern | Clean sans, one muted accent | Product, business roles | Summary, Experience, Skills, Education |
-| Campus | Indian placement format | Freshers, students | Education, Skills, Projects, Experience, Achievements |
-| Combination | Hybrid format | Career switchers, returners | Skills summary with proof, Experience, Projects, Education |
-| Academic CV | Research CV | Researchers, faculty | Education, Experience, Publications, Skills |
+| Classic | Harvard-style | Most people, senior (1–2 pages) | Summary, Experience, Education, Skills, Languages |
+| Compact Tech | Jake's resume | Software engineers | Experience, Projects, Skills, Education, Languages |
+| Modern | Clean sans, one muted accent | Product, business roles | Summary, Experience, Skills, Education, Languages |
+| Campus | Indian placement format | Freshers, students | Education, Skills, Projects, Experience, Achievements, Languages |
+| Combination | Hybrid format | Career switchers, returners | Skills summary with proof, Experience, Projects, Education, Languages |
+| Academic CV | Research CV | Researchers, faculty | Education, Experience, Publications, Skills, Languages |
+
+Every template ends with Languages (confirmed spoken languages, one line). A section with no content is left out.
 
 Never purely functional (skills-only, no dated history): screening software expects a timeline.
 
@@ -253,6 +255,7 @@ Small radii: 4px (inputs, stamps), 6px (buttons), 10px (panels, sheets). The ver
 ## Decisions Log
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-11-04 | Languages section added at the end of every resume template | Owner approved; languages were stored but only shown on the profile. |
 | 2026-10-08 | Initial design system "Attested Notebook" | Created by /design-consultation from PRD v4/TRD v4 + CEO/eng amendments, saybriefly.com reference, category research (Kickresume, Rezi, Teal, Naukri), and independent voices (Codex: evidence notebook, Archivo; Claude subagent: stamps, verdict seal, counterfoil stub, Atkinson Hyperlegible). Memorable thing: "Every line is true, and I can see why." |
 | 2026-10-08 | Preview skipped | AI mockups unavailable (no OpenAI key); user chose to skip the HTML preview. Tokens are approved Phase 3 values, not measured from a rendered mockup. |
 | 2026-10-08 | Highlighter reserved for proof; CTAs are ink | Keeps the single most memorable device meaningful. |

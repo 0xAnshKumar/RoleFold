@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.db.models import RLS_TABLES, SYSTEM_TABLES, Base, Task
+from app.db.models import CATALOG_TABLES, RLS_TABLES, SYSTEM_TABLES, Base, Task
 from app.routes.jobs import description_hash
 from app.routes.profile import ExperienceIn, content_hash
 from app.tasks.deletion import pseudonym
@@ -24,7 +24,7 @@ def load_migration(name: str = "0001_initial"):
 
 def test_every_user_owned_table_is_under_rls():
     for name, table in Base.metadata.tables.items():
-        if name in SYSTEM_TABLES:
+        if name in SYSTEM_TABLES + CATALOG_TABLES:
             continue
         assert name in RLS_TABLES, name
         assert RLS_TABLES[name] in table.c
@@ -32,8 +32,14 @@ def test_every_user_owned_table_is_under_rls():
 
 def test_migration_rls_list_matches_models():
     later = load_migration("0005_achievements_languages")
-    assert {**load_migration().RLS_TABLES, **later.RLS_TABLES} == RLS_TABLES
+    share = load_migration("0006_share_links")
+    every = {k: v for f in sorted(VERSIONS.glob("0*.py")) for k, v in getattr(load_migration(f.stem), "RLS_TABLES", {}).items()}
+    assert every == RLS_TABLES
     assert later.rls_sql("languages", "user_id").count("app_current_user_id()") == 5
+    # The public read is SELECT-only and never sees a revoked link.
+    sql = share.rls_sql("share_links", "user_id")
+    assert sql.count("app_current_user_id()") == 5 and sql.count("app_current_share_token()") == 1
+    assert "FOR SELECT USING ((user_id = app_current_user_id() OR (revoked_at IS NULL AND token_hash" in sql
 
 
 def test_policies_fail_closed_and_split():

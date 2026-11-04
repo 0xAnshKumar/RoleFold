@@ -6,6 +6,9 @@ is the one with auth_subject '{iss}|{sub}'.
 
 DEV-ONLY: header `X-Dev-User: <name>` maps to the users row with auth_subject 'dev|<name>'.
 It is refused when ENV=production.
+
+Admins (app/routes/admin.py): subjects listed in ADMIN_SUBJECTS, or an ID token whose top-level
+ADMIN_ROLE_CLAIM claim (a string or a list) contains ADMIN_ROLE.
 """
 
 import json
@@ -47,7 +50,7 @@ def _jwks_client(issuer: str, jwks_url: str | None) -> jwt.PyJWKClient:
     return jwt.PyJWKClient(jwks_url, timeout=5)
 
 
-def verify_bearer(token: str) -> str:
+def verify_claims(token: str) -> dict:
     s = get_settings()
     if not (s.oidc_issuer and s.oidc_audience):
         raise ApiError(401, "UNAUTHORIZED", "Sign-in is not configured on this server (OIDC_ISSUER/OIDC_AUDIENCE).")
@@ -66,20 +69,34 @@ def verify_bearer(token: str) -> str:
         raise ApiError(401, "UNAUTHORIZED", "Your session has expired. Sign in again.") from None
     except jwt.PyJWTError:
         raise ApiError(401, "UNAUTHORIZED", "Your session isn't valid. Sign in again.") from None
-    return f"{s.oidc_issuer}|{claims['sub']}"
+    return claims
 
 
-def resolve_subject(authorization: str | None, x_dev_user: str | None) -> str:
+def resolve_identity(authorization: str | None, x_dev_user: str | None) -> tuple[str, dict]:
+    """(auth subject, verified ID token claims); dev users have no claims."""
     if x_dev_user is not None and get_settings().env != "production":
         if not _DEV_USER_RE.fullmatch(x_dev_user):
             raise ApiError(401, "UNAUTHORIZED", "Invalid X-Dev-User.")
-        return f"dev|{x_dev_user}"
+        return f"dev|{x_dev_user}", {}
     if authorization:
         scheme, _, token = authorization.partition(" ")
         if scheme.lower() != "bearer" or not token.strip():
             raise ApiError(401, "UNAUTHORIZED", "Expected 'Authorization: Bearer <token>'.")
-        return verify_bearer(token.strip())
+        claims = verify_claims(token.strip())
+        return f"{get_settings().oidc_issuer}|{claims['sub']}", claims
     raise ApiError(401, "UNAUTHORIZED", "Missing credentials.")
+
+
+def resolve_subject(authorization: str | None, x_dev_user: str | None) -> str:
+    return resolve_identity(authorization, x_dev_user)[0]
+
+
+def is_admin(subject: str, claims: dict) -> bool:
+    s = get_settings()
+    if subject in {x.strip() for x in s.admin_subjects.split(",") if x.strip()}:
+        return True
+    roles = claims.get(s.admin_role_claim) if s.admin_role_claim else None
+    return s.admin_role in ([roles] if isinstance(roles, str) else roles if isinstance(roles, list) else [])
 
 
 def current_ctx(

@@ -8,7 +8,8 @@
       "summary",
       "experience",
       "education",
-      "skills"
+      "skills",
+      "languages"
     ],
     "pdfFont": "Tinos",
     "previewFont": "Georgia, 'Times New Roman', serif",
@@ -26,7 +27,8 @@
       "experience",
       "projects",
       "skills",
-      "education"
+      "education",
+      "languages"
     ],
     "pdfFont": "Libertinus Serif",
     "previewFont": "'Palatino Linotype', Palatino, Georgia, serif",
@@ -44,7 +46,8 @@
       "summary",
       "experience",
       "skills",
-      "education"
+      "education",
+      "languages"
     ],
     "pdfFont": "Carlito",
     "previewFont": "Calibri, Carlito, 'Segoe UI', Arial, sans-serif",
@@ -64,7 +67,8 @@
       "skills",
       "projects",
       "experience",
-      "achievements"
+      "achievements",
+      "languages"
     ],
     "pdfFont": "Arimo",
     "previewFont": "Arial, Arimo, Helvetica, sans-serif",
@@ -82,7 +86,8 @@
       "skillsSummary",
       "experience",
       "projects",
-      "education"
+      "education",
+      "languages"
     ],
     "pdfFont": "Arimo",
     "previewFont": "Arial, Arimo, Helvetica, sans-serif",
@@ -100,7 +105,8 @@
       "education",
       "experience",
       "publications",
-      "skills"
+      "skills",
+      "languages"
     ],
     "pdfFont": "Tinos",
     "previewFont": "Georgia, 'Times New Roman', serif",

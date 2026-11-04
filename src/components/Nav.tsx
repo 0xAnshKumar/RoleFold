@@ -7,6 +7,8 @@ import s from "./Nav.module.css";
 
 const ITEMS = [
   { href: "/jobs", label: "Jobs", match: "/jobs", icon: "M3 7h14v9H3zM7 7V4h6v3" },
+  { href: "/feed", label: "Feed", match: "/feed", icon: "M3 4.5h14M3 10h14M3 15.5h8M15 13.5l2 2-2 2" },
+  { href: "/skills", label: "Skills", match: "/skills", icon: "M10 5c-2-1.3-4.5-1.5-7-.8v11c2.5-.7 5-.5 7 .8 2-1.3 4.5-1.5 7-.8v-11c-2.5-.7-5-.5-7 .8zM10 5v11" },
   { href: "/resumes", label: "Resumes", match: "/resumes", icon: "M5 2h7l3 3v13H5zM8 9h5M8 12h5M8 15h3" },
   { href: "/profile", label: "Profile", match: "/profile", icon: "M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 18c1-3.5 4-5 7-5s6 1.5 7 5" },
   { href: "/settings", label: "Settings", match: "/settings", icon: "M10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM10 1.5v2.5M10 16v2.5M1.5 10H4M16 10h2.5M4 4l1.8 1.8M14.2 14.2 16 16M4 16l1.8-1.8M14.2 5.8 16 4" },

@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     oidc_issuer: str | None = None
     oidc_audience: str | None = None
     oidc_jwks_url: str | None = None  # default: jwks_uri from {issuer}/.well-known/openid-configuration
+    # Admin console (app/routes/admin.py). Admin = a listed auth subject ("{iss}|{sub}"; "dev|<name>" in dev),
+    # or an ID token whose top-level ADMIN_ROLE_CLAIM (e.g. "groups") contains ADMIN_ROLE.
+    admin_subjects: str = ""  # comma-separated
+    admin_role_claim: str | None = None
+    admin_role: str = "hunt-admin"
+    # hunt_admin role (BYPASSRLS, alembic/bootstrap.sql) for the console's cross-user reads. Unset = console off.
+    admin_database_url: str | None = None
+    admin_support_minutes: int = 30  # how long an audited support session can read a user's data
 
     # Proposed values (TRD §15.1, PRD §7 free plan).
     free_tailored_per_month: int = 10
@@ -53,6 +61,22 @@ class Settings(BaseSettings):
     llm_price_writer_out: float = 3.75
     llm_price_verifier_in: float = 0.75
     llm_price_verifier_out: float = 3.75
+
+    # Job catalog, feed and alerts (app/catalog). Empty = no source runs (PRD OQ-3 / TRD T-OQ-2 legal gate).
+    catalog_sources: str = ""  # greenhouse:<board>[=Name], lever:<site>[=Name], manual:<file.json|csv>
+    catalog_ingest_hours: int = 12
+    job_expire_grace_days: int = 3  # TRD §8.3
+    job_max_age_days: int = 60
+    feed_max_age_days: int = 30  # TRD §9.1
+    feed_size: int = 50
+    retrieve_k: int = 300
+    # Email alerts: log-only until SMTP_HOST is set. APP_URL builds the links inside emails.
+    app_url: str = "http://localhost:3100"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str = "Hunt <alerts@localhost>"
 
 
 @lru_cache

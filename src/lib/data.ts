@@ -7,6 +7,7 @@ import { API_URL, ApiError, DEV_USER, api as send } from "./api";
 import { SESSION_COOKIE } from "./auth";
 import * as mock from "./mock";
 import type { DraftGroup, Fact, Match, Profile, Resume, ResumeListItem, SavedJob, Usage } from "./mock";
+import type { Feed, ShareState, SharedResume, SkillsInsight } from "./mock";
 
 /** Per request. /readyz checks the database too, so "API up, Postgres not set up" is also demo. */
 export const isDemo = cache(async () => {
@@ -63,3 +64,37 @@ export const getProfile = cache(() =>
     return { profile, facts, drafts: draftGroups };
   }),
 );
+
+// ---- share links and skills insight (api/app/routes/share.py, insights.py)
+
+export const getShare = (resumeId: string) => load(mock.share, () => api<ShareState>(`/resumes/${resumeId}/share`));
+export const getSkillsInsight = () => load(mock.skillsInsight, () => api<SkillsInsight>("/insights/skills"));
+
+const sampleShared: SharedResume = { name: mock.profile.name, templateId: "tech", sections: mock.resumes[0].sections, extras: { ...mock.resumeExtras, contact: "" } };
+
+/** Public, no session. The viewer's address goes along for the API's per-client rate limit. Demo: only "sample" opens. */
+export const getShared = (token: string, forwardedFor: string) =>
+  load(token === "sample" ? sampleShared : null, () =>
+    orNull(send<SharedResume>(`/shared/${encodeURIComponent(token)}`, { headers: forwardedFor ? { "X-Forwarded-For": forwardedFor } : {} })),
+  );
+
+// ---- job feed (api/app/routes/feed.py)
+
+export type FeedQuery = { q?: string; remote?: boolean; days?: number; saved?: boolean };
+
+const sampleFeed = (q: FeedQuery) => ({
+  ...mock.feed,
+  items: mock.feed.items.filter(
+    (i) => (!q.remote || i.remote) && (!q.saved || i.saved) && (!q.q || `${i.title} ${i.company} ${i.location}`.toLowerCase().includes(q.q.toLowerCase())),
+  ),
+});
+
+export const getFeed = (q: FeedQuery = {}) =>
+  load(sampleFeed(q), () => {
+    const params = new URLSearchParams();
+    if (q.q) params.set("q", q.q);
+    if (q.remote) params.set("remote", "true");
+    if (q.days) params.set("days", String(q.days));
+    if (q.saved) params.set("saved", "true");
+    return api<Feed>(`/feed${params.size ? `?${params}` : ""}`);
+  });

@@ -151,6 +151,7 @@ def preview_extras(db: Session, r: Resume, draft: ResumeDraft) -> dict:
                       for e in secs["education"]["entries"]],
         "skills": [{"group": "", "items": x} for x in skills],  # one plain line, as exported
         "achievements": secs["achievements"]["lines"], "publications": secs["publications"]["lines"],
+        "languages": secs["languages"]["lines"],
     }
 
 

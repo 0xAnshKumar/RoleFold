@@ -116,3 +116,19 @@ def test_account_deletion_removes_rows_and_pseudonymizes_logs(pg, alice, bob):
         assert tombstone[:2] == (None, pseudonym(alice.id)) and tombstone[1] != str(alice.id)
         assert str(alice.id) not in tombstone[2]
     assert not (get_settings().storage_dir / str(alice.id)).exists()  # files under the user's prefix are gone
+
+
+def test_worker_pool_claims_only_its_types(pg, monkeypatch):
+    from app.tasks import worker
+
+    add_tasks(pg, 1)  # type 'race'
+    monkeypatch.setitem(worker.HANDLERS, "race", lambda db, task: {"ok": True})
+    assert worker.parse_types(" race, render ,race") == ["race", "render"]
+    assert worker.parse_types(None) == sorted(worker.HANDLERS)
+    for bad in ("nope", ","):
+        with pytest.raises(SystemExit):
+            worker.parse_types(bad)
+    assert not run_once(pg.worker, ["render"])
+    assert status(pg) == ("queued", 0)
+    assert run_once(pg.worker, ["race"])
+    assert status(pg)[0] == "succeeded"

@@ -22,6 +22,8 @@ def delete_user(db: Session, task: Claimed) -> dict:
     # First, outside the DB: if a backup from before this deletion is restored, reapply_tombstones finds it.
     storage.write_tombstone(alias)
     db.execute(update(AuditLog).where(AuditLog.actor_id == uid).values(actor_id=None, actor_hash=alias))
+    # Admin support sessions name the user they read (app/routes/admin.py).
+    db.execute(update(AuditLog).where(AuditLog.target == f"user:{uid}").values(target=f"user:{alias}"))
     db.execute(update(LlmCall).where(LlmCall.user_id == uid).values(user_id=None, user_hash=alias))
     db.execute(delete(Task).where(Task.user_id == uid, Task.id != task.id))
     db.execute(update(Task).where(Task.id == task.id).values(user_id=None))

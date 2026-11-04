@@ -158,6 +158,7 @@ export const matches: Match[] = [
       { text: "Micro-frontend architecture", importance: "required", status: "no_evidence", quote: "Experience designing a micro-frontend architecture" },
       { text: "Leading a frontend team", importance: "required", status: "no_evidence", quote: "Must have led a team of 5+ frontend engineers" },
       { text: "Node.js backend-for-frontend", importance: "required", status: "no_evidence", quote: "Comfortable building Node.js backend-for-frontend services" },
+      { text: "GraphQL", importance: "preferred", status: "no_evidence", quote: "GraphQL experience is a plus" },
       { text: "Web performance", importance: "preferred", status: "partial", quote: "Web performance budgets are a plus", factId: "F-15", note: "You contributed to LCP work; ownership of performance isn't recorded." },
     ],
     goalFit: { status: "partly", text: "Partly matches your goal: Senior Frontend Engineer." },
@@ -339,4 +340,92 @@ export const resumeExtras = {
   ],
   achievements: ["Speaker, React Bangalore meetup, 2024"],
   publications: ["Iyer R. “Shipping smaller bundles.” Northwind engineering blog, 2025."],
+  /** Confirmed languages, one line as exported. */
+  languages: ["English (Fluent), Hindi (Native)"],
+};
+
+// ---- share links and skills insight (api/app/routes/share.py, api/app/routes/insights.py) ----
+
+/** GET /v1/resumes/{id}/share. `link` is the active one (at most one per resume); POST also returns `token`, once. */
+export type ShareState = {
+  link: { id: string; created: string; contact: ("location" | "email" | "phone")[] } | null;
+  /** The sentence the user agrees to; stored with the link as the consent record. */
+  consentText: string;
+  token?: string;
+};
+
+export const share: ShareState = {
+  link: null,
+  consentText:
+    "Anyone with this link can read this resume, including edits you make later, until you turn the link off. It shows your name and only the contact details you tick.",
+};
+
+/** GET /v1/shared/{token}: the read-only resume, with only the contact details the owner chose. */
+export type SharedResume = {
+  name: string;
+  templateId: string;
+  sections: (Omit<Resume["sections"][number], "lines"> & { lines: Pick<Statement, "id" | "text">[] })[];
+  extras: typeof resumeExtras;
+};
+
+/** GET /v1/insights/skills: gaps that recur across analysed jobs, as counts. `learn`: you said you don't have it. `record`: nothing recorded yet. */
+export type InsightGap = { label: string; jobs: number; required: number };
+export type SkillsInsight = { jobs: number; minJobs: number; learn: InsightGap[]; record: InsightGap[] };
+
+export const skillsInsight: SkillsInsight = {
+  jobs: 3,
+  minJobs: 3,
+  learn: [],
+  record: [{ label: "GraphQL", jobs: 2, required: 1 }],
+};
+
+// ---- job feed and alerts (api/app/routes/feed.py, api/app/catalog/) ----
+
+/** Early read from the posting text against your confirmed skills. Never a verdict: that needs the full check. */
+export type PreliminaryFit = "strong" | "some" | "little";
+
+/** GET /v1/feed items. `check` is set once you've opened the full check (it then has a real verdict). */
+export type FeedItem = {
+  id: string;
+  title: string;
+  company: string;
+  location: string | null;
+  remote: boolean | null;
+  employmentType: string | null;
+  applyUrl: string | null;
+  source: string;
+  posted: string;
+  lastSeen: string;
+  saved: boolean;
+  fit: PreliminaryFit;
+  skills: string[];
+  goal: string | null;
+  check: { jobId: string; verdict: Verdict | null; gaps: number; state: string } | null;
+};
+
+export type AlertFrequency = "off" | "weekly" | "daily";
+export type Feed = {
+  items: FeedItem[];
+  /** What feedback taught the ranking; the user can reset it. */
+  learned: { kind: "company" | "title" | "location"; label: string; direction: "more" | "fewer" }[];
+  alerts: { frequency: AlertFrequency; hasEmail: boolean; dailyAllowed: boolean };
+  /** Active jobs in the catalog (0 = no source enabled yet). */
+  catalogSize: number;
+};
+
+const feedJob = (o: Partial<FeedItem> & Pick<FeedItem, "id" | "title" | "company" | "fit" | "skills">): FeedItem => ({
+  location: null, remote: null, employmentType: "Full-time", applyUrl: null, source: "Greenhouse job board",
+  posted: "2026-11-02", lastSeen: "2026-11-04", saved: false, goal: null, check: null, ...o,
+});
+
+export const feed: Feed = {
+  items: [
+    feedJob({ id: "f-tidepool", title: "Senior Frontend Engineer", company: "Tidepool Finance", location: "Bengaluru", fit: "strong", skills: ["React", "TypeScript", "Jest", "Next.js"], goal: "Matches your goal: Senior Frontend Engineer.", applyUrl: "https://example.com/jobs/tidepool" }),
+    feedJob({ id: "f-lumen", title: "Frontend Engineer II", company: "Lumen Health", location: "Remote, India", remote: true, fit: "strong", skills: ["React", "TypeScript", "Jest"], goal: "Partly matches your goal: Senior Frontend Engineer.", source: "Lever job board", check: { jobId: "lumen-frontend", verdict: "Strong fit", gaps: 0, state: "ready" } }),
+    feedJob({ id: "f-saffron", title: "UI Engineer, Design Systems", company: "Saffron Retail", location: "Bengaluru", fit: "some", skills: ["React", "Storybook"], saved: true }),
+    feedJob({ id: "f-quill", title: "Full-stack Developer", company: "Quill Labs", location: "Pune", fit: "little", skills: ["TypeScript"], employmentType: "Contract" }),
+  ],
+  learned: [{ kind: "company", label: "Orbit Logistics", direction: "fewer" }],
+  alerts: { frequency: "off", hasEmail: true, dailyAllowed: false },
+  catalogSize: 4,
 };

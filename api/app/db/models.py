@@ -344,6 +344,8 @@ def job_version_fk() -> Mapped[uuid.UUID]:
 
 class Job(JobOwned, Base):
     __tablename__ = "jobs"
+    __table_args__ = (Index("uq_jobs_catalog_job", "owner_user_id", "catalog_job_id", unique=True,
+                            postgresql_where=text("catalog_job_id IS NOT NULL")),)
     id: Mapped[uuid.UUID] = uuid_pk()
     company: Mapped[str | None] = mapped_column(Text)
     title: Mapped[str | None] = mapped_column(Text)
@@ -355,6 +357,10 @@ class Job(JobOwned, Base):
         enum("job_scam_state", "none", "suspected", "confirmed", "cleared"), server_default="none"
     )
     report_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    # This user's copy of a catalog job, made when they open its full check (0007, app/routes/feed.py).
+    catalog_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("catalog_jobs.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = created()
 
 
@@ -505,6 +511,129 @@ class ResumeExport(Owned, Base):
     created_at: Mapped[datetime] = created()
 
 
+# ---------------------------------------------------------------- share links (0006)
+
+
+class ShareLink(Owned, Base):
+    """Read-only web resume behind an unguessable link (PRD §7). Only the token's SHA-256 is stored. The row is
+    the consent record (what the user agreed to, and when) and stays after revocation. Public lookup: migration 0006."""
+
+    __tablename__ = "share_links"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    resume_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("resumes.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    show_contact: Mapped[list] = mapped_column(JSONB, server_default="[]")  # subset of email, phone, location
+    consent_text: Mapped[str] = mapped_column(Text)
+    consented_at: Mapped[datetime] = created()
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ---------------------------------------------------------------- catalog, feed and alerts (0007)
+
+
+class CatalogJob(Base):
+    """Global (not user-owned): jobs ingested from enabled sources, shared by every user (TRD §8).
+    hunt_app may only read; the worker writes. A duplicate points at its canonical job and leaves the feed."""
+
+    __tablename__ = "catalog_jobs"
+    __table_args__ = (
+        UniqueConstraint("source", "external_id"),
+        Index("ix_catalog_jobs_feed", "first_seen_at", postgresql_where=text(
+            "lifecycle = 'active' AND duplicate_of IS NULL AND scam_state IN ('none', 'cleared')")),
+        Index("ix_catalog_jobs_identity", "company_key", "title_key"),
+        Index("ix_catalog_jobs_apply_url_key", "apply_url_key"),
+    )
+    id: Mapped[uuid.UUID] = uuid_pk()
+    source: Mapped[str] = mapped_column(Text)
+    external_id: Mapped[str] = mapped_column(Text)
+    company: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str | None] = mapped_column(Text)
+    company_key: Mapped[str] = mapped_column(Text, server_default="")
+    title_key: Mapped[str] = mapped_column(Text, server_default="")
+    location: Mapped[str | None] = mapped_column(Text)
+    remote: Mapped[bool | None] = mapped_column(Boolean)
+    employment_type: Mapped[str | None] = mapped_column(Text)
+    apply_url: Mapped[str | None] = mapped_column(Text)
+    apply_url_key: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text)  # cleaned plain text
+    description_hash: Mapped[str] = mapped_column(Text)
+    cleaning_notes: Mapped[list] = mapped_column(JSONB, server_default="[]")  # what clean() stripped
+    version: Mapped[int] = mapped_column(Integer, server_default="1")  # +1 when description_hash changes
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_seen_at: Mapped[datetime] = created()
+    last_seen_at: Mapped[datetime] = created()
+    # First complete run that didn't list it; reset when seen again. Expires after JOB_EXPIRE_GRACE_DAYS.
+    absent_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lifecycle: Mapped[str] = mapped_column(enum("catalog_job_lifecycle", "active", "expired"), server_default="active")
+    duplicate_of: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("catalog_jobs.id", ondelete="SET NULL")
+    )
+    scam_state: Mapped[str] = mapped_column(
+        enum("catalog_scam_state", "none", "suspected", "confirmed", "cleared"), server_default="none"
+    )
+    scam_reasons: Mapped[list] = mapped_column(JSONB, server_default="[]")
+
+
+class CatalogSourceRun(Base):
+    """Global: one row per fetch (TRD §8.3 source health). Only complete runs count toward expiry."""
+
+    __tablename__ = "catalog_source_runs"
+    __table_args__ = (Index("ix_catalog_source_runs_source", "source", "started_at"),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    source: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(enum("catalog_run_status", "complete", "partial", "failed"))
+    job_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    error: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = created()
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CatalogFeedback(Owned, Base):
+    """Feed card feedback (PRD §6.2, TRD §9.6). The latest row per job is its state; `clear` undoes."""
+
+    __tablename__ = "catalog_feedback"
+    __table_args__ = (Index("ix_catalog_feedback_user_job", "user_id", "catalog_job_id", "created_at"),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    catalog_job_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("catalog_jobs.id", ondelete="CASCADE")
+    )
+    action: Mapped[str] = mapped_column(enum("catalog_feedback_action", "save", "dismiss", "clear"))
+    reason_code: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = created()
+
+
+class FeedSettings(Owned, Base):
+    """Alert frequency and the learned-signal reset point. The worker may read every row (to find who is due)."""
+
+    __tablename__ = "feed_settings"
+    __table_args__ = (UniqueConstraint("user_id"),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    alert_frequency: Mapped[str] = mapped_column(enum("alert_frequency", "off", "weekly", "daily"), server_default="off")
+    last_alert_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    signals_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = created()
+
+
+# ---------------------------------------------------------------- taxonomy curation (0008)
+
+
+class SkillAlias(Base):
+    """Global curator decisions for unmapped skill terms (TRD §6): approved = alias of skill_id, rejected = not a
+    skill. Keyed by the normalized term (app/routes/admin.py `norm`). hunt_app/hunt_worker read, hunt_admin writes."""
+
+    __tablename__ = "skill_aliases"
+    __table_args__ = (CheckConstraint("(status = 'approved') = (skill_id IS NOT NULL)", name="approved_has_skill"),)
+    alias_norm: Mapped[str] = mapped_column(Text, primary_key=True)
+    alias: Mapped[str] = mapped_column(Text)
+    skill_id: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(enum("skill_alias_status", "approved", "rejected"))
+    source: Mapped[str] = mapped_column(Text, server_default="curator")
+    created_at: Mapped[datetime] = created()
+    updated_at: Mapped[datetime] = created()
+
+
 # ---------------------------------------------------------------- system
 
 
@@ -635,4 +764,6 @@ RLS_TABLES = {
     mp.class_.__tablename__: mp.class_.rls_column for mp in Base.registry.mappers if hasattr(mp.class_, "rls_column")
 }
 WORKER_TABLES = ("tasks", "deletion_requests")
-SYSTEM_TABLES = ("audit_log", "llm_calls")
+SYSTEM_TABLES = ("audit_log", "llm_calls", "skill_aliases")  # no RLS: not user-owned
+# Global job catalog (0007): no owner, so no RLS; hunt_app reads, hunt_worker writes.
+CATALOG_TABLES = ("catalog_jobs", "catalog_source_runs")
