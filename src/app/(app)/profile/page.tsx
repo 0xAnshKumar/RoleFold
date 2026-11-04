@@ -12,7 +12,7 @@ export default async function ProfilePage() {
       <ProfileHeader initial={{ name: profile.name, headline: profile.headline, location: profile.location, email: profile.email, phone: profile.phone }} demo={demo} />
 
       {profile.drafts > 0 && (
-        <Link href="/onboarding" className={s.queue}>
+        <Link href="/onboarding?step=confirm" className={s.queue}>
           <span className={s.queueCount}>{profile.drafts}</span>
           <span>
             <b>{profile.drafts === 1 ? "entry" : "entries"} waiting for you to confirm.</b> They came from your last import. Nothing is used until you confirm it.
@@ -23,7 +23,7 @@ export default async function ProfilePage() {
 
       <div className={s.layout}>
         <div className={s.main}>
-          <Experience roles={profile.roles} facts={facts} confirmed={profile.confirmed} demo={demo} />
+          <Experience roles={profile.roles} projects={profile.projects} facts={facts} confirmed={profile.confirmed} demo={demo} />
 
           <section className={a.section} aria-labelledby="skills">
             <div className={a.sectionHead}>

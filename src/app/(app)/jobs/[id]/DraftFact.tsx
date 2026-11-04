@@ -95,7 +95,7 @@ export default function DraftFact({ question, roles, projects, demo }: { questio
             "Sample data: nothing was sent. In your account this is saved as a draft for you to confirm."
           ) : (
             <>
-              Saved as a draft — <Link href="/onboarding">confirm it in your profile</Link>. Nothing counts until you do.
+              Saved as a draft — <Link href="/onboarding?step=confirm">confirm it in your profile</Link>. Nothing counts until you do.
             </>
           )}
         </p>

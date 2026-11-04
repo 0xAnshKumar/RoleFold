@@ -61,15 +61,20 @@ def enqueue(db: Session, *, user_id: uuid.UUID | None, type: str, payload: dict,
     return task or db.scalars(select(Task).where(Task.idempotency_key == key)).one()
 
 
+# A dead task never runs again, so its last error ("We'll retry automatically") would mislead.
+DEAD_MESSAGE = "This didn't finish after several tries and won't retry on its own. Nothing was counted against your limit; try again in a few minutes."
+
+
 def operation(task: Task) -> dict:
     """Operation object for 202 responses and GET /v1/tasks/{id} (TRD §11.2)."""
+    message = DEAD_MESSAGE if task.status == "dead" else task.error_message
     return {
         "id": task.id,
         "type": task.type,
         "state": "failed" if task.status == "dead" else task.status,
         "basis": task.payload.get("basis"),
         "result": task.result,
-        "error": {"code": task.error_code, "message": task.error_message} if task.error_code else None,
+        "error": {"code": task.error_code, "message": message} if task.error_code else None,
         "created_at": task.created_at,
         "updated_at": task.updated_at,
     }

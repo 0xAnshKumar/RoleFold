@@ -45,7 +45,7 @@ export default function Nav({ demo = false, queue = 0, signOut = false }: { demo
           </span>
         )}
         {queue > 0 && (
-          <Link href="/onboarding" className={s.queue}>
+          <Link href="/onboarding?step=confirm" className={s.queue}>
             <span className={s.dot} aria-hidden />
             {queue} {queue === 1 ? "entry" : "entries"} to confirm
           </Link>

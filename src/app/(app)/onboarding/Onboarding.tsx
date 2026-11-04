@@ -67,6 +67,7 @@ export default function Onboarding({
   goals,
   prefs,
   questions,
+  initialStep = 0,
 }: {
   groups: DraftGroup[];
   education: Education[];
@@ -76,10 +77,12 @@ export default function Onboarding({
   prefs: Prefs;
   /** Guided enrichment (GET /v1/enrichment-questions): each answer becomes a draft fact. */
   questions: Question[];
+  /** 1 opens the confirm queue (links that say "to confirm" use ?step=confirm). */
+  initialStep?: number;
 }) {
   const reduce = useReducedMotion();
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep);
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
@@ -220,6 +223,11 @@ export default function Onboarding({
     setError(null);
     for (const d of ds) {
       if (confirmed[d.id]) continue;
+      // The reader doesn't always suggest a level; the API requires one (RESPONSIBILITY_LEVEL_REQUIRED).
+      if (!level(d)) {
+        setError(`Choose how much of “${d.text.length > 60 ? `${d.text.slice(0, 60)}…` : d.text}” was yours (Contributed, Owned, Led or Managed), then confirm it.`);
+        break;
+      }
       if (!demo) {
         setBusy(d.id);
         try {

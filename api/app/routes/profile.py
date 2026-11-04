@@ -149,8 +149,8 @@ def get_profile(ctx: CtxDep):
         "education": [{"id": str(e.id), "degree": ", ".join(x for x in (e.degree, e.field_of_study) if x),
                        "org": e.institution or "", "dates": display.years(e.start_month, e.end_month),
                        "status": e.status, "version": e.version} for e in edus],
-        "projects": [{"id": str(p.id), "name": p.name or "Project", "dates": display.span(p.start_month, p.end_month)}
-                     for p in projs],
+        "projects": [{"id": str(p.id), "name": p.name or "Project", "dates": display.span(p.start_month, p.end_month),
+                      "factIds": [str(f.id) for f, _ in confirmed if f.project_id == p.id]} for p in projs],
         # Every break the user recorded; only showOnResume ones go on resumes. The reason never feeds matching (D25).
         "gaps": [{"id": str(g.id), "dates": display.span(g.start_month, g.end_month),
                   "reason": g.reason_text or g.reason or "", "showOnResume": g.show_on_resume, "version": g.version}

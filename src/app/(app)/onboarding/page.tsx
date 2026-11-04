@@ -7,7 +7,8 @@ import Onboarding from "./Onboarding";
 const getQuestions = async (demo: boolean) =>
   demo ? sampleQuestions : (await api<{ items: Question[] }>("/enrichment-questions").catch(() => ({ items: [] }))).items;
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({ searchParams }: PageProps<"/onboarding">) {
+  const { step } = await searchParams;
   const demo = await isDemo();
   const [{ drafts, profile }, questions] = await Promise.all([getProfile(), getQuestions(demo)]);
   return (
@@ -19,6 +20,7 @@ export default async function OnboardingPage() {
       goals={profile.goals}
       prefs={profile.prefs}
       questions={questions}
+      initialStep={step === "confirm" ? 1 : 0}
     />
   );
 }

@@ -364,7 +364,7 @@ function FactForm({
     >
       {roles && (
         <label className={a.field}>
-          <span>Which role was this?</span>
+          <span>Which role or project was this?</span>
           <select value={v.roleId} onChange={(e) => setV({ ...v, roleId: e.target.value })}>
             {roles.map((r) => (
               <option key={r.id} value={r.id}>
@@ -404,11 +404,26 @@ function FactForm({
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export function Experience({ roles: liveRoles, facts: liveFacts, confirmed, demo }: { roles: Role[]; facts: Fact[]; confirmed: number; demo: boolean }) {
+export function Experience({
+  roles: liveRoles,
+  projects = [],
+  facts: liveFacts,
+  confirmed,
+  demo,
+}: {
+  roles: Role[];
+  projects?: Profile["projects"];
+  facts: Fact[];
+  confirmed: number;
+  demo: boolean;
+}) {
   const router = useRouter();
   // Live renders from the server's data (refreshed after each save); demo keeps its edits locally.
   const [local, setLocal] = useState({ roles: liveRoles, facts: liveFacts });
-  const { roles, facts } = demo ? local : { roles: liveRoles, facts: liveFacts };
+  // Projects are listed (and can take new facts) like roles, live only: sample projects have no facts.
+  const projectRows: Role[] = demo ? [] : projects.map((p) => ({ id: p.id, title: p.name, org: "Project", dates: p.dates, factIds: p.factIds ?? [] }));
+  const isProject = (id: string) => projectRows.some((p) => p.id === id);
+  const { roles, facts } = demo ? local : { roles: [...liveRoles, ...projectRows], facts: liveFacts };
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const { busy, error, setError, run } = useAction();
@@ -435,7 +450,7 @@ export function Experience({ roles: liveRoles, facts: liveFacts, confirmed, demo
       } else {
         const f = await api<{ id: string; version: number }>("/facts", {
           method: "POST",
-          body: { owner_type: "experience", owner_id: v.roleId, description: v.text, responsibility_level: level(v.level) },
+          body: { owner_type: isProject(v.roleId) ? "project" : "experience", owner_id: v.roleId, description: v.text, responsibility_level: level(v.level) },
         });
         try {
           await api(`/facts/${f.id}/confirm`, { method: "POST", body: { version: f.version, responsibility_level: level(v.level) } });
@@ -519,7 +534,7 @@ export function Experience({ roles: liveRoles, facts: liveFacts, confirmed, demo
             <span className={a.mono}>{r.dates}</span>
           </header>
           <ul className={s.facts}>
-            {r.factIds.length === 0 && <li className={`${s.fact} ${a.note}`}>No confirmed facts for this role yet.</li>}
+            {r.factIds.length === 0 && <li className={`${s.fact} ${a.note}`}>No confirmed facts here yet.</li>}
             {r.factIds.map((id) => {
               const f = findFact(id);
               if (!f) return null;

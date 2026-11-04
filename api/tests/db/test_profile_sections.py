@@ -98,6 +98,9 @@ def test_draft_fact_under_a_new_project(alice):
     prof = alice.get("/v1/profile").json()
     assert [x["name"] for x in prof["projects"]] == ["Ledgerly"]
     assert [(g["kind"], g["role"]) for g in prof["draftGroups"]] == [("project", "Ledgerly")]
+    assert prof["projects"][0]["factIds"] == []  # drafts aren't listed; confirmed ones are (the profile shows them)
+    alice.write("POST", f"/v1/facts/{r.json()['id']}/confirm", {"version": r.json()["version"], "responsibility_level": 2})
+    assert alice.get("/v1/profile").json()["projects"][0]["factIds"] == [r.json()["id"]]
     assert alice.write("POST", "/v1/projects", {"name": ""}).status_code == 422
 
 
@@ -145,6 +148,14 @@ def test_update_with_new_facts_makes_the_next_version(pg, alice, bob, monkeypatc
     assert count(pg, "SELECT count(*) FROM resumes") == 1
     assert count(pg, "SELECT max(version) FROM resume_versions") == 2
     assert count(pg, "SELECT version FROM resume_drafts") == 2
+
+
+def test_a_newly_confirmed_fact_makes_the_master_outdated(pg, alice, monkeypatch):
+    master_resume(pg, alice, monkeypatch)
+    assert alice.get("/v1/resumes").json()["items"][0]["freshness"] == "current"
+    confirmed_fact(alice, "Built a design system used by 4 teams", 2)  # cites nothing on the master yet
+    [item] = alice.get("/v1/resumes").json()["items"]
+    assert item["freshness"] == "outdated" and "changed" in item["outdatedReason"]
 
 
 def test_export_zip_has_data_exported_files_and_current_pdfs(pg, alice, bob, monkeypatch):

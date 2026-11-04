@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import a from "@/components/app/app.module.css";
 import { ApiError, api, exportResume } from "@/lib/api";
@@ -42,6 +43,18 @@ export default function Editor({ resume, facts, demo }: { resume: Resume; facts:
   const [templateId, setTemplateId] = useState(resume.templateId ?? TEMPLATES.find((t) => t.name === resume.template)?.id ?? "classic");
   const exp = useAction();
   const tpl = useAction();
+  // "Save as a new fact": a blocked edit becomes a draft fact (POST /v1/facts) under the line's role or project.
+  const draft = useAction();
+  const [draftLine, setDraftLine] = useState<string | null>(null);
+  const [drafted, setDrafted] = useState<Record<string, string>>({}); // line id -> text saved as a draft
+  const saveAsFact = (id: string, owner: { type: string; id: string }) => {
+    const text = lines[id].trim();
+    setDraftLine(id);
+    draft.run(id, async () => {
+      if (!demo) await api("/facts", { method: "POST", body: { owner_type: owner.type, owner_id: owner.id, description: text } });
+      setDrafted((d) => ({ ...d, [id]: lines[id] }));
+    });
+  };
   const pickTemplate = (id: string) => {
     const before = templateId;
     setTemplateId(id);
@@ -162,7 +175,8 @@ export default function Editor({ resume, facts, demo }: { resume: Resume; facts:
                 )}
               </div>
               {sec.lines.map((l, n) => {
-                const fact = factOf(l.factId);
+                const cited = (l.factIds?.length ? l.factIds : [l.factId]).map(factOf);
+                const fact = cited[0];
                 const err = errors[l.id];
                 const on = active === l.id;
                 return (
@@ -187,11 +201,15 @@ export default function Editor({ resume, facts, demo }: { resume: Resume; facts:
                       aria-describedby={`${l.id}-src`}
                       className={s.input}
                     />
-                    <p id={`${l.id}-src`} className={s.stub}>
-                      <FactId id={fact.id} className={s.factId} />
-                      <span className={s.level}>{fact.responsibility}</span>
-                      <span className={`evidence evidence-swipe ${on ? "on" : ""} ${s.factText}`}>{fact.text}</span>
-                    </p>
+                    <div id={`${l.id}-src`} className={s.stubs}>
+                      {cited.map((f) => (
+                        <p key={f.id} className={s.stub}>
+                          <FactId id={f.id} className={s.factId} />
+                          <span className={s.level}>{f.responsibility}</span>
+                          <span className={`evidence evidence-swipe ${on ? "on" : ""} ${s.factText}`}>{f.text}</span>
+                        </p>
+                      ))}
+                    </div>
                     {!err && statuses[l.id] === "code_checked_only" && <p className={s.checkedNote}>Your edit. It passed the checks against this fact.</p>}
                     {err && (
                       <div role="alert" className={s.blocked}>
@@ -215,10 +233,18 @@ export default function Editor({ resume, facts, demo }: { resume: Resume; facts:
                           >
                             Use the original line
                           </button>
-                          <button type="button" className="btn btn-small btn-secondary">
-                            Save as a new fact to confirm
-                          </button>
+                          {sec.owner && (
+                            <button type="button" className="btn btn-small btn-secondary" disabled={!!draft.busy || drafted[l.id] === lines[l.id]} onClick={() => saveAsFact(l.id, sec.owner!)}>
+                              {draft.busy === l.id ? "Saving…" : "Save as a new fact to confirm"}
+                            </button>
+                          )}
                         </div>
+                        {drafted[l.id] === lines[l.id] && (
+                          <p role="status" className={s.checkedNote}>
+                            {demo ? "Sample data: nothing was sent." : "Saved as a draft fact."} Confirm it from <Link href="/onboarding?step=confirm">your queue</Link>, then use the line.
+                          </p>
+                        )}
+                        {draft.error && draftLine === l.id && <p className={a.problem}>{draft.error}</p>}
                       </div>
                     )}
                   </div>

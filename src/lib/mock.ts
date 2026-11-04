@@ -169,7 +169,8 @@ export const matches: Match[] = [
 ];
 
 /** `status` "code_checked_only": an edit checked in code, not yet re-read by the verifier. */
-export type Statement = { id: string; text: string; factId: string; status?: string };
+/** `factIds`: every fact the line cites (live API); `factId` is the first. */
+export type Statement = { id: string; text: string; factId: string; factIds?: string[]; status?: string };
 export type Resume = {
   id: string;
   /** May be "" until names are stored; the page falls back to the profile name. */
@@ -184,7 +185,8 @@ export type Resume = {
   outdatedReason?: string | null;
   /** Lines that failed their checks and are kept out of the resume. */
   withheld?: { id: string; text: string; reasons: string[] }[];
-  sections: { title: string; org?: string; dates?: string; lines: Statement[] }[];
+  /** `owner`: the role or project the lines belong to (live API; absent for the summary). */
+  sections: { title: string; org?: string; dates?: string; owner?: { type: "experience" | "project"; id: string }; lines: Statement[] }[];
   /** Contact, education, skills… for the preview, from the same data the export renders (live API only). */
   extras?: typeof resumeExtras;
 };
@@ -286,7 +288,7 @@ export const profile = {
   ],
   education: [{ id: "edu-pes", degree: "B.Tech, Computer Science", org: "PES University, Bengaluru", dates: "2015 – 2019", status: "draft" }] as Education[],
   /** Projects to file a fact under (the match page's "Save as draft fact"). */
-  projects: [{ id: "proj-ledgerly", name: "Ledgerly", dates: "Jan 2023 – Present" }] as { id: string; name: string; dates: string }[],
+  projects: [{ id: "proj-ledgerly", name: "Ledgerly", dates: "Jan 2023 – Present" }] as { id: string; name: string; dates: string; factIds?: string[] }[],
   gaps: [] as CareerBreak[],
   achievements: [
     { id: "ach-1", kind: "achievement", text: "Speaker, React Bangalore meetup, 2024" },
