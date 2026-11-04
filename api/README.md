@@ -25,3 +25,21 @@ RUN_LIVE_LLM=1 uv run pytest tests/live -s
 
 It checks each output is schema-valid, `tokens_out > 0`, and that thinking tokens are counted in
 `tokens_out`, then prints the total estimated cost.
+
+## Restore runbook
+
+Deleting an account writes a tombstone file (named by the salted user hash, never the id) to `TOMBSTONE_DIR`
+before the DB rows go. That directory is outside the DB and its backups, so restoring an older backup cannot
+bring a deleted user back for good. In production `TOMBSTONE_DIR` must be an object-locked (WORM) bucket mount,
+separate from `STORAGE_DIR`, and must not be restored or pruned with the DB.
+
+After any DB restore, before the API or worker take traffic:
+
+```bash
+cd api
+export RESTORE_DATABASE_URL=postgresql+psycopg://<superuser>@<host>/hunt   # must see every user (bypasses RLS)
+uv run python -m app.tasks.reapply_tombstones --dry-run   # prints how many restored users match a tombstone
+uv run python -m app.tasks.reapply_tombstones             # deletes them (rows, files); safe to re-run
+```
+
+Use the same `PSEUDONYM_SALT` that wrote the tombstones, or nothing will match.

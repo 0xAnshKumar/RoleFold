@@ -19,7 +19,7 @@ from app.tasks import llm
 from app.tasks.match import FactRow, current_facts, fact_text, tokens, user_names
 from app.tasks.queue import Claimed, Deferred, TaskError
 from app.truth import checks
-from app.truth.redact import redact
+from app.truth.redact import PLACEHOLDER_RE, redact, restore
 
 SELECTION_VERSION = "selection-1"
 MAX_PER_ROLE, MAX_FACTS = 5, 16  # ponytail: fixed budget; derive from the template's measured layout (TRD §7.2)
@@ -60,9 +60,9 @@ def check_fact(r: FactRow) -> checks.FactVersion:
     )
 
 
-def model_fact(r: FactRow, names: list[str] = ()) -> dict:
+def model_fact(r: FactRow, names: list[str] = (), mapping: dict[str, str] | None = None) -> dict:
     f = check_fact(r)
-    return {"id": f.id, "text": fact_text(r, names), "tools": list(f.tools), "responsibility_level": f.responsibility_level,
+    return {"id": f.id, "text": fact_text(r, names, mapping), "tools": list(f.tools), "responsibility_level": f.responsibility_level,
             "completion": f.completion, "employer": f.employer, "title": f.title,
             "start": f.start.isoformat()[:7] if f.start else None, "end": f.end.isoformat()[:7] if f.end else None}
 
@@ -81,7 +81,8 @@ def _verify(db: Session, task: Claimed, stmts: list[dict], facts: dict, model_fa
     cited = {i for s in todo for i in s["cited_fact_version_ids"] if i in model_facts}
     try:
         res = llm.run(db, task, "statement_verify", {
-            "statements": [{"index": n, "type": s["type"], "text": s["text"]} for n, s in enumerate(todo)],
+            # The model's own (redacted) wording: restored text may hold contact details (I-10).
+            "statements": [{"index": n, "type": s["type"], "text": s["_sent"]} for n, s in enumerate(todo)],
             "facts": [model_facts[i] for i in sorted(cited)],
         })
     except Deferred:
@@ -104,12 +105,16 @@ def skill_terms(db: Session) -> list[str]:
     return list(db.scalars(select(UserSkill.raw_label)))
 
 
-def _validate(db, task, written, facts, model_facts) -> tuple[list[dict], bool]:
+def _validate(db, task, written, facts, model_facts, mapping: dict[str, str]) -> tuple[list[dict], bool]:
+    """Placeholders are restored first, so code checks compare the real line with the real fact text."""
     stmts, terms = [], skill_terms(db)
     for w in written:
-        reasons = code_check(w.text, w.type, w.cited_fact_version_ids, facts, terms)
-        stmts.append({"type": w.type, "text": w.text, "cited_fact_version_ids": list(w.cited_fact_version_ids),
-                      "status": "blocked" if reasons else "code_checked_only", "reasons": reasons})
+        text = restore(w.text, mapping)
+        reasons = code_check(text, w.type, w.cited_fact_version_ids, facts, terms)
+        if PLACEHOLDER_RE.search(text):
+            reasons.insert(0, "This line has a placeholder that doesn't match anything in your facts.")
+        stmts.append({"type": w.type, "text": text, "cited_fact_version_ids": list(w.cited_fact_version_ids),
+                      "status": "blocked" if reasons else "code_checked_only", "reasons": reasons, "_sent": w.text})
     return stmts, _verify(db, task, stmts, facts, model_facts)
 
 
@@ -128,20 +133,21 @@ def tailor_resume(db: Session, task: Claimed) -> dict:
     by_id = {str(r.version.id): r for r in selected}
     facts = {i: check_fact(r) for i, r in by_id.items()}
     names = user_names(db, task.user_id)
-    model_facts = {i: model_fact(r, names) for i, r in by_id.items()}
+    mapping: dict[str, str] = {}  # every placeholder sent to the writer, to restore its output
+    model_facts = {i: model_fact(r, names, mapping) for i, r in by_id.items()}
     data = {"facts": list(model_facts.values()), "target_requirements": targets,
             "target_role": p.get("target"), "style": STYLE}
 
     first = llm.run(db, task, "resume_write", data)
-    stmts, verifier_ok = _validate(db, task, first.output.statements, facts, model_facts)
+    stmts, verifier_ok = _validate(db, task, first.output.statements, facts, model_facts, mapping)
     blocked = [s for s in stmts if s["status"] == "blocked"]
     if blocked:  # one rewrite with the reasons, then withheld (TRD §7.4)
         retry = llm.run(db, task, "resume_write", {**data, "rewrite": [
             # Reasons quote the fact text, so they are redacted like the facts (I-10).
-            {"text": s["text"], "cited_fact_version_ids": s["cited_fact_version_ids"],
-             "problems": [redact(x, names).text for x in s["reasons"]]}
+            {"text": s["_sent"], "cited_fact_version_ids": s["cited_fact_version_ids"],
+             "problems": [redact(x, names, mapping=mapping).text for x in s["reasons"]]}
             for s in blocked]})
-        fixed, ok = _validate(db, task, retry.output.statements[:len(blocked)], facts, model_facts)
+        fixed, ok = _validate(db, task, retry.output.statements[:len(blocked)], facts, model_facts, mapping)
         verifier_ok = verifier_ok and ok
         for old, new in zip(blocked, fixed, strict=False):
             if new["status"] != "blocked":
@@ -150,6 +156,7 @@ def tailor_resume(db: Session, task: Claimed) -> dict:
         raise TaskError("INTERNAL_ERROR", "No line passed the truth checks, so nothing was saved or counted.",
                         retry=False)
     for n, s in enumerate(stmts, 1):
+        del s["_sent"]
         s["id"] = f"s{n}"
         owner = by_id.get(next(iter(s["cited_fact_version_ids"]), ""))
         s["owner_id"] = str(owner.fact.experience_id or owner.fact.project_id or owner.fact.education_id) if owner else None

@@ -1,21 +1,29 @@
 // Server-side loaders for the app screens. Each returns the src/lib/mock.ts shape, from the API when
-// it's live, or the sample data in demo mode (no NEXT_PUBLIC_DEV_USER, HUNT_DEMO=1, or API not ready).
+// it's live, or the sample data in demo mode (no NEXT_PUBLIC_DEV_USER and no OIDC_ISSUER, HUNT_DEMO=1, or API not ready).
+import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { cache } from "react";
-import { API_URL, ApiError, DEV_USER, api } from "./api";
+import { API_URL, ApiError, DEV_USER, api as send } from "./api";
+import { SESSION_COOKIE } from "./auth";
 import * as mock from "./mock";
 import type { DraftGroup, Fact, Match, Profile, Resume, ResumeListItem, SavedJob, Usage } from "./mock";
 
 /** Per request. /readyz checks the database too, so "API up, Postgres not set up" is also demo. */
 export const isDemo = cache(async () => {
   await connection();
-  if (!DEV_USER || process.env.HUNT_DEMO === "1") return true;
+  if ((!DEV_USER && !process.env.OIDC_ISSUER) || process.env.HUNT_DEMO === "1") return true;
   try {
     return !(await fetch(`${API_URL}/readyz`, { signal: AbortSignal.timeout(1500) })).ok;
   } catch {
     return true;
   }
 });
+
+/** GET as the signed-in user: the session cookie goes to the API as a bearer token. */
+async function api<T>(path: string): Promise<T> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return send<T>(path, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+}
 
 async function load<T>(sample: T, live: () => Promise<T>): Promise<T> {
   return (await isDemo()) ? sample : live();

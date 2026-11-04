@@ -2,7 +2,7 @@ import Link from "next/link";
 import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
 import { getResumes, getUsage, isDemo } from "@/lib/data";
-import { Downloads, NewResume } from "./Actions";
+import { Downloads, NewResume, UpdateResume } from "./Actions";
 import s from "./resumes.module.css";
 
 export default async function ResumesPage() {
@@ -80,11 +80,7 @@ export default async function ResumesPage() {
                       Open
                     </Link>
                     <Downloads resumeId={m.id} template={m.template} demo={demo} />
-                    {m.freshness === "outdated" && (
-                      <button type="button" className="btn btn-primary btn-small">
-                        Update with new facts
-                      </button>
-                    )}
+                    {m.freshness === "outdated" && <UpdateResume resumeId={m.id} demo={demo} />}
                   </div>
 
                   {children.length > 0 && (

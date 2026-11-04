@@ -8,15 +8,24 @@ Callers pass every name they know: the parsed import header name and the stored 
 
 Residual limitation (documented, accepted in D12): only the names passed in are redacted. Other
 people's names, and the user's name written differently (nickname, initials, a token under 3
-characters, another script or spelling), are not detected and can reach the model. Address detection is limited to the
-header block (first HEADER_LINES lines) and lines labelled "Address:", so a street name inside an
-experience bullet is not redacted.
+characters, another script or spelling), are not detected and can reach the model. Address detection is limited to
+lines labelled "Address:" and, only for a whole resume (`header=True`, the import task), the header block: the first
+HEADER_LINES lines up to the first section heading. Single facts and job quotes have no header, so "Led phase 2 of
+the main checkout" is never taken for an address; a street name inside an experience bullet is not redacted either.
 """
 
 import re
 from dataclasses import dataclass, field
 
 HEADER_LINES = 8
+# A section heading ends the header block ("Experience", "## Skills", "Work Experience:").
+_SECTION_RE = re.compile(
+    r"^\s*#*\s*(?:summary|profile|objective|about(?: me)?|(?:work |professional )?experience|employment(?: history)?"
+    r"|education|(?:technical )?skills|projects|certifications?|achievements|publications)\s*:?\s*$",
+    re.IGNORECASE,
+)
+# Any redaction placeholder; one left in model output after restore() is unknown (invented or mangled).
+PLACEHOLDER_RE = re.compile(r"⟦[^⟧]*⟧")
 
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 URL_RE = re.compile(
@@ -49,10 +58,15 @@ class Redaction:
 
 
 class _Redactor:
-    def __init__(self) -> None:
-        self.mapping: dict[str, str] = {}
+    def __init__(self, mapping: dict[str, str] | None = None) -> None:
+        # A shared mapping keeps placeholders unique across several texts (extended in place).
+        self.mapping: dict[str, str] = {} if mapping is None else mapping
         self._by_value: dict[tuple[str, str], str] = {}
         self._counts: dict[str, int] = {}
+        for ph, value in self.mapping.items():
+            kind, n = ph[1:-1].rsplit("_", 1)
+            self._by_value[(kind, value)] = ph
+            self._counts[kind] = max(self._counts.get(kind, 0), int(n))
 
     def placeholder(self, kind: str, value: str) -> str:
         key = (kind, value)
@@ -81,16 +95,22 @@ def _is_address(line: str, in_header: bool) -> bool:
     return bool(_PIN_RE.search(line) or (_ADDRESS_WORDS_RE.search(line) and re.search(r"\d", line)))
 
 
-def redact(text: str, names: list[str] | tuple[str, ...] = ()) -> Redaction:
-    """Redact contact details and the given name(s): the header name and/or the stored users.name."""
-    r = _Redactor()
+def redact(text: str, names: list[str] | tuple[str, ...] = (), *, header: bool = False,
+           mapping: dict[str, str] | None = None) -> Redaction:
+    """Redact contact details and the given name(s): the header name and/or the stored users.name.
+
+    `header`: text is a whole resume whose first lines are a contact header (address heuristics apply there).
+    `mapping`: an earlier redaction's mapping to extend, so one restore() works across several texts."""
+    r = _Redactor(mapping)
     text = r.sub(EMAIL_RE, "EMAIL", text)
     text = r.sub(URL_RE, "URL", text)
     text = r.sub(_PHONE_CANDIDATE_RE, "PHONE", text, _is_phone)
 
     lines = text.split("\n")
+    in_header = header
     for i, line in enumerate(lines):
-        if line.strip() and _is_address(line, in_header=i < HEADER_LINES):
+        in_header = in_header and i < HEADER_LINES and not _SECTION_RE.match(line)
+        if line.strip() and _is_address(line, in_header):
             lines[i] = r.placeholder("ADDRESS", line.strip())
     text = "\n".join(lines)
 

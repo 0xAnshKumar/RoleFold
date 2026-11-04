@@ -14,6 +14,7 @@ from sqlalchemy.pool import NullPool
 
 os.environ.setdefault("PSEUDONYM_SALT", "db-test-salt-0123456789")
 os.environ["STORAGE_DIR"] = tempfile.mkdtemp(prefix="hunt-storage-")  # never api/var/storage
+os.environ["TOMBSTONE_DIR"] = tempfile.mkdtemp(prefix="hunt-tombstones-")  # never api/var/tombstones
 ROOT = Path(__file__).parents[2]
 # A paste long enough to pass the 200-character floor (PASTE_TOO_SHORT).
 JD = "Backend engineer, Python required. " + "We build payment tools for small shops across India. " * 4
@@ -99,6 +100,17 @@ class Api:
     def write(self, method, path, json=None, key=None, files=None):
         headers = {**self.headers, "Idempotency-Key": key or uuid.uuid4().hex}
         return self.client.request(method, path, headers=headers, json=json, files=files)
+
+
+def export_data(api) -> dict:
+    """data.json from the GET /v1/me/export zip."""
+    import io
+    import json
+    import zipfile
+
+    r = api.get("/v1/me/export")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
+    return json.loads(zipfile.ZipFile(io.BytesIO(r.content)).read("data.json"))
 
 
 @pytest.fixture

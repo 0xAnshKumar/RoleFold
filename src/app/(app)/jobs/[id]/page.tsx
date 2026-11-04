@@ -118,7 +118,7 @@ export default async function MatchPage({ params }: PageProps<"/jobs/[id]">) {
         </div>
 
         <aside className={s.side} aria-label="Next steps">
-          <DraftFact question={m.enrichment} roles={profile.roles} demo={demo} />
+          <DraftFact question={m.enrichment} roles={profile.roles} projects={profile.projects} demo={demo} />
           <div className={`${s.sideCard} ${s.tailor}`}>
             <h2 className={s.sideTitle}>Tailor your resume</h2>
             <p>Reorders and rewords your confirmed facts for this job. Nothing new is invented.</p>

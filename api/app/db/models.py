@@ -165,6 +165,25 @@ class Certification(Entry, Base):
     expires_month: Mapped[date | None] = mapped_column(Date)
 
 
+class Achievement(Entry, Base):
+    """One resume line as the user wrote it: awards, rankings, talks, patents (kind achievement) or a
+    publication. Goes on resumes only once confirmed, under the template's Achievements / Publications."""
+
+    __tablename__ = "achievements"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    kind: Mapped[str] = mapped_column(enum("achievement_kind", "achievement", "publication"), server_default="achievement")
+    description: Mapped[str] = mapped_column(Text)
+
+
+class Language(Entry, Base):
+    """A spoken language and the user's own proficiency words. Imported ones wait as drafts like other entries."""
+
+    __tablename__ = "languages"
+    id: Mapped[uuid.UUID] = uuid_pk()
+    name: Mapped[str] = mapped_column(Text)
+    proficiency: Mapped[str | None] = mapped_column(Text)
+
+
 class Fact(Entry, Base):
     """Exactly one owner entity; content lives in fact_versions (edits create versions).
 

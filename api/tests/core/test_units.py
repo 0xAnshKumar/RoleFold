@@ -12,11 +12,11 @@ from app.routes.profile import ExperienceIn, content_hash
 from app.tasks.deletion import pseudonym
 from app.tasks.queue import backoff_seconds, operation
 
-MIGRATION = Path(__file__).parents[2] / "alembic" / "versions" / "0001_initial.py"
+VERSIONS = Path(__file__).parents[2] / "alembic" / "versions"
 
 
-def load_migration():
-    spec = importlib.util.spec_from_file_location("m0001", MIGRATION)
+def load_migration(name: str = "0001_initial"):
+    spec = importlib.util.spec_from_file_location(f"m{name[:4]}", VERSIONS / f"{name}.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -31,7 +31,9 @@ def test_every_user_owned_table_is_under_rls():
 
 
 def test_migration_rls_list_matches_models():
-    assert load_migration().RLS_TABLES == RLS_TABLES
+    later = load_migration("0005_achievements_languages")
+    assert {**load_migration().RLS_TABLES, **later.RLS_TABLES} == RLS_TABLES
+    assert later.rls_sql("languages", "user_id").count("app_current_user_id()") == 5
 
 
 def test_policies_fail_closed_and_split():

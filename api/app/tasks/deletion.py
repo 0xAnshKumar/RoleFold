@@ -19,6 +19,8 @@ def pseudonym(user_id: uuid.UUID) -> str:
 
 def delete_user(db: Session, task: Claimed) -> dict:
     uid, alias = task.user_id, pseudonym(task.user_id)
+    # First, outside the DB: if a backup from before this deletion is restored, reapply_tombstones finds it.
+    storage.write_tombstone(alias)
     db.execute(update(AuditLog).where(AuditLog.actor_id == uid).values(actor_id=None, actor_hash=alias))
     db.execute(update(LlmCall).where(LlmCall.user_id == uid).values(user_id=None, user_hash=alias))
     db.execute(delete(Task).where(Task.user_id == uid, Task.id != task.id))
@@ -29,7 +31,7 @@ def delete_user(db: Session, task: Claimed) -> dict:
     storage.delete_prefix(str(uid))
     # ponytail: no sessions, cache or email lists exist at beta; add those stages with them.
     stages = ["logs_pseudonymized", "tasks_deleted", "user_rows_deleted", "files_deleted"]
-    # The tombstone keeps only the salted hash; restores re-apply deletions by hashing restored ids.
+    # The DB tombstone keeps only the salted hash; the file tombstone above is what survives a restore.
     db.execute(
         update(DeletionRequest)
         .where(DeletionRequest.id == uuid.UUID(task.payload["deletion_request_id"]))

@@ -111,3 +111,40 @@ export function Downloads({ resumeId, template, demo }: { resumeId: string; temp
     </>
   );
 }
+
+/** "Update with new facts": POST /v1/resumes/{id}/regenerate rewrites the master from your current confirmed facts as
+ * its next version (same resume, same template), then the list re-reads. Free. Demo: a note, nothing sent. */
+export function UpdateResume({ resumeId, demo }: { resumeId: string; demo: boolean }) {
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const { busy, error, run } = useAction();
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn-primary btn-small"
+        disabled={!!busy}
+        onClick={() =>
+          run("update", async () => {
+            if (demo) return setNote("Sample data: nothing was rebuilt. In your account this rewrites the resume from your current facts.");
+            const r = await api<{ operation: Operation }>(`/resumes/${resumeId}/regenerate`, { method: "POST" });
+            await waitFor(r.operation);
+            router.refresh();
+          })
+        }
+      >
+        {busy ? "Updating…" : "Update with new facts"}
+      </button>
+      {(busy || note) && (
+        <p className={`${a.quiet} ${s.full}`} role="status">
+          {busy ? "Rewording your current confirmed facts and checking every line. This can take a minute." : note}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className={`${a.problem} ${s.full}`}>
+          {error}
+        </p>
+      )}
+    </>
+  );
+}

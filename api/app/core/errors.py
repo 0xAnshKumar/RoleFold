@@ -14,7 +14,6 @@ ErrorCode = Literal[
     "VALIDATION_ERROR",
     "UNSUPPORTED_FORMAT",
     "NO_EXTRACTABLE_TEXT",
-    "NO_TEXT_FOUND",  # upload route: scanned or empty file (frontend contract; the task keeps NO_EXTRACTABLE_TEXT)
     "FILE_TOO_LARGE",
     "UNAUTHORIZED",
     "FORBIDDEN",

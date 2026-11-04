@@ -18,7 +18,8 @@ def test_missing_credentials():
     assert_error(client.get("/v1/me"), 401, "UNAUTHORIZED")
 
 
-def test_bearer_tokens_refused_until_oidc_exists():
+def test_bearer_tokens_refused_when_oidc_not_configured(monkeypatch):
+    monkeypatch.setattr(get_settings(), "oidc_issuer", None)
     assert_error(client.get("/v1/me", headers={"Authorization": "Bearer abc"}), 401, "UNAUTHORIZED")
 
 

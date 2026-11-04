@@ -1,13 +1,21 @@
-"""Request identity. OIDC provider is not chosen yet (TRD T-OQ-4), so bearer tokens are refused.
+"""Request identity.
+
+Production: `Authorization: Bearer <OIDC ID token>` from any OIDC provider (OIDC_ISSUER, OIDC_AUDIENCE =
+the client id the frontend signs in with). Signature is checked against the provider's JWKS; the user row
+is the one with auth_subject '{iss}|{sub}'.
 
 DEV-ONLY: header `X-Dev-User: <name>` maps to the users row with auth_subject 'dev|<name>'.
 It is refused when ENV=production.
 """
 
+import json
 import re
+import urllib.request
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Annotated
 
+import jwt
 from fastapi import Depends, Header
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -19,6 +27,8 @@ from app.db.models import Profile, User
 from app.db.session import get_db, set_user
 
 _DEV_USER_RE = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+_ALGORITHMS = ["RS256", "ES256"]
+_LEEWAY_SECONDS = 60
 
 
 @dataclass
@@ -27,13 +37,48 @@ class Ctx:
     user: User
 
 
+@lru_cache
+def _jwks_client(issuer: str, jwks_url: str | None) -> jwt.PyJWKClient:
+    """One client per issuer: caches the key set (5 min) and refetches on an unknown kid (30s cooldown)."""
+    if not jwks_url:
+        url = issuer.rstrip("/") + "/.well-known/openid-configuration"
+        with urllib.request.urlopen(url, timeout=5) as r:
+            jwks_url = json.load(r)["jwks_uri"]
+    return jwt.PyJWKClient(jwks_url, timeout=5)
+
+
+def verify_bearer(token: str) -> str:
+    s = get_settings()
+    if not (s.oidc_issuer and s.oidc_audience):
+        raise ApiError(401, "UNAUTHORIZED", "Sign-in is not configured on this server (OIDC_ISSUER/OIDC_AUDIENCE).")
+    try:
+        key = _jwks_client(s.oidc_issuer, s.oidc_jwks_url).get_signing_key_from_jwt(token)
+    except (jwt.PyJWKClientConnectionError, OSError, KeyError, ValueError):
+        raise ApiError(503, "DEPENDENCY_UNAVAILABLE", "Couldn't reach the sign-in provider. Try again.") from None
+    except jwt.PyJWTError:  # malformed token, no kid, or kid not in the key set even after a refresh
+        raise ApiError(401, "UNAUTHORIZED", "Your session isn't valid. Sign in again.") from None
+    try:
+        claims = jwt.decode(
+            token, key, algorithms=_ALGORITHMS, audience=s.oidc_audience, issuer=s.oidc_issuer,
+            leeway=_LEEWAY_SECONDS, options={"require": ["exp", "iss", "aud", "sub"]},
+        )
+    except jwt.ExpiredSignatureError:
+        raise ApiError(401, "UNAUTHORIZED", "Your session has expired. Sign in again.") from None
+    except jwt.PyJWTError:
+        raise ApiError(401, "UNAUTHORIZED", "Your session isn't valid. Sign in again.") from None
+    return f"{s.oidc_issuer}|{claims['sub']}"
+
+
 def resolve_subject(authorization: str | None, x_dev_user: str | None) -> str:
     if x_dev_user is not None and get_settings().env != "production":
         if not _DEV_USER_RE.fullmatch(x_dev_user):
             raise ApiError(401, "UNAUTHORIZED", "Invalid X-Dev-User.")
         return f"dev|{x_dev_user}"
     if authorization:
-        raise ApiError(401, "UNAUTHORIZED", "Bearer token validation is not configured (no OIDC provider yet).")
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not token.strip():
+            raise ApiError(401, "UNAUTHORIZED", "Expected 'Authorization: Bearer <token>'.")
+        return verify_bearer(token.strip())
     raise ApiError(401, "UNAUTHORIZED", "Missing credentials.")
 
 

@@ -1,8 +1,10 @@
 // Typed fetch client for the Hunt API (TRD §11.2). Works on the server (calls API_URL directly)
 // and in the browser (calls /v1, which next.config rewrites to API_URL, so there's no CORS).
+import { redirect } from "next/navigation";
 
 export const API_URL = process.env.API_URL ?? "http://127.0.0.1:8000";
-// DEV-ONLY identity until OIDC exists (api/app/core/auth.py). Unset = demo mode.
+// DEV-ONLY identity (api/app/core/auth.py). Production signs in with OIDC: the session cookie becomes a bearer
+// token (server loaders pass it in `headers`; src/proxy.ts adds it to browser /v1 calls).
 export const DEV_USER = process.env.NEXT_PUBLIC_DEV_USER;
 
 export class ApiError extends Error {
@@ -26,9 +28,12 @@ export type Operation = {
 
 const newKey = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-async function send(path: string, init: { method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; body?: unknown }): Promise<Response> {
+type Init = { method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; body?: unknown; headers?: Record<string, string> };
+
+async function send(path: string, init: Init): Promise<Response> {
   const method = init.method ?? "GET";
-  const headers: Record<string, string> = { "X-Dev-User": DEV_USER ?? "" };
+  const headers: Record<string, string> = { ...init.headers };
+  if (DEV_USER) headers["X-Dev-User"] = DEV_USER;
   if (method !== "GET") headers["Idempotency-Key"] = newKey();
   const form = init.body instanceof FormData;
   // FormData sets its own multipart boundary header.
@@ -45,18 +50,23 @@ async function send(path: string, init: { method?: "GET" | "POST" | "PATCH" | "P
 }
 
 async function fail(res: Response): Promise<never> {
+  // Session expired or revoked: sign in again (a dev user's 401 is a config error, so it stays visible).
+  if (res.status === 401 && !DEV_USER) {
+    if (typeof window !== "undefined") window.location.replace(`/signin?next=${encodeURIComponent(location.pathname + location.search)}`);
+    else if (process.env.OIDC_ISSUER) redirect("/signin");
+  }
   const e = (await res.json().catch(() => null))?.error;
   throw new ApiError(res.status, e?.code ?? "INTERNAL_ERROR", e?.message ?? "Something went wrong on our side. Try again in a moment.", e?.details);
 }
 
 /** GET when there's no body; anything else sends an Idempotency-Key (one per call: callers disable the button while pending). JSON, or FormData for uploads. */
-export async function api<T>(path: string, init: { method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE"; body?: unknown } = {}): Promise<T> {
+export async function api<T>(path: string, init: Init = {}): Promise<T> {
   const res = await send(path, init);
   if (!res.ok) return fail(res);
   return (await res.json().catch(() => null)) as T;
 }
 
-/** Fetch an attachment with the auth header and hand it to the browser as a download (a plain link can't send X-Dev-User). */
+/** Fetch an attachment with the auth header and hand it to the browser as a download (a plain link can't send X-Dev-User; the bearer comes from src/proxy.ts). */
 export async function download(path: string, fallbackName: string) {
   const res = await send(path, {});
   if (!res.ok) return fail(res);

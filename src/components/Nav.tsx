@@ -25,7 +25,7 @@ function Links({ path }: { path: string }) {
 }
 const ActiveLinks = () => <Links path={usePathname()} />;
 
-export default function Nav({ demo = false, queue = 0 }: { demo?: boolean; queue?: number }) {
+export default function Nav({ demo = false, queue = 0, signOut = false }: { demo?: boolean; queue?: number; signOut?: boolean }) {
   return (
     <header className={s.bar}>
       <Link href="/" className={s.brand}>
@@ -52,6 +52,14 @@ export default function Nav({ demo = false, queue = 0 }: { demo?: boolean; queue
           <span className={s.avatar} aria-label="Signed in as Rohan Iyer (sample)">
             RI
           </span>
+        )}
+        {signOut && (
+          // POST so a link prefetch can never sign anyone out.
+          <form action="/auth/logout" method="post">
+            <button type="submit" className="btn btn-secondary btn-small">
+              Sign out
+            </button>
+          </form>
         )}
       </div>
     </header>

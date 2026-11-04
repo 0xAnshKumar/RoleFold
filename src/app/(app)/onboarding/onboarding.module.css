@@ -273,24 +273,27 @@
   background: var(--supported);
   color: #fff;
 }
+/* guided question: a calm panel (yellow is reserved for proof in the app, DESIGN.md) */
 .mentor {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 20px;
   border-radius: var(--r-lg);
-  background: var(--highlighter);
-  color: var(--on-highlighter);
+  background: var(--surface);
+  border: 1px solid var(--rule);
 }
 .mentorLabel {
-  font: 700 0.875rem/1 var(--font-display), sans-serif;
+  font: 700 1.0625rem/1.25 var(--font-display), sans-serif;
+  font-stretch: 104%;
 }
 .mentor .margin-note {
   font-size: 1.375rem;
 }
-.mentor textarea {
-  background: #fff;
-  border-color: transparent;
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* goals */

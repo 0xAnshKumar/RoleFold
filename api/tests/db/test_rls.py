@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from app.db.models import RLS_TABLES
-from tests.db.conftest import JD, as_user
+from tests.db.conftest import JD, as_user, export_data
 
 pytestmark = pytest.mark.db
 
@@ -82,5 +82,5 @@ def test_api_routes_hide_other_users_rows(alice, bob):
         assert bob.write(method, path, body).status_code == 404, (method, path)
     assert bob.get("/v1/experiences").json()["items"] == []
     assert bob.write("POST", "/v1/facts", {"owner_type": "experience", "owner_id": exp["id"], "description": "x"}).status_code == 404
-    assert bob.get("/v1/me/export").json()["data"]["experiences"] == []
+    assert export_data(bob)["data"]["experiences"] == []
     assert uuid.UUID(alice.get(f"/v1/experiences/{exp['id']}").json()["id"])

@@ -41,7 +41,7 @@ from app.routes.profile import profile_version
 from app.tasks import llm
 from app.tasks.queue import Claimed, TaskError
 from app.truth import verdict as vr
-from app.truth.redact import redact
+from app.truth.redact import PLACEHOLDER_RE, redact, restore
 
 CUE_RULES_VERSION = "label-cues-1"
 RULES = vr.VerdictRules()
@@ -170,18 +170,20 @@ def user_names(db: Session, user_id: uuid.UUID) -> list[str]:
     return [name] if name else []
 
 
-def fact_text(row: FactRow, names: list[str] = ()) -> str:
-    """Fact text for a model: contact details and the user's name redacted (I-10) even if the user typed them."""
-    return redact(row.version.description, names).text
+def fact_text(row: FactRow, names: list[str] = (), mapping: dict[str, str] | None = None) -> str:
+    """Fact text for a model: contact details and the user's name redacted (I-10) even if the user typed them.
+    Pass one `mapping` for every text in a model call so placeholders in its output can be restored."""
+    return redact(row.version.description, names, mapping=mapping).text
 
 
-def pack_item(row: FactRow, names: list[str] = ()) -> dict:
+def pack_item(row: FactRow, names: list[str] = (), mapping: dict[str, str] | None = None) -> dict:
     owner = row.experience
-    return {"id": str(row.version.id), "text": fact_text(row, names), "tools": [t.get("raw") for t in row.version.tools],
+    return {"id": str(row.version.id), "text": fact_text(row, names, mapping), "tools": [t.get("raw") for t in row.version.tools],
             "role": role(owner.title, owner.employer) if owner else (row.project.name if row.project else None)}
 
 
-def evidence_pack(rows: list[FactRow], wanted: str, cap_tokens: int, names: list[str] = ()) -> list[dict]:
+def evidence_pack(rows: list[FactRow], wanted: str, cap_tokens: int, names: list[str] = (),
+                  mapping: dict[str, str] | None = None) -> list[dict]:
     """Facts ranked by word overlap with the target, newest first on ties, capped at ~cap_tokens (chars / 4)."""
     want = tokens(wanted)
 
@@ -191,7 +193,7 @@ def evidence_pack(rows: list[FactRow], wanted: str, cap_tokens: int, names: list
 
     pack, used = [], 0
     for row in sorted(rows, key=rank):
-        item = pack_item(row, names)
+        item = pack_item(row, names, mapping)
         cost = len(json.dumps(item)) // 4 + 1
         if used + cost <= cap_tokens:
             pack.append(item)
@@ -208,9 +210,10 @@ def education_items(db: Session) -> list[dict]:
             for e in db.scalars(select(Education).where(Education.status == "confirmed").order_by(Education.id))]
 
 
-def full_pack(db: Session, rows: list[FactRow], wanted: str, names: list[str] = ()) -> list[dict]:
+def full_pack(db: Session, rows: list[FactRow], wanted: str, names: list[str] = (),
+              mapping: dict[str, str] | None = None) -> list[dict]:
     """The requirement_map evidence: ranked facts within the token cap, plus every confirmed degree (small)."""
-    return evidence_pack(rows, wanted, get_settings().evidence_pack_tokens, names) + education_items(db)
+    return evidence_pack(rows, wanted, get_settings().evidence_pack_tokens, names, mapping) + education_items(db)
 
 
 def pack_hash(ids: list[str]) -> str:
@@ -438,6 +441,12 @@ def enrichment(reqs: list[vr.Requirement], categories: dict[str, str | None] | N
 # ---------------------------------------------------------------- the task
 
 
+def _restored(text: str, mapping: dict[str, str]) -> str:
+    """Model text shown to the user: placeholders restored; dropped if an unknown one is left (never shown raw)."""
+    text = restore(text, mapping)
+    return "" if PLACEHOLDER_RE.search(text) else text
+
+
 def match_job(db: Session, task: Claimed) -> dict:
     jv = db.get(JobVersion, uuid.UUID(task.payload["job_version_id"]))
     if jv is None:
@@ -456,14 +465,14 @@ def match_job(db: Session, task: Claimed) -> dict:
     db.flush()
 
     facts = current_facts(db)
-    names = user_names(db, uid)
-    pack = full_pack(db, facts, " ".join(r.value or r.quote for r in reqs), names)
+    names, redacted = user_names(db, uid), {}  # one placeholder map for everything sent, to restore `reason`
+    pack = full_pack(db, facts, " ".join(r.value or r.quote for r in reqs), names, redacted)
     pack_ids = {p["id"] for p in pack}
     mapped, prompt_versions, model = {}, {"job_extract": extracted.prompt_version}, extracted.model
     if len(reqs) >= RULES.min_requirements and pack:
         # Normalized values go to the model; the quote only when there is no value, redacted and datamarked.
         items = [{"id": r.requirement_key, "value": r.value, "category": r.category,
-                  "quote": None if r.value else datamark(redact(r.quote, names).text)} for r in reqs]
+                  "quote": None if r.value else datamark(redact(r.quote, names, mapping=redacted).text)} for r in reqs]
         res = llm.run(db, task, "requirement_map", {"requirements": items, "evidence_pack": pack})
         mapped = {m.requirement_id: m for m in res.output.results}
         prompt_versions["requirement_map"], model = res.prompt_version, res.model
@@ -475,7 +484,7 @@ def match_job(db: Session, task: Claimed) -> dict:
             "requirement_id": str(r.id), "model_support": m.support if m else "no_evidence_recorded",
             # I-1: only citations from the evidence pack (confirmed, current, this user's) survive.
             "cited_fact_version_ids": [i for i in (m.cited_fact_version_ids if m else []) if i in pack_ids],
-            "reason": m.reason if m else "",
+            "reason": _restored(m.reason, redacted) if m else "",
         })
     analysis = MatchAnalysis(
         user_id=uid, job_version_id=jv.id, evidence_pack_hash=pack_hash(list(pack_ids)),

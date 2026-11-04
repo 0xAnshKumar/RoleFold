@@ -30,16 +30,6 @@
 
 ## Infrastructure
 
-### Move deletion tombstones outside the backed-up database
-**What:** Store hashed-user-ID tombstones in a separate object-locked bucket; restore runbook re-applies them before go-live.
-**Why:** Restoring an older backup can roll back in-DB tombstones and resurrect deleted users (DPDP/GDPR breach).
-**Pros:** Deletion guarantee survives disaster recovery.
-**Cons:** One more pre-launch item; separate storage to manage.
-**Context:** Side Questions Q22 deferred this hardening "before the first production restore with real users"; TRD §12.4. Added by eng review 2026-10-08 (D9).
-**Effort:** M (human) / S (CC)
-**Priority:** P1
-**Depends on:** Deletion pipeline (TRD §12.4); must land before public launch.
-
 ### Scale infrastructure for 1M users
 **What:** Partitioning, read replicas, Redis cache, per-queue worker pools, GPU embedder (TRD §8.4, §13.1-13.2).
 **Why:** Headroom beyond closed-beta load.
@@ -67,3 +57,7 @@
 **Depends on:** OQ-2 launch profession list.
 
 ## Completed
+
+- **Move deletion tombstones outside the backed-up database** (P1): done 2026-11-04. Write-once files in
+  `TOMBSTONE_DIR`, `python -m app.tasks.reapply_tombstones`, runbook in `api/README.md`. Production still needs
+  the directory on an object-locked bucket.

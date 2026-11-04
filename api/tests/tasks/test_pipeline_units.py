@@ -1,5 +1,6 @@
 """Pure parts of the import / match / tailor handlers and the LLM runner. No DB, FakeLLM only."""
 
+import json
 import uuid
 from datetime import date
 from types import SimpleNamespace
@@ -7,11 +8,12 @@ from types import SimpleNamespace
 import pytest
 
 from app.llm.gateway import CallRecord, ErrorClass, FakeLLM, Gateway, ProviderResponse
-from app.llm.schemas import DraftFact, JobEligibilityDraft, JobRequirementDraft
+from app.llm.schemas import DraftFact, JobEligibilityDraft, JobRequirementDraft, WrittenStatement
 from app.tasks import llm
 from app.tasks.imports import dates, header_name, numbers_in_source, suggested_level
 from app.tasks.match import (
     FactRow,
+    _restored,
     checked_importance,
     clean_eligibility,
     clean_requirements,
@@ -20,7 +22,7 @@ from app.tasks.match import (
     evidence_pack,
 )
 from app.tasks.queue import Claimed, Deferred, TaskError
-from app.tasks.tailor import MAX_PER_ROLE, select_facts
+from app.tasks.tailor import MAX_PER_ROLE, _validate, check_fact, model_fact, select_facts
 from tests.conftest import MODELS
 
 POSTING = """Senior Frontend Engineer
@@ -184,3 +186,28 @@ def test_close_the_gap_question_is_worded_by_requirement_kind():
     assert ask("experience", label="5+ years of backend work").startswith("Where have you done this: 5+ years")
     assert ask("skill", label="GraphQL").startswith("Have you used GraphQL anywhere")
     assert "Have you used B.Tech" not in ask("education")
+
+
+def test_tailor_restores_placeholders_and_blocks_unknown_ones(runner):
+    # HANDOFF §8.3: resume lines must never show ⟦NAME_1⟧; the verifier must never see the real name.
+    r = row("Priya cut checkout load time 40%; mail priya@x.com", uuid.uuid4(), date(2020, 1, 1))
+    r.version.responsibility_level = r.version.completion = r.experience.end_month = None
+    mapping: dict[str, str] = {}
+    mf = model_fact(r, ["Priya"], mapping)
+    assert "Priya" not in mf["text"] and "priya@x.com" not in mf["text"]
+    fid = mf["id"]
+    fake = runner.use([{"results": [{"statement_index": 0, "supported": True}]}])
+    written = [WrittenStatement(type="candidate_fact", text="⟦NAME_1⟧ cut checkout load time 40%",
+                                cited_fact_version_ids=[fid]),
+               WrittenStatement(type="candidate_fact", text="Cut checkout load time 40% for ⟦NAME_7⟧",
+                                cited_fact_version_ids=[fid])]
+    stmts, ok = _validate(SimpleNamespace(scalars=lambda q: []), TASK, written, {fid: check_fact(r)}, {fid: mf}, mapping)
+    assert ok and stmts[0]["text"] == "Priya cut checkout load time 40%" and stmts[0]["status"] == "passed"
+    assert stmts[1]["status"] == "blocked" and "placeholder" in stmts[1]["reasons"][0]
+    sent = fake.requests[0].user
+    assert "Priya" not in sent and "priya@x.com" not in sent and json.dumps("⟦NAME_1⟧ cut checkout")[1:-1] in sent
+
+
+def test_match_reason_placeholders_restored_or_dropped():
+    assert _restored("⟦NAME_1⟧ led the rewrite", {"⟦NAME_1⟧": "Priya"}) == "Priya led the rewrite"
+    assert _restored("⟦NAME_2⟧ led it", {"⟦NAME_1⟧": "Priya"}) == ""

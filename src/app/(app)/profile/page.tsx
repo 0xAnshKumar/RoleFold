@@ -2,6 +2,7 @@ import Link from "next/link";
 import a from "@/components/app/app.module.css";
 import { getProfile, isDemo } from "@/lib/data";
 import { EducationList, Experience, GoalsCard, PrefsCard, ProfileHeader } from "./Edit";
+import { Achievements, CareerBreaks, Languages } from "./Sections";
 import s from "./profile.module.css";
 
 export default async function ProfilePage() {
@@ -52,22 +53,33 @@ export default async function ProfilePage() {
             <EducationList initial={profile.education} demo={demo} />
           </section>
 
+          <section className={a.section} aria-labelledby="achievements">
+            <div className={a.sectionHead}>
+              <h2 id="achievements" className={a.h2}>
+                Achievements and publications
+              </h2>
+              <p className={a.note}>On resumes whose template has an Achievements or Publications section.</p>
+            </div>
+            <Achievements initial={profile.achievements} demo={demo} />
+          </section>
+
+          <section className={a.section} aria-labelledby="languages">
+            <div className={a.sectionHead}>
+              <h2 id="languages" className={a.h2}>
+                Languages
+              </h2>
+              <p className={a.note}>Kept on your profile. No resume template has a languages section yet.</p>
+            </div>
+            <Languages initial={profile.languages} demo={demo} />
+          </section>
+
           <section className={a.section} aria-labelledby="breaks">
             <div className={a.sectionHead}>
               <h2 id="breaks" className={a.h2}>
                 Career breaks
               </h2>
             </div>
-            <div className={s.empty}>
-              <p className="margin-note">No breaks recorded.</p>
-              <p className={a.note}>
-                Took time off? Add it your way and choose whether it shows on your resume. The reason is never used to
-                judge job fit.
-              </p>
-              <button type="button" className="btn btn-secondary btn-small">
-                Add a career break
-              </button>
-            </div>
+            <CareerBreaks initial={profile.gaps} demo={demo} />
           </section>
         </div>
 

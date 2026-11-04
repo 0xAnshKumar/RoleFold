@@ -6,7 +6,7 @@ import { getProfile, isDemo } from "@/lib/data";
 async function LiveNav() {
   // The chip is a nicety: if the profile can't load, the page itself shows the error.
   const [demo, p] = await Promise.all([isDemo(), getProfile().catch(() => null)]);
-  return <Nav demo={demo} queue={p?.profile.drafts ?? 0} />;
+  return <Nav demo={demo} queue={p?.profile.drafts ?? 0} signOut={!demo && !!process.env.OIDC_ISSUER} />;
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

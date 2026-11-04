@@ -57,7 +57,10 @@ export default function DeleteAccount({ demo }: { demo: boolean }) {
             e.preventDefault();
             if (typed !== "DELETE") return;
             run("delete", async () => {
-              setDone(await api<Deleted>("/me/delete", { method: "POST" }));
+              const r = await api<Deleted>("/me/delete", { method: "POST" });
+              // Clear the session cookie so the deleted account isn't left signed in (the 303 to the provider isn't followed).
+              await fetch("/auth/logout", { method: "POST", redirect: "manual" }).catch(() => {});
+              setDone(r);
               dialog.current?.close();
             });
           }}

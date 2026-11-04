@@ -11,7 +11,7 @@ export function shownSections(resume: Resume, template: Template, extras: typeof
   const has: Record<SectionKey, boolean> = {
     summary,
     skillsSummary: x.skillsSummary.length > 0,
-    experience: resume.sections.some((sec) => sec.org),
+    experience: resume.sections.some((sec) => sec.org !== undefined),
     projects: x.projects.length > 0,
     education: x.education.length > 0,
     skills: x.skills.length > 0,
@@ -40,7 +40,8 @@ export default function ResumePaper({
   extras?: typeof resumeExtras | null;
 }) {
   const x = extras ?? NO_EXTRAS;
-  const roles = resume.sections.filter((sec) => sec.org);
+  // Roles and career breaks carry `org` (possibly ""); the Summary and project sections don't.
+  const roles = resume.sections.filter((sec) => sec.org !== undefined);
   const text = (id: string, fallback: string) => lines?.[id] ?? fallback;
   // The Summary section's lines are editable, so the preview follows the edits.
   const summaryLines = resume.sections.find((sec) => sec.title === "Summary" && !sec.org)?.lines;
@@ -58,7 +59,7 @@ export default function ResumePaper({
       </ul>
     ),
     experience: roles.map((r) => (
-      <div key={r.lines[0]?.id ?? r.title} className={s.entry}>
+      <div key={r.lines[0]?.id ?? `${r.title}-${r.dates}`} className={s.entry}>
         <p className={s.entryHead}>
           <b>{r.title}</b>
           <span>{r.dates}</span>

@@ -19,6 +19,7 @@ from app.tasks.deletion import delete_user
 from app.tasks.exports import render_export
 from app.tasks.imports import import_resume
 from app.tasks.match import match_job
+from app.tasks.regenerate import regenerate_resume
 from app.tasks.tailor import tailor_resume
 
 log = logging.getLogger("worker")
@@ -27,6 +28,7 @@ HANDLERS: dict[str, Callable[[Session, queue.Claimed], dict | None]] = {
     "delete_user": delete_user,
     "import": import_resume,
     "match": match_job,
+    "regenerate": regenerate_resume,
     "render": render_export,
     "tailor": tailor_resume,
 }

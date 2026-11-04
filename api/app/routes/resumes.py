@@ -8,6 +8,7 @@ code_checked_only). Export snapshots the draft into a resume version and renders
 
 import re
 import uuid
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Response
@@ -33,7 +34,7 @@ from app.db.models import (
     ResumeVersion,
     User,
 )
-from app.tasks.exports import resume_doc
+from app.tasks.exports import career_breaks, resume_doc
 from app.tasks.match import basis, current_facts
 from app.tasks.queue import enqueue, operation
 from app.tasks.tailor import check_fact, code_check, skill_terms
@@ -111,6 +112,7 @@ def resume_view(db: Session, r: Resume, draft: ResumeDraft) -> dict:
         select(FactVersion.id, FactVersion.fact_id).where(FactVersion.id.in_([uuid.UUID(i) for i in cited]))
     ).all()} if cited else {}
     sections: dict[str, dict] = {}
+    starts: dict[str, date | None] = {}
     withheld = []
     for s in draft.statements:
         if s["status"] == "blocked":
@@ -118,10 +120,15 @@ def resume_view(db: Session, r: Resume, draft: ResumeDraft) -> dict:
             continue
         key = "summary" if s["type"] == "summary" or not s.get("owner_id") else s["owner_id"]
         if key not in sections:
-            sections[key] = _section(db, key)
+            sections[key], starts[key] = _section(db, key)
         sections[key]["lines"].append({"id": s["id"], "text": s["text"], "status": s["status"],
                                        "factId": fact_of.get(next(iter(s["cited_fact_version_ids"]), ""), "")})
-    ordered = ([sections.pop("summary")] if "summary" in sections else []) + list(sections.values())
+    for g in career_breaks(db):  # placed in the timeline, as the export does (app/tasks/exports.py)
+        sections[str(g.id)] = {"title": "Career break", "org": g.reason_text or "",
+                               "dates": span(g.start_month, g.end_month), "lines": []}
+        starts[str(g.id)] = g.start_month
+    summary = [sections.pop("summary")] if "summary" in sections else []
+    ordered = summary + [sections[k] for k in sorted(sections, key=lambda k: starts.get(k) or date.min, reverse=True)]
     _, target = _names(db, r)
     state, reason = freshness(db, draft)
     return {"id": str(r.id), "name": "", "target": target, "template": TEMPLATE_NAMES.get(r.template_id, r.template_id),
@@ -143,20 +150,21 @@ def preview_extras(db: Session, r: Resume, draft: ResumeDraft) -> dict:
         "education": [{"degree": e["title"], "org": e["org"], "dates": e["dates"], "detail": ""}
                       for e in secs["education"]["entries"]],
         "skills": [{"group": "", "items": x} for x in skills],  # one plain line, as exported
-        "achievements": [], "publications": [],
+        "achievements": secs["achievements"]["lines"], "publications": secs["publications"]["lines"],
     }
 
 
-def _section(db: Session, key: str) -> dict:
+def _section(db: Session, key: str) -> tuple[dict, date | None]:
+    """(section, start month for timeline order)."""
     if key == "summary":
-        return {"title": "Summary", "lines": []}
+        return {"title": "Summary", "lines": []}, None
     owner_id = uuid.UUID(key)
     if e := db.get(Experience, owner_id):
         return {"title": e.title or "", "org": ", ".join(x for x in (e.employer, e.location) if x),
-                "dates": span(e.start_month, e.end_month), "lines": []}
+                "dates": span(e.start_month, e.end_month), "lines": []}, e.start_month
     if p := db.get(Project, owner_id):
-        return {"title": p.name or "Project", "dates": span(p.start_month, p.end_month), "lines": []}
-    return {"title": "", "lines": []}
+        return {"title": p.name or "Project", "dates": span(p.start_month, p.end_month), "lines": []}, p.start_month
+    return {"title": "", "lines": []}, None
 
 
 @router.get("/resumes")
@@ -190,6 +198,21 @@ def create_resume(body: ResumeIn, ctx: WriteCtxDep):
         "basis": freeze_basis(ctx.db, uid),
     })
     return ctx.respond(202, {"resume_id": resume_id, "operation": operation(task)})
+
+
+@router.post("/resumes/{resume_id}/regenerate", status_code=202)
+def regenerate_resume(resume_id: uuid.UUID, ctx: WriteCtxDep):
+    """"Update with new facts" (TRD §16.3: never automatic; the user chooses). The master resume is written again
+    from the current confirmed facts and saved as its next version, same id and template. Free, like every master."""
+    r, _ = _resume(ctx.db, resume_id)
+    if r.kind != "master":
+        raise ApiError(422, "VALIDATION_ERROR", "A tailored resume is made again from its job page.")
+    uid = ctx.user.id
+    task = enqueue(ctx.db, user_id=uid, type="regenerate", key=f"regenerate:{uid}:{ctx.key}", payload={
+        "resume_id": str(r.id), "scratch_id": str(uuid.uuid4()), "kind": "master", "template_id": r.template_id,
+        "target": r.target_occupation_id, "basis": freeze_basis(ctx.db, uid),
+    })
+    return ctx.respond(202, {"resume_id": r.id, "operation": operation(task)})
 
 
 class ResumePatch(BaseModel):

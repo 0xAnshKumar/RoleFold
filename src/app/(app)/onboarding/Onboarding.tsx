@@ -7,7 +7,8 @@ import { Fragment, useState } from "react";
 import a from "@/components/app/app.module.css";
 import { StatusIcon } from "@/components/ui";
 import { ApiError, api, waitFor, type Operation } from "@/lib/api";
-import { LEVELS, type Draft, type DraftGroup, type Education, type Fact, type Goals, type Prefs } from "@/lib/mock";
+import { LEVELS, type Draft, type DraftGroup, type Education, type Fact, type Goals, type Prefs, type Question } from "@/lib/mock";
+import { useAction } from "@/lib/useAction";
 import { AboutForm, EducationRow, useEducation, type About } from "../profile/Edit";
 import s from "./onboarding.module.css";
 
@@ -23,9 +24,11 @@ const FORMAT_MSG = "That file type isn’t supported. Upload a PDF, Word (.docx)
 /** Plain-language upload errors (api/app/routes/imports.py). */
 function uploadError(err: unknown) {
   if (!(err instanceof ApiError)) return (err as Error).message;
+  if (err.code === "FILE_TOO_LARGE" && err.details.max_pages) return `That resume is longer than ${err.details.max_pages} pages. Remove older or extra pages and upload it again, or start from scratch.`;
   if (err.code === "FILE_TOO_LARGE") return `That file is too big. Files can be up to ${err.details.max_mb ?? 10} MB; try saving it as a PDF without images.`;
   if (err.code === "UNSUPPORTED_FORMAT") return FORMAT_MSG;
-  if (err.code === "NO_TEXT_FOUND") return "We couldn’t find any text in that file. It may be a scan or a photo. Try a PDF exported from Word or Google Docs, or start from scratch.";
+  if (err.code === "NO_EXTRACTABLE_TEXT" && err.details.reason === "parse_failed") return "We couldn’t read that file: it took too long or may be damaged. Try a PDF exported from Word or Google Docs, a .docx, or start from scratch.";
+  if (err.code === "NO_EXTRACTABLE_TEXT") return "We couldn’t find any text in that file. It may be a scan or a photo. Try a PDF exported from Word or Google Docs, or start from scratch.";
   return err.message;
 }
 const MODES = ["Onsite", "Hybrid", "Remote"] as const;
@@ -39,6 +42,7 @@ function merge(old: DraftGroup[], next: DraftGroup[]) {
 }
 
 type Found = { name?: string | null; email?: string | null; phone?: string | null };
+const NUM_RE = /\d+(?:[.,]\d+)*/g; // the numbers the API marks (api/app/routes/profile.py _NUM_RE)
 
 // Numbers are what users most often confirm without reading, so they get called out.
 function markNumbers(text: string, numbers: string[]) {
@@ -62,6 +66,7 @@ export default function Onboarding({
   about: initialAbout,
   goals,
   prefs,
+  questions,
 }: {
   groups: DraftGroup[];
   education: Education[];
@@ -69,6 +74,8 @@ export default function Onboarding({
   about: About;
   goals: Goals;
   prefs: Prefs;
+  /** Guided enrichment (GET /v1/enrichment-questions): each answer becomes a draft fact. */
+  questions: Question[];
 }) {
   const reduce = useReducedMotion();
   const router = useRouter();
@@ -104,6 +111,45 @@ export default function Onboarding({
   const total = groups.reduce((n, g) => n + g.drafts.length, 0) + edu.list.length;
   const done = Object.values(confirmed).filter(Boolean).length + eduDone;
   const level = (d: Draft) => levels[d.id] ?? d.suggested;
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [asked, setAsked] = useState<string[]>([]); // answered or skipped on this screen
+  const question = questions.find((q) => !asked.includes(q.id));
+  const [answer, setAnswer] = useState("");
+  const [answerNote, setAnswerNote] = useState("");
+  const ask = useAction();
+
+  // PATCH /v1/facts/{id} appends a new version of the draft; the confirm below then uses its new version.
+  async function saveEdit(d: Draft) {
+    const text = editing?.text.trim();
+    if (!text || busy) return;
+    setError(null);
+    let version = d.version;
+    if (!demo) {
+      setBusy(`edit:${d.id}`);
+      try {
+        version = (await api<{ version: number }>(`/facts/${d.id}`, { method: "PATCH", body: { version: d.version, description: text } })).version;
+      } catch (err) {
+        setError((err as Error).message);
+        return;
+      } finally {
+        setBusy(null);
+      }
+    }
+    setGroups((gs) => gs.map((g) => ({ ...g, drafts: g.drafts.map((x) => (x.id === d.id ? { ...x, text, numbers: text.match(NUM_RE) ?? [], version } : x)) })));
+    setEditing(null);
+  }
+
+  // POST /v1/enrichment-questions/{id}/answer saves the answer as a draft fact under the same role; it then arrives in the list above.
+  const reply = (q: Question, skip: boolean) =>
+    ask.run(skip ? "skip" : "answer", async () => {
+      if (!demo) {
+        await api(`/enrichment-questions/${q.id}/${skip ? "skip" : "answer"}`, { method: "POST", body: skip ? undefined : { answer: answer.trim() } });
+        if (!skip) router.refresh();
+      }
+      setAsked((x) => [...x, q.id]);
+      setAnswer("");
+      setAnswerNote(skip ? "" : demo ? "Sample data: nothing was sent. In your account your answer is saved as a draft fact to confirm." : "Saved as a draft fact in the list above. Confirm it like the others.");
+    });
 
   function pick(f: File | null | undefined) {
     if (busy || !f) return;
@@ -320,7 +366,30 @@ export default function Onboarding({
                     const on = !!confirmed[d.id];
                     return (
                       <div key={d.id} className={`${s.draft} ${on ? s.draftOn : ""}`}>
-                        <p className={s.draftText}>{markNumbers(d.text, d.numbers)}</p>
+                        {editing?.id === d.id ? (
+                          <form
+                            className={s.editForm}
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              saveEdit(d);
+                            }}
+                          >
+                            <label className={s.field}>
+                              <span>Fix what we read</span>
+                              <textarea rows={3} maxLength={2000} required value={editing.text} onChange={(e) => setEditing({ id: d.id, text: e.target.value })} />
+                            </label>
+                            <div className={s.draftRow}>
+                              <button type="submit" className="btn btn-primary btn-small" disabled={!!busy || !editing.text.trim()}>
+                                {busy === `edit:${d.id}` ? "Saving…" : "Save"}
+                              </button>
+                              <button type="button" className="btn btn-secondary btn-small" disabled={!!busy} onClick={() => setEditing(null)}>
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <p className={s.draftText}>{markNumbers(d.text, d.numbers)}</p>
+                        )}
                         <div className={s.draftRow}>
                           <div className={s.levels} role="radiogroup" aria-label="How much of this was yours">
                             {LEVELS.map((l) => (
@@ -337,8 +406,8 @@ export default function Onboarding({
                               </button>
                             ))}
                           </div>
-                          <button type="button" className={s.editBtn}>
-                            Edit
+                          <button type="button" className={s.editBtn} disabled={!!busy || (!demo && on) || editing?.id === d.id} onClick={() => setEditing({ id: d.id, text: d.text })}>
+                            Edit<span className="sr-only"> this entry</span>
                           </button>
                           <button
                             type="button"
@@ -385,12 +454,42 @@ export default function Onboarding({
                 </div>
               )}
 
-              {demo && (
-                <div className={s.mentor}>
-                  <p className={s.mentorLabel}>One quick question</p>
-                  <p className="margin-note">You led the React migration at Northwind. Did checkout get faster or convert better afterwards?</p>
-                  <textarea rows={2} placeholder="Your answer becomes a draft fact you confirm" />
-                </div>
+              {question && (
+                <form
+                  className={s.mentor}
+                  aria-labelledby="quick-q"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    reply(question, false);
+                  }}
+                >
+                  <h2 id="quick-q" className={s.mentorLabel}>
+                    One quick question
+                  </h2>
+                  <p className="margin-note">{question.question}</p>
+                  <label className={s.field}>
+                    <span className="sr-only">Your answer</span>
+                    <textarea rows={2} maxLength={2000} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Your answer becomes a draft fact you confirm, e.g. Checkout conversion rose from 2.1% to 2.6%" />
+                  </label>
+                  <div className={s.draftRow}>
+                    <button type="submit" className="btn btn-primary btn-small" disabled={!answer.trim() || !!ask.busy}>
+                      {ask.busy === "answer" ? "Saving…" : "Save as draft fact"}
+                    </button>
+                    <button type="button" className="btn btn-secondary btn-small" disabled={!!ask.busy} onClick={() => reply(question, true)}>
+                      {ask.busy === "skip" ? "Skipping…" : "Skip"}
+                    </button>
+                  </div>
+                  {ask.error && (
+                    <p role="alert" className={a.problem}>
+                      {ask.error}
+                    </p>
+                  )}
+                </form>
+              )}
+              {answerNote && (
+                <p role="status" className={s.fine}>
+                  {answerNote}
+                </p>
               )}
 
               {error && (

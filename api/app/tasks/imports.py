@@ -19,6 +19,7 @@ from app.db.models import (
     Fact,
     FactVersion,
     Import,
+    Language,
     Project,
     Task,
     UserSkill,
@@ -134,7 +135,7 @@ def import_resume(db: Session, task: Claimed) -> dict:
                         "We couldn't read any text from this file. Upload a TXT or MD file, or paste the text.",
                         retry=False)
     names = header_name(text)
-    red = redact(text, names + user_names(db, imp.user_id))
+    red = redact(text, names + user_names(db, imp.user_id), header=True)
     result = llm.run(db, task, "resume_extract", {}, untrusted_text=red.text)
     out = ResumeExtract.model_validate(restore(result.output.model_dump(), red.mapping))
     source = numbers.extract(text)
@@ -146,7 +147,7 @@ def import_resume(db: Session, task: Claimed) -> dict:
         created.append({"type": kind, "id": str(row.id)})
 
     # Re-imports merge into what exists (not rejected): same role = title + employer + start,
-    # same project = name + start, same education = degree + institution, same certification = name.
+    # same project = name + start, same education = degree + institution, same certification or language = name.
     def existing(model, key) -> dict:
         return {key(r): r for r in db.scalars(select(model).where(model.status != "rejected"))}
 
@@ -187,7 +188,11 @@ def import_resume(db: Session, task: Claimed) -> dict:
         if s.name.lower() not in have:
             have.add(s.name.lower())
             add("skill", UserSkill(user_id=uid, raw_label=s.name, self_declared=True))
-    # Languages have no table yet; they are not saved.
+    langs = existing(Language, lambda r: norm(r.name))
+    for lang in out.languages:
+        if norm(lang.name) not in langs:
+            langs[norm(lang.name)] = Language(user_id=uid, origin="import", name=lang.name)
+            add("language", langs[norm(lang.name)])
 
     imp.parser_version, imp.model_version, imp.created_entries = PARSER_VERSION, result.model, created
     payload = {k: v for k, v in task.payload.items() if k != "text"}

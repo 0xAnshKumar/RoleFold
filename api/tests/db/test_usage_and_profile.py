@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from app.core import usage
 from app.core.errors import ApiError
-from tests.db.conftest import JD, as_user
+from tests.db.conftest import JD, as_user, export_data
 
 pytestmark = pytest.mark.db
 
@@ -93,7 +93,7 @@ def test_short_paste_rejected_before_any_reservation(alice):
     assert r.status_code == 422 and r.json()["error"]["code"] == "PASTE_TOO_SHORT"
     assert r.json()["error"]["details"]["min_chars"] == 200
     assert counter(alice, "deep_match") == {"used": 0, "reserved": 0, "limit": 30}
-    assert alice.get("/v1/me/export").json()["data"]["jobs"] == []
+    assert export_data(alice)["data"]["jobs"] == []
 
 
 def test_me_contact_details_saved_and_used_in_exports(pg, alice):
@@ -125,7 +125,7 @@ def test_paste_blocked_at_limit(pg, alice):
     set_used(pg, alice.id, "deep_match", 30)
     r = alice.write("POST", "/v1/jobs/paste", {"text": JD})
     assert r.json()["error"]["code"] == "PLAN_LIMIT_REACHED"
-    assert alice.get("/v1/me/export").json()["data"]["jobs"] == []  # nothing left behind
+    assert export_data(alice)["data"]["jobs"] == []  # nothing left behind
 
 
 def test_idempotency_replay_and_conflict(alice):

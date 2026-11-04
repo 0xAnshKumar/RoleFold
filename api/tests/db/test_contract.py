@@ -71,7 +71,7 @@ def test_upload_rejects_mismatch_scans_and_size(pg, alice, monkeypatch):
     assert upload(alice, "cv.docx", pdf_bytes("hi")).status_code == 415
     assert upload(alice, "cv.exe", b"MZ").status_code == 415
     blank = upload(alice, "scan.pdf", pdf_bytes("#box(width: 1cm, height: 1cm, fill: black)"))
-    assert blank.status_code == 422 and blank.json()["error"]["code"] == "NO_TEXT_FOUND"
+    assert blank.status_code == 422 and blank.json()["error"]["code"] == "NO_EXTRACTABLE_TEXT"
     monkeypatch.setenv("UPLOAD_MAX_MB", "0")
     get_settings.cache_clear()
     try:
@@ -80,6 +80,33 @@ def test_upload_rejects_mismatch_scans_and_size(pg, alice, monkeypatch):
         monkeypatch.delenv("UPLOAD_MAX_MB")
         get_settings.cache_clear()
     assert count(pg, "SELECT count(*) FROM imports") == 0
+
+
+def test_upload_page_and_length_limits(pg, alice, monkeypatch):
+    r = upload(alice, "long.pdf", pdf_bytes("one" + "#pagebreak() more" * 10))
+    assert r.status_code == 413 and r.json()["error"]["details"] == {"max_pages": 10, "pages": 11}
+    monkeypatch.setenv("UPLOAD_MAX_CHARS", "10")
+    get_settings.cache_clear()
+    try:
+        r = upload(alice, "cv.docx", docx_bytes("Frontend Engineer at Northwind"))
+        assert r.status_code == 413 and r.json()["error"]["code"] == "FILE_TOO_LARGE"
+    finally:
+        monkeypatch.delenv("UPLOAD_MAX_CHARS")
+        get_settings.cache_clear()
+    assert count(pg, "SELECT count(*) FROM imports") == 0
+
+
+def test_failed_upload_request_leaves_no_file(pg, alice, monkeypatch):
+    from app.core.errors import ApiError
+    from app.routes import imports
+
+    def boom(*a, **k):
+        raise ApiError(503, "DEPENDENCY_UNAVAILABLE", "queue down")
+
+    monkeypatch.setattr(imports, "enqueue", boom)
+    assert upload(alice, "cv.md", b"Frontend Engineer").status_code == 503
+    assert count(pg, "SELECT count(*) FROM imports") == 0
+    assert not list((get_settings().storage_dir / str(alice.id)).rglob("original.*"))
 
 
 def test_project_drafts_are_grouped(pg, alice, monkeypatch):

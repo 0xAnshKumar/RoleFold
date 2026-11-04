@@ -12,13 +12,12 @@ import zipfile
 from pathlib import PurePosixPath
 from typing import Annotated
 
-import docx
-import pypdf
 from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, ValidationError
+from sqlalchemy import event
 
-from app.core import storage
+from app.core import parsing, storage
 from app.core.config import get_settings
 from app.core.errors import ApiError
 from app.core.idempotency import WriteCtxDep
@@ -66,22 +65,34 @@ def sniff(data: bytes) -> str | None:
     return None if b"\x00" in data else "text"
 
 
+def too_long(pages: int | None = None) -> ApiError:
+    n = get_settings().upload_max_pages
+    return ApiError(413, "FILE_TOO_LARGE", f"Resumes can be up to {n} pages. Remove extra pages and try again.",
+                    {"max_pages": n, "pages": pages})
+
+
 def extract_text(data: bytes, fmt: str) -> str:
-    """Raises NO_TEXT_FOUND for unreadable, encrypted, scanned or empty files (OCR is later, T-OQ-7)."""
-    try:
-        if fmt == "pdf":
-            text = "\n".join(page.extract_text() or "" for page in pypdf.PdfReader(io.BytesIO(data)).pages)
-        elif fmt == "docx":
-            d = docx.Document(io.BytesIO(data))
-            cells = (c.text for t in d.tables for row in t.rows for c in row.cells)
-            text = "\n".join([p.text for p in d.paragraphs] + list(cells))
-        else:
-            text = data.decode("utf-8-sig")
-    except Exception:  # noqa: BLE001 - any parser failure on untrusted input is "no readable text"
-        text = ""
+    """NO_EXTRACTABLE_TEXT for unreadable, encrypted, scanned or empty files (OCR is later, T-OQ-7).
+
+    PDF/DOCX parsers run in a sandboxed child process (app/core/parsing.py); TXT/MD is already proven UTF-8.
+    """
+    settings = get_settings()
+    if fmt not in ("pdf", "docx"):
+        text, pages = data.decode("utf-8-sig"), None
+    else:
+        try:
+            out = parsing.extract(data, fmt, settings.upload_max_pages)
+        except parsing.ParseFailed:
+            raise ApiError(422, "NO_EXTRACTABLE_TEXT", "We couldn't read this file: it took too long or is damaged. "
+                           "Upload a DOCX or TXT version instead.", {"reason": "parse_failed"}) from None
+        text, pages = out["text"], out["pages"]
+        if (pages or 0) > settings.upload_max_pages:
+            raise too_long(pages)
     if not text.strip():
-        raise ApiError(422, "NO_TEXT_FOUND", NO_TEXT)
-    return text[:MAX_TEXT]
+        raise ApiError(422, "NO_EXTRACTABLE_TEXT", NO_TEXT)
+    if pages is None and len(text) > settings.upload_max_chars:
+        raise too_long()
+    return text
 
 
 def read_upload(content_type: str, body: bytes) -> tuple[str, bytes]:
@@ -110,7 +121,7 @@ def create_import(request: Request, raw: Annotated[bytes, Depends(raw_body)], ct
             raise unsupported()
         too_large(len(data))
         if not data:
-            raise ApiError(422, "NO_TEXT_FOUND", NO_TEXT)
+            raise ApiError(422, "NO_EXTRACTABLE_TEXT", NO_TEXT)
         real = sniff(data)
         if real != fmt and not (real == "text" and fmt in ("txt", "md")):
             raise unsupported()
@@ -130,8 +141,9 @@ def create_import(request: Request, raw: Annotated[bytes, Depends(raw_body)], ct
     # Keys are prefixed by user_id (TRD §3); the user's filename never enters the key.
     key = f"{ctx.user.id}/imports/{import_id}/original.{fmt}"
     if data is not None:
-        # ponytail: written before commit; a rolled-back request leaves an orphan file until account deletion.
         storage.put(key, data)
+        # A failed request or commit rolls the Import row back: take the file with it (no savepoints here).
+        event.listen(ctx.db, "after_rollback", lambda _db: storage.delete_prefix(key.rsplit("/", 1)[0]), once=True)
     imp = Import(id=import_id, user_id=ctx.user.id, source_file_key=key, filename=filename, format=fmt,
                  size_bytes=size)
     ctx.db.add(imp)

@@ -248,6 +248,18 @@ export type Profile = typeof profile;
 
 /** Education rows: `id`, `status` and `version` are needed to confirm one (TRD §5.2). */
 export type Education = { id?: string; degree: string; org: string; dates: string; status?: "draft" | "confirmed"; version?: number };
+/** Every career break the user recorded; only `showOnResume` ones go on resumes (a dated "Career break" entry). */
+export type CareerBreak = { id: string; dates: string; reason: string; showOnResume: boolean; version?: number };
+/** One resume line as the user wrote it, under the template's Achievements or Publications section. */
+export type Achievement = { id: string; kind: "achievement" | "publication"; text: string; version?: number };
+/** Imported languages are drafts until confirmed. */
+export type Language = { id: string; name: string; proficiency: string; status: "draft" | "confirmed"; version?: number };
+/** Enrichment question (GET /v1/enrichment-questions items): the answer becomes a draft fact. */
+export type Question = { id: string; question: string };
+
+export const questions: Question[] = [
+  { id: "q1", question: "You led the React migration at Northwind. Did checkout get faster or convert better afterwards?" },
+];
 
 export const profile = {
   name: "Rohan Iyer",
@@ -272,7 +284,18 @@ export const profile = {
     { name: "GraphQL", evidence: 0 },
   ],
   education: [{ id: "edu-pes", degree: "B.Tech, Computer Science", org: "PES University, Bengaluru", dates: "2015 – 2019", status: "draft" }] as Education[],
-  gaps: [] as { dates: string; reason: string }[],
+  /** Projects to file a fact under (the match page's "Save as draft fact"). */
+  projects: [{ id: "proj-ledgerly", name: "Ledgerly", dates: "Jan 2023 – Present" }] as { id: string; name: string; dates: string }[],
+  gaps: [] as CareerBreak[],
+  achievements: [
+    { id: "ach-1", kind: "achievement", text: "Speaker, React Bangalore meetup, 2024" },
+    { id: "ach-2", kind: "publication", text: "Iyer R. “Shipping smaller bundles.” Northwind engineering blog, 2025." },
+  ] as Achievement[],
+  languages: [
+    { id: "lang-en", name: "English", proficiency: "Fluent", status: "confirmed" },
+    { id: "lang-hi", name: "Hindi", proficiency: "Native", status: "confirmed" },
+    { id: "lang-kn", name: "Kannada", proficiency: "", status: "draft" },
+  ] as Language[],
   goals: { roles: ["Senior Frontend Engineer"], industries: ["Fintech", "E-commerce"], seniority: "Senior" } as Goals,
   prefs: { locations: ["Bengaluru"], modes: ["Hybrid", "Remote"], type: "Full-time", visa: "Not needed", notice: "60 days" } as Prefs,
 };

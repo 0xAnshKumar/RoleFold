@@ -1,0 +1,30 @@
+/* Sign-in: the calm app volume, one panel on paper. */
+.wrap {
+  display: grid;
+  align-content: center;
+  gap: var(--s-xl);
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--s-3xl) clamp(16px, 4vw, 32px);
+}
+.brand {
+  justify-self: start;
+  font: 800 1.5rem/1 var(--font-display), sans-serif;
+  font-stretch: 115%;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+.card {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-lg);
+}
+.title {
+  font: 700 1.5rem/1.2 var(--font-display), sans-serif;
+  font-stretch: 104%;
+}
+.error {
+  color: var(--conflict);
+  font-weight: 600;
+}

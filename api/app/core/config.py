@@ -18,13 +18,24 @@ class Settings(BaseSettings):
     migration_database_url: str | None = None
     # Salt for pseudonymizing user_id in audit_log / llm_calls on deletion (CEO D14).
     pseudonym_salt: str = Field(min_length=16)
+    # OIDC login (app/core/auth.py). Bearer JWTs are accepted only when issuer and audience are set.
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_url: str | None = None  # default: jwks_uri from {issuer}/.well-known/openid-configuration
 
     # Proposed values (TRD §15.1, PRD §7 free plan).
     free_tailored_per_month: int = 10
     free_deep_matches_per_month: int = 30
     upload_max_mb: int = 10
+    upload_max_pages: int = 10  # PDFs (TRD §5.1)
+    upload_max_chars: int = 50_000  # DOCX/TXT/MD stand-in for the page limit (~10 dense pages)
     # Local object storage (TRD §3 keys, prefixed by user_id). Gitignored.
     storage_dir: Path = Path(__file__).parents[2] / "var" / "storage"
+    # Deletion tombstones (one write-once file per salted user hash), kept OUTSIDE the DB and its backups so a
+    # restore can re-apply deletions (README "Restore runbook"). Production: an object-locked (WORM) bucket mount.
+    tombstone_dir: Path = Path(__file__).parents[2] / "var" / "tombstones"
+    # Only for `python -m app.tasks.reapply_tombstones`: a superuser/BYPASSRLS role (it must see every user).
+    restore_database_url: str | None = None
     job_paste_max_chars: int = 50_000
     task_max_attempts: int = 5
     task_lease_seconds: int = 300

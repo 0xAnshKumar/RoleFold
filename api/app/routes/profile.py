@@ -18,13 +18,17 @@ from app.core.auth import CtxDep
 from app.core.errors import ApiError
 from app.core.idempotency import WriteCtxDep
 from app.db.models import (
+    CAREER_GAP_REASONS,
     RESPONSIBILITY_LEVELS,
+    Achievement,
     CareerGap,
     CareerGoal,
     Education,
+    EnrichmentQuestion,
     Experience,
     Fact,
     FactVersion,
+    Language,
     PreferenceVersion,
     Profile,
     Project,
@@ -145,8 +149,18 @@ def get_profile(ctx: CtxDep):
         "education": [{"id": str(e.id), "degree": ", ".join(x for x in (e.degree, e.field_of_study) if x),
                        "org": e.institution or "", "dates": display.years(e.start_month, e.end_month),
                        "status": e.status, "version": e.version} for e in edus],
-        "gaps": [{"dates": display.span(g.start_month, g.end_month), "reason": g.reason_text or g.reason or ""}
-                 for g in db.scalars(select(CareerGap).where(CareerGap.show_on_resume).order_by(CareerGap.start_month))],
+        "projects": [{"id": str(p.id), "name": p.name or "Project", "dates": display.span(p.start_month, p.end_month)}
+                     for p in projs],
+        # Every break the user recorded; only showOnResume ones go on resumes. The reason never feeds matching (D25).
+        "gaps": [{"id": str(g.id), "dates": display.span(g.start_month, g.end_month),
+                  "reason": g.reason_text or g.reason or "", "showOnResume": g.show_on_resume, "version": g.version}
+                 for g in db.scalars(select(CareerGap).order_by(CareerGap.start_month.desc()))],
+        "achievements": [{"id": str(x.id), "kind": x.kind, "text": x.description, "version": x.version}
+                         for x in db.scalars(select(Achievement).where(Achievement.status == "confirmed")
+                                             .order_by(Achievement.created_at))],
+        "languages": [{"id": str(x.id), "name": x.name, "proficiency": x.proficiency or "", "status": x.status,
+                       "version": x.version}
+                      for x in db.scalars(select(Language).where(Language.status != "rejected").order_by(Language.created_at))],
         "goals": goals_out(_latest(db, CareerGoal)),
         "prefs": prefs,
         "facts": [{"id": str(f.id), "role": role_of(f), "text": v.description,
@@ -524,3 +538,168 @@ def reject_fact(fact_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDep):
         ctx.db.flush()
         ctx.db.refresh(f)
     return ctx.respond(200, _fact_out(f, v, pv if pv is not None else profile_version(ctx.db, ctx.user.id)))
+
+
+# ---------------------------------------------------------------- projects, achievements, languages, career breaks
+
+
+class ProjectIn(Dated):
+    name: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/projects", status_code=201)
+def create_project(body: ProjectIn, ctx: WriteCtxDep):
+    """A project to file facts under (the match page's "Save as draft fact"). Its facts still wait for confirmation."""
+    p = Project(user_id=ctx.user.id, name=body.name.strip(), start_month=body.start_month, end_month=body.end_month)
+    ctx.db.add(p)
+    ctx.db.flush()
+    ctx.db.refresh(p)
+    return ctx.respond(201, _experience_out(ctx.db, p))
+
+
+Line = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+
+
+class AchievementIn(BaseModel):
+    kind: Literal["achievement", "publication"] = "achievement"
+    description: Line
+
+
+class LanguageIn(BaseModel):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+    proficiency: Annotated[str, StringConstraints(strip_whitespace=True, max_length=60)] | None = None
+
+
+def _add_confirmed(ctx, row) -> dict:
+    """A line the user types is confirmed as it's saved, like "Add a fact" (imported ones arrive as drafts)."""
+    row.status = "confirmed"
+    ctx.db.add(row)
+    pv = bump_profile_version(ctx.db, ctx.user.id)
+    ctx.db.flush()
+    ctx.db.refresh(row)
+    return ctx.respond(201, _experience_out(ctx.db, row, pv))
+
+
+def _delete(model, entity_id: uuid.UUID, body: VersionIn, ctx):
+    row = locked(ctx.db, model, entity_id, body.version)
+    was_confirmed = getattr(row, "status", None) == "confirmed"
+    ctx.db.delete(row)
+    pv = bump_profile_version(ctx.db, ctx.user.id) if was_confirmed else profile_version(ctx.db, ctx.user.id)
+    return ctx.respond(200, {"deleted": True, "profile_version": pv})
+
+
+@router.post("/achievements", status_code=201)
+def create_achievement(body: AchievementIn, ctx: WriteCtxDep):
+    """Shown as written under the template's Achievements or Publications section; never reworded by a model."""
+    return _add_confirmed(ctx, Achievement(user_id=ctx.user.id, kind=body.kind, description=body.description))
+
+
+@router.delete("/achievements/{achievement_id}")
+def delete_achievement(achievement_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDep):
+    return _delete(Achievement, achievement_id, body, ctx)
+
+
+@router.post("/languages", status_code=201)
+def create_language(body: LanguageIn, ctx: WriteCtxDep):
+    return _add_confirmed(ctx, Language(user_id=ctx.user.id, name=body.name, proficiency=body.proficiency or None))
+
+
+@router.delete("/languages/{language_id}")
+def delete_language(language_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDep):
+    return _delete(Language, language_id, body, ctx)
+
+
+@router.post("/languages/{language_id}/confirm")
+def confirm_language(language_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDep):
+    return _set_status(Language, language_id, body, ctx, "confirmed")
+
+
+@router.post("/languages/{language_id}/reject")
+def reject_language(language_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDep):
+    return _set_status(Language, language_id, body, ctx, "rejected")
+
+
+class CareerGapIn(Dated):
+    start_month: date
+    reason: Literal[CAREER_GAP_REASONS] | None = None
+    reason_text: str | None = Field(None, max_length=200)
+    show_on_resume: bool = False
+
+
+@router.post("/career-gaps", status_code=201)
+def create_career_gap(body: CareerGapIn, ctx: WriteCtxDep):
+    """CEO D25: dates, an optional reason in the user's words, and whether it shows on resumes (as a dated
+    "Career break" entry). The reason is never used for matching."""
+    g = CareerGap(user_id=ctx.user.id, **body.model_dump() | {"reason_text": (body.reason_text or "").strip() or None})
+    ctx.db.add(g)
+    ctx.db.flush()
+    ctx.db.refresh(g)
+    return ctx.respond(201, g.as_dict())
+
+
+@router.delete("/career-gaps/{gap_id}")
+def delete_career_gap(gap_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDep):
+    return _delete(CareerGap, gap_id, body, ctx)
+
+
+# ---------------------------------------------------------------- guided enrichment (PRD §5.2), code only
+
+
+def _question(description: str) -> str:
+    short = description if len(description) <= 90 else description[:89].rstrip() + "…"
+    return f"About “{short}”: did it change anything you can measure, like time saved, speed, errors, users or revenue?"
+
+
+@router.get("/enrichment-questions")
+def list_enrichment_questions(ctx: CtxDep):
+    """Up to 5 open questions. One is asked per fact that states no number yet, Led/Managed first. No model call:
+    the answer is saved as the user wrote it, as a draft fact they confirm."""
+    db = ctx.db
+    db.scalars(select(Profile).where(Profile.user_id == ctx.user.id).with_for_update()).one()  # one question per fact
+    asked = set(db.scalars(select(EnrichmentQuestion.target_id)))
+    for f, v in db.execute(_facts_query().where(Fact.status != "rejected")).all():
+        if f.id not in asked and v.outcome_value is None and not _NUM_RE.search(v.description):
+            db.add(EnrichmentQuestion(user_id=ctx.user.id, question=_question(v.description), target_type="fact",
+                                      target_id=f.id, priority=v.responsibility_level or 0))
+    db.flush()
+    rows = db.scalars(select(EnrichmentQuestion).join(Fact, Fact.id == EnrichmentQuestion.target_id)
+                      .where(EnrichmentQuestion.state == "open", Fact.status != "rejected")
+                      .order_by(EnrichmentQuestion.priority.desc(), EnrichmentQuestion.created_at).limit(5))
+    return {"items": [{"id": str(q.id), "question": q.question} for q in rows]}
+
+
+def _open_question(db: Session, question_id: uuid.UUID) -> EnrichmentQuestion:
+    q = db.scalars(select(EnrichmentQuestion).where(EnrichmentQuestion.id == question_id).with_for_update()).first()
+    if q is None:
+        raise ApiError(404, "NOT_FOUND", "Not found.")
+    if q.state != "open":
+        raise ApiError(409, "QUESTION_CLOSED", "This question was already answered or skipped.")
+    return q
+
+
+class AnswerIn(BaseModel):
+    answer: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+
+@router.post("/enrichment-questions/{question_id}/answer", status_code=201)
+def answer_enrichment_question(question_id: uuid.UUID, body: AnswerIn, ctx: WriteCtxDep):
+    """The answer becomes a draft fact (origin enrichment) under the same role or project; nothing counts until confirmed."""
+    q = _open_question(ctx.db, question_id)
+    target = ctx.db.get(Fact, q.target_id)
+    if target is None:
+        raise ApiError(404, "NOT_FOUND", "The entry this question was about no longer exists.")
+    f = Fact(user_id=ctx.user.id, origin="enrichment", experience_id=target.experience_id,
+             project_id=target.project_id, education_id=target.education_id)
+    ctx.db.add(f)
+    ctx.db.flush()
+    ctx.db.refresh(f)
+    v = _add_version(ctx.db, f, {"description": body.answer})
+    q.state, q.answer_text = "answered", body.answer
+    return ctx.respond(201, _fact_out(f, v, profile_version(ctx.db, ctx.user.id)))
+
+
+@router.post("/enrichment-questions/{question_id}/skip")
+def skip_enrichment_question(question_id: uuid.UUID, ctx: WriteCtxDep):
+    q = _open_question(ctx.db, question_id)
+    q.state = "skipped"
+    return ctx.respond(200, {"id": str(q.id), "state": q.state})

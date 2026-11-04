@@ -152,7 +152,7 @@ export default function Editor({ resume, facts, demo }: { resume: Resume; facts:
       <div className={s.split}>
         <section aria-label="Resume lines and their proof" className={s.lines}>
           {resume.sections.map((sec) => (
-            <div key={sec.lines[0]?.id ?? sec.title} className={s.group}>
+            <div key={sec.lines[0]?.id ?? `${sec.title}-${sec.dates}`} className={s.group}>
               <div className={s.groupHead}>
                 <h2>{sec.title}</h2>
                 {sec.org && (
