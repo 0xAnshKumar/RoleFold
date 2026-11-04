@@ -106,14 +106,16 @@ export default async function MatchPage({ params }: PageProps<"/jobs/[id]">) {
                 <Stamp status={GOAL[m.goalFit.status]} /> {m.goalFit.text}
               </p>
             </div>
-            <div className={s.mini}>
-              <h2>Ask the recruiter</h2>
-              <ul className={s.questions}>
-                {m.questions.map((q) => (
-                  <li key={q}>{q}</li>
-                ))}
-              </ul>
-            </div>
+            {m.questions.length > 0 && (
+              <div className={s.mini}>
+                <h2>Ask the recruiter</h2>
+                <ul className={s.questions}>
+                  {m.questions.map((q) => (
+                    <li key={q}>{q}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
         </div>
 

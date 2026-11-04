@@ -346,7 +346,8 @@ def test_tailor_happy_path_blocks_and_withholds(pg, alice, monkeypatch):
     assert [s["title"] for s in res["sections"]] == ["Summary", "Frontend Engineer"]
     assert [w["id"] for w in res["withheld"]] == ["s2"]
     line = res["sections"][1]["lines"][0]
-    assert line["status"] == "passed" and line["factId"]
+    assert line["status"] == "passed" and line["factId"] and line["factIds"][0] == line["factId"]
+    assert res["sections"][1]["owner"]["type"] == "experience"  # "Save as a new fact" files the edit under it
     # The preview gets the non-line parts (contact, education, skills) from the data the export renders.
     assert {"contact", "education", "skills", "projects", "skillsSummary"} <= res["extras"].keys()
     [item] = alice.get("/v1/resumes").json()["items"]

@@ -10,7 +10,7 @@ from app.db.models import RLS_TABLES, SYSTEM_TABLES, Base, Task
 from app.routes.jobs import description_hash
 from app.routes.profile import ExperienceIn, content_hash
 from app.tasks.deletion import pseudonym
-from app.tasks.queue import backoff_seconds, operation
+from app.tasks.queue import DEAD_MESSAGE, backoff_seconds, operation
 
 VERSIONS = Path(__file__).parents[2] / "alembic" / "versions"
 
@@ -54,7 +54,8 @@ def test_backoff_grows_with_jitter_and_caps():
 def test_dead_letter_shows_as_failed_operation():
     t = Task(id=uuid.uuid4(), type="match", status="dead", payload={}, error_code="INTERNAL_ERROR", error_message="x")
     op = operation(t)
-    assert op["state"] == "failed" and op["error"] == {"code": "INTERNAL_ERROR", "message": "x"}
+    assert op["state"] == "failed" and op["error"] == {"code": "INTERNAL_ERROR", "message": DEAD_MESSAGE}
+    assert "retry automatically" not in DEAD_MESSAGE
 
 
 def test_pseudonym_is_stable_and_hides_id():

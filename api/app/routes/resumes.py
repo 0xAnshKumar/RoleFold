@@ -27,6 +27,7 @@ from app.db.models import (
     FactVersion,
     Job,
     JobVersion,
+    Profile,
     Project,
     Resume,
     ResumeDraft,
@@ -80,21 +81,23 @@ def _names(db: Session, r: Resume) -> tuple[str, str]:
     return r.target_occupation_id or "Master resume", r.target_occupation_id or ""
 
 
-def freshness(db: Session, draft: ResumeDraft) -> tuple[str, str | None]:
-    """TRD §16.2: outdated when a cited fact version is no longer confirmed and current."""
+def freshness(db: Session, draft: ResumeDraft, master: bool = False) -> tuple[str, str | None]:
+    """TRD §16.2: outdated when a cited fact version is no longer confirmed and current. A master is also outdated
+    when the confirmed profile moved on (e.g. new facts), so "Update with new facts" can bring them in."""
     cited = {i for s in draft.statements for i in s["cited_fact_version_ids"]}
-    if not cited:
-        return "current", None
-    current = {str(f.version.id) for f in current_facts(db)}
+    current = {str(f.version.id) for f in current_facts(db)} if cited else set()
     changed = len(cited - current)
-    if not changed:
-        return "current", None
-    return "outdated", f"{changed} fact{'s' if changed > 1 else ''} changed since this version"
+    if changed:
+        return "outdated", f"{changed} fact{'s' if changed > 1 else ''} changed since this version"
+    pv = db.scalar(select(Profile.profile_version).where(Profile.user_id == draft.user_id))
+    if master and pv is not None and draft.profile_version < pv:
+        return "outdated", "Your confirmed facts changed since this version"
+    return "current", None
 
 
 def list_item(db: Session, r: Resume, draft: ResumeDraft) -> dict:
     name, target = _names(db, r)
-    state, reason = freshness(db, draft)
+    state, reason = freshness(db, draft, master=r.kind == "master")
     item = {"id": str(r.id), "kind": r.kind, "name": name, "target": target,
             "template": TEMPLATE_NAMES.get(r.template_id, r.template_id), "updated": day(draft.updated_at),
             "freshness": state}
@@ -121,8 +124,10 @@ def resume_view(db: Session, r: Resume, draft: ResumeDraft) -> dict:
         key = "summary" if s["type"] == "summary" or not s.get("owner_id") else s["owner_id"]
         if key not in sections:
             sections[key], starts[key] = _section(db, key)
+        ids = [fact_of[i] for i in s["cited_fact_version_ids"] if i in fact_of]
+        # factIds: every cited fact, so the editor's stub shows all the proof a multi-fact line rests on.
         sections[key]["lines"].append({"id": s["id"], "text": s["text"], "status": s["status"],
-                                       "factId": fact_of.get(next(iter(s["cited_fact_version_ids"]), ""), "")})
+                                       "factId": ids[0] if ids else "", "factIds": ids})
     for g in career_breaks(db):  # placed in the timeline, as the export does (app/tasks/exports.py)
         sections[str(g.id)] = {"title": "Career break", "org": g.reason_text or "",
                                "dates": span(g.start_month, g.end_month), "lines": []}
@@ -130,7 +135,7 @@ def resume_view(db: Session, r: Resume, draft: ResumeDraft) -> dict:
     summary = [sections.pop("summary")] if "summary" in sections else []
     ordered = summary + [sections[k] for k in sorted(sections, key=lambda k: starts.get(k) or date.min, reverse=True)]
     _, target = _names(db, r)
-    state, reason = freshness(db, draft)
+    state, reason = freshness(db, draft, master=r.kind == "master")
     return {"id": str(r.id), "name": "", "target": target, "template": TEMPLATE_NAMES.get(r.template_id, r.template_id),
             "templateId": r.template_id, "kind": r.kind, "version": draft.version, "freshness": state,
             "outdatedReason": reason, "sections": ordered, "withheld": withheld,
@@ -161,9 +166,11 @@ def _section(db: Session, key: str) -> tuple[dict, date | None]:
     owner_id = uuid.UUID(key)
     if e := db.get(Experience, owner_id):
         return {"title": e.title or "", "org": ", ".join(x for x in (e.employer, e.location) if x),
-                "dates": span(e.start_month, e.end_month), "lines": []}, e.start_month
+                "dates": span(e.start_month, e.end_month), "lines": [],
+                "owner": {"type": "experience", "id": key}}, e.start_month
     if p := db.get(Project, owner_id):
-        return {"title": p.name or "Project", "dates": span(p.start_month, p.end_month), "lines": []}, p.start_month
+        return {"title": p.name or "Project", "dates": span(p.start_month, p.end_month), "lines": [],
+                "owner": {"type": "project", "id": key}}, p.start_month
     return {"title": "", "lines": []}, None
 
 

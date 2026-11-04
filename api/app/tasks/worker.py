@@ -9,6 +9,7 @@ import uuid
 from collections.abc import Callable
 
 from sqlalchemy import Engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core import usage
@@ -78,7 +79,14 @@ def main() -> None:
     engine = engine_for(settings.worker_database_url)
     log.info("worker started; types=%s", sorted(HANDLERS))
     while True:
-        if not run_once(engine):
+        try:
+            busy = run_once(engine)
+        except OperationalError:
+            # The database went away (restart, failover): wait and retry instead of exiting. Leases cover running work.
+            log.exception("database unavailable; retrying")
+            busy = False
+            time.sleep(5)
+        if not busy:
             time.sleep(settings.worker_poll_seconds)
 
 

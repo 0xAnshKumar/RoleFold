@@ -98,6 +98,10 @@
 .input:focus {
   outline: none;
 }
+.stubs {
+  display: grid;
+  gap: 6px;
+}
 .stub {
   display: flex;
   flex-wrap: wrap;
