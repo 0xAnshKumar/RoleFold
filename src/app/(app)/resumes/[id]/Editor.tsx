@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import a from "@/components/app/app.module.css";
 import { ApiError, api, exportResume } from "@/lib/api";
@@ -45,13 +46,17 @@ export default function Editor({ resume, facts, demo }: { resume: Resume; facts:
   const tpl = useAction();
   // "Save as a new fact": a blocked edit becomes a draft fact (POST /v1/facts) under the line's role or project.
   const draft = useAction();
+  const router = useRouter();
   const [draftLine, setDraftLine] = useState<string | null>(null);
   const [drafted, setDrafted] = useState<Record<string, string>>({}); // line id -> text saved as a draft
   const saveAsFact = (id: string, owner: { type: string; id: string }) => {
     const text = lines[id].trim();
     setDraftLine(id);
     draft.run(id, async () => {
-      if (!demo) await api("/facts", { method: "POST", body: { owner_type: owner.type, owner_id: owner.id, description: text } });
+      if (!demo) {
+        await api("/facts", { method: "POST", body: { owner_type: owner.type, owner_id: owner.id, description: text } });
+        router.refresh(); // the nav's "N entries to confirm" count now includes this draft
+      }
       setDrafted((d) => ({ ...d, [id]: lines[id] }));
     });
   };

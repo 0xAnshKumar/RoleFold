@@ -150,3 +150,20 @@ def test_gemini_usage_counts_thinking_tokens_as_output():
 
     usage.thoughts_token_count = None  # models without thinking report None
     assert provider.generate(ProviderRequest("m", "sys", "user", {}, 5, 256)).tokens_out == 40
+
+
+def test_prompts_sent_carry_the_quality_rules():
+    """QA 2026-11-04: notes said "The candidate", bullets ended "at <Employer>", eligibility values were whole
+    sentences, and imports lost achievements and career breaks."""
+    gw, fake, _ = gateway([{"results": []}, {"statements": []}, {}, {}])
+    gw.run("requirement_map", {"requirements": []})
+    gw.run("resume_write", {"facts": []})
+    gw.run("job_extract", {}, untrusted_text="Backend Engineer")
+    gw.run("resume_extract", {}, untrusted_text="Career break, 2023")
+    mapping, write, job, extract = fake.requests
+    assert 'address them as "you"' in mapping.system and "never \"the candidate\"" in mapping.system
+    assert 'no "at <employer>" endings' in write.system
+    assert "never the whole sentence" in job.system
+    assert "short normalized value" in job.json_schema["$defs"]["JobEligibilityDraft"]["properties"]["value"]["description"]
+    assert {"achievements", "career_breaks"} <= extract.json_schema["properties"].keys()
+    assert "`career_breaks`" in extract.system and "publication" in extract.system

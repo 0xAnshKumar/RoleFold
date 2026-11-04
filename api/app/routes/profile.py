@@ -153,10 +153,12 @@ def get_profile(ctx: CtxDep):
                       "factIds": [str(f.id) for f, _ in confirmed if f.project_id == p.id]} for p in projs],
         # Every break the user recorded; only showOnResume ones go on resumes. The reason never feeds matching (D25).
         "gaps": [{"id": str(g.id), "dates": display.span(g.start_month, g.end_month),
-                  "reason": g.reason_text or g.reason or "", "showOnResume": g.show_on_resume, "version": g.version}
-                 for g in db.scalars(select(CareerGap).order_by(CareerGap.start_month.desc()))],
-        "achievements": [{"id": str(x.id), "kind": x.kind, "text": x.description, "version": x.version}
-                         for x in db.scalars(select(Achievement).where(Achievement.status == "confirmed")
+                  "reason": g.reason_text or g.reason or "", "showOnResume": g.show_on_resume, "status": g.status,
+                  "version": g.version}
+                 for g in db.scalars(select(CareerGap).where(CareerGap.status != "rejected")
+                                     .order_by(CareerGap.start_month.desc()))],
+        "achievements": [{"id": str(x.id), "kind": x.kind, "text": x.description, "status": x.status, "version": x.version}
+                         for x in db.scalars(select(Achievement).where(Achievement.status != "rejected")
                                              .order_by(Achievement.created_at))],
         "languages": [{"id": str(x.id), "name": x.name, "proficiency": x.proficiency or "", "status": x.status,
                        "version": x.version}
@@ -335,7 +337,8 @@ def delete_experience(experience_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDe
 
 
 def _set_status(model, entity_id: uuid.UUID, body: VersionIn, ctx, status: str):
-    """Confirm or reject an experience or education row; crossing "confirmed" bumps profile_version."""
+    """Confirm or reject a draft entry (experience, education, language, achievement, career break);
+    crossing "confirmed" bumps profile_version."""
     e = locked(ctx.db, model, entity_id, body.version)
     pv = None
     if e.status != status:
@@ -599,6 +602,11 @@ def delete_achievement(achievement_id: uuid.UUID, body: VersionIn, ctx: WriteCtx
     return _delete(Achievement, achievement_id, body, ctx)
 
 
+@router.post("/achievements/{achievement_id}/confirm")
+def confirm_achievement(achievement_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDep):
+    return _set_status(Achievement, achievement_id, body, ctx, "confirmed")
+
+
 @router.post("/languages", status_code=201)
 def create_language(body: LanguageIn, ctx: WriteCtxDep):
     return _add_confirmed(ctx, Language(user_id=ctx.user.id, name=body.name, proficiency=body.proficiency or None))
@@ -635,6 +643,11 @@ def create_career_gap(body: CareerGapIn, ctx: WriteCtxDep):
     ctx.db.flush()
     ctx.db.refresh(g)
     return ctx.respond(201, g.as_dict())
+
+
+@router.post("/career-gaps/{gap_id}/confirm")
+def confirm_career_gap(gap_id: uuid.UUID, body: VersionIn, ctx: WriteCtxDep):
+    return _set_status(CareerGap, gap_id, body, ctx, "confirmed")
 
 
 @router.delete("/career-gaps/{gap_id}")

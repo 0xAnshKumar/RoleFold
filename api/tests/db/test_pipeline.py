@@ -419,3 +419,38 @@ def test_users_name_never_reaches_the_model_in_match_or_tailor(pg, alice, monkey
     assert "NAME_" in llm_fake.requests[1].user and "NAME_" in llm_fake.requests[2].user
     for req in llm_fake.requests:
         assert "rohan" not in req.user.lower() and "iyer" not in req.user.lower()
+
+
+YEARS_POSTING = """Frontend Engineer
+Requirements:
+- 3+ years of frontend experience required
+- 20+ years of frontend experience required
+- React in production required
+We build payment tools for small shops across India and care about clear, tested code every day.
+"""
+
+
+def test_years_requirements_are_counted_from_role_dates_not_cited_facts(pg, alice, monkeypatch):
+    """QA 2026-11-04: "5+ years" was backed by a mentoring fact. Years come from confirmed role dates in code."""
+    f = confirmed_fact(alice, "Mentored two junior engineers", 2)  # role from Jul 2021
+    fv = f["fact_version_id"]
+    [role] = alice.get("/v1/profile").json()["roles"]
+    alice.write("POST", f"/v1/experiences/{role['id']}/confirm", {"version": role["version"]})  # years count confirmed roles
+    fake(monkeypatch, [
+        {"title": "Frontend Engineer", "requirements": [
+            {"quote": "3+ years of frontend experience required", "category": "experience", "importance": "required"},
+            {"quote": "20+ years of frontend experience required", "category": "experience", "importance": "required"},
+            {"quote": "React in production required", "category": "skill", "importance": "required",
+             "skill_text": "React"}]},
+        {"results": [{"requirement_id": r, "support": "supported", "cited_fact_version_ids": [fv],
+                      "reason": "The candidate mentored engineers."} for r in ("R1", "R2", "R3")]},
+    ])
+    job_id = alice.write("POST", "/v1/jobs/paste", {"text": YEARS_POSTING}).json()["job_id"]
+    assert run_once(pg.worker) and task_row(pg, "match")[0] == "succeeded"
+    reqs = {r["quote"]: r for r in alice.get(f"/v1/jobs/{job_id}/match").json()["requirements"]}
+    three, twenty = reqs["3+ years of frontend experience required"], reqs["20+ years of frontend experience required"]
+    assert three["status"] == "supported" and "factId" not in three
+    assert twenty["status"] == "no_evidence" and "factId" not in twenty
+    for r in (three, twenty):
+        assert r["note"].startswith("Counted from your confirmed role dates: about ")
+    assert reqs["React in production required"]["factId"] == f["id"]  # other requirements keep their citation

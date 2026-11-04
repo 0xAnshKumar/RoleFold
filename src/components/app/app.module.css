@@ -34,8 +34,9 @@
   gap: 10px;
   max-width: 760px;
 }
+/* body type: a headline or target is the user's words, not verbatim source text (mono is for that) */
 .context {
-  font: 500 0.8125rem/1.3 var(--font-mono), monospace;
+  font: 600 0.9375rem/1.4 var(--font-body), sans-serif;
   color: var(--text-muted);
 }
 .title {
@@ -123,7 +124,7 @@
 }
 a.rowTitle:hover {
   text-decoration: underline;
-  text-decoration-color: var(--highlighter);
+  text-decoration-color: currentColor;
   text-decoration-thickness: 3px;
   text-underline-offset: 3px;
 }
@@ -147,7 +148,7 @@ a.rowTitle:hover {
 }
 .meterTrack {
   height: 10px;
-  border-radius: 999px;
+  border-radius: 2px;
   background: rgb(23 58 42 / 0.08);
   overflow: hidden;
 }
@@ -180,6 +181,10 @@ a.rowTitle:hover {
 @media (max-width: 699px) {
   .rows > li {
     flex-wrap: wrap;
+  }
+  /* actions wrap under the text instead of squeezing it */
+  .rowMain {
+    flex-basis: 12rem;
   }
 }
 

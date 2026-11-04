@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
 import { isDemo } from "@/lib/data";
 import AdminNav from "./AdminNav";
@@ -9,10 +10,13 @@ export const metadata: Metadata = { title: "Admin · Hunt", robots: { index: fal
 async function LiveOnly({ children }: { children: React.ReactNode }) {
   if (!(await isDemo())) return children;
   return (
-    <div className={a.empty} role="status" style={{ marginTop: "var(--s-xl)" }}>
-      <p className="margin-note">The admin console needs the live API.</p>
-      <p className={a.note}>This is sample data, so there are no queues, users or audit entries to show.</p>
-    </div>
+    <>
+      <PageHeader title="Admin console" />
+      <div className={a.empty} role="status">
+        <p className="margin-note">The admin console needs the live API.</p>
+        <p className={a.note}>This is sample data, so there are no queues, users or audit entries to show.</p>
+      </div>
+    </>
   );
 }
 

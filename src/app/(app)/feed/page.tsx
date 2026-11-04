@@ -56,7 +56,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
                 ))}
               </select>
             </label>
-            <button type="submit" className="btn btn-secondary btn-small">
+            <button type="submit" className="btn btn-secondary">
               Show jobs
             </button>
             {filtered && (

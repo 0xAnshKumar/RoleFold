@@ -13,6 +13,8 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    Achievement,
+    CareerGap,
     Certification,
     Education,
     Experience,
@@ -149,7 +151,8 @@ def import_resume(db: Session, task: Claimed) -> dict:
         created.append({"type": kind, "id": str(row.id)})
 
     # Re-imports merge into what exists (not rejected): same role = title + employer + start,
-    # same project = name + start, same education = degree + institution, same certification or language = name.
+    # same project = name + start, same education = degree + institution, same certification or language = name,
+    # same achievement = kind + text, same career break = start month.
     def existing(model, key) -> dict:
         return {key(r): r for r in db.scalars(select(model).where(model.status != "rejected"))}
 
@@ -197,6 +200,19 @@ def import_resume(db: Session, task: Claimed) -> dict:
         if norm(lang.name) not in langs:
             langs[norm(lang.name)] = Language(user_id=uid, origin="import", name=lang.name)
             add("language", langs[norm(lang.name)])
+    wins = existing(Achievement, lambda r: norm(r.kind, r.description))
+    for a in out.achievements:
+        if a.text.strip() and norm(a.kind, a.text) not in wins:
+            wins[norm(a.kind, a.text)] = Achievement(user_id=uid, origin="import", kind=a.kind, description=a.text.strip())
+            add("achievement", wins[norm(a.kind, a.text)])
+    breaks = existing(CareerGap, lambda r: r.start_month)
+    for b in out.career_breaks:
+        start, end = dates(b.start, b.end)
+        if start and start not in breaks:  # a break needs a start month; none is guessed
+            # It was on the user's own resume, so once confirmed it stays on their resumes.
+            breaks[start] = CareerGap(user_id=uid, status="draft", start_month=start, end_month=end,
+                                      reason_text=(b.reason or "").strip()[:200] or None, show_on_resume=True)
+            add("career_gap", breaks[start])
 
     imp.parser_version, imp.model_version, imp.created_entries = PARSER_VERSION, result.model, created
     payload = {k: v for k, v in task.payload.items() if k != "text"}

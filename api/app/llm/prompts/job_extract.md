@@ -11,3 +11,5 @@ Rules:
   for visa, citizenship or right to work; else "none".
 - Eligibility values that the posting does not state are null. Never infer location from
   phrases like "flexible working".
+- Eligibility `value` is a short normalized value of a few words ("Sponsorship available",
+  "No sponsorship", "Hybrid", "5+ years"), never the whole sentence; `quote` holds the sentence.

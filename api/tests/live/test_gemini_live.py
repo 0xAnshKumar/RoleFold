@@ -24,6 +24,19 @@ Requirements:
 
 Nice to have:
 - Familiarity with message queues such as RabbitMQ
+
+Visa sponsorship is not available for this role; you must already have the right to work in India.
+"""
+RESUME = """Software Engineer, Tamarind Works (fictional), Jun 2020 - Present
+- Built Python billing services handling 40,000 invoices a month
+
+Career break, Mar 2019 - May 2020: Caring for a family member
+
+Achievements
+- Winner, Kestrel Hack Night 2022 (fictional)
+
+Publications
+- "Ledgers without tears", Quillfeather Engineering Blog, 2023 (fictional)
 """
 FACTS = [
     {"id": "fv-1", "text": "Built Python billing services handling 40,000 invoices a month", "tools": ["Python"],
@@ -58,20 +71,31 @@ def test_one_call_per_task(monkeypatch):
         assert rec.tokens_out == (u.candidates_token_count or 0) + (u.thoughts_token_count or 0), name  # thinking counted
         return res.output
 
+    resume = run("resume_extract", {}, untrusted_text=RESUME)
+    print("\nresume_extract:", resume.achievements, resume.career_breaks)
+    assert {a.kind for a in resume.achievements} == {"achievement", "publication"}
+    assert [(b.start, b.end) for b in resume.career_breaks] == [("2019-03", "2020-05")]
+
     job = run("job_extract", {}, untrusted_text=JOB)
     assert job.requirements, "no requirements extracted"
+    print("eligibility:", [(e.field, e.value) for e in job.eligibility])
+    assert all(len(e.value or "") <= 40 for e in job.eligibility), "eligibility value is a whole sentence"
     reqs = [{"id": f"R{i}", "value": r.skill_text, "category": r.category, "quote": None if r.skill_text else r.quote}
             for i, r in enumerate(job.requirements, 1)]
     pack = [{"id": f["id"], "text": f["text"], "tools": f["tools"], "role": "Software Engineer · Tamarind Works"}
             for f in FACTS]
     mapped = run("requirement_map", {"requirements": reqs, "evidence_pack": pack})
     assert {m.requirement_id for m in mapped.results} <= {r["id"] for r in reqs} and mapped.results
+    print("reasons:", [m.reason for m in mapped.results])
+    assert not any("candidate" in m.reason.lower() for m in mapped.results), "notes must address the user as you"
 
     written = run("resume_write", {"facts": FACTS, "target_requirements": [r["value"] for r in reqs if r["value"]],
                                    "target_role": "Backend Engineer",
                                    "style": {"first_person": False, "max_bullet_chars": 220, "summary_statements": 1,
                                              "banned": ["responsible for"]}})
     assert written.statements and all(s.text.strip() for s in written.statements)
+    print("statements:", [s.text for s in written.statements])
+    assert not any(s.type == "candidate_fact" and "Tamarind Works" in s.text for s in written.statements)
     verified = run("statement_verify", {
         "statements": [{"index": n, "type": s.type, "text": s.text} for n, s in enumerate(written.statements)],
         "facts": FACTS})

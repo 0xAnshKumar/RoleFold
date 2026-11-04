@@ -21,10 +21,13 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: var(--r-md);
   background: var(--partial);
   color: #fff;
   font: 800 1.25rem/1 var(--font-display), sans-serif;
+}
+.queueText {
+  flex: 1 1 200px;
 }
 .queueGo {
   margin-left: auto;
@@ -47,7 +50,8 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  flex-wrap: wrap; /* dates drop under the title on phones */
+  gap: 4px 16px;
   padding: 18px 22px;
   border-bottom: 1px solid var(--rule);
 }
@@ -133,14 +137,14 @@
   align-items: center;
   gap: 10px;
   padding: 8px 8px 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--r-md);
   background: var(--surface);
   border: 1.5px solid var(--rule);
   font-weight: 600;
 }
 .skillEv {
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   background: var(--supported-bg);
   color: var(--supported);
   font-size: 0.75rem;

@@ -17,7 +17,7 @@
   align-items: center;
   gap: 7px;
   padding: 6px 11px;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   font-size: 0.875rem;
   font-weight: 600;
 }
@@ -77,7 +77,6 @@
 }
 .lineOn {
   border-color: var(--text);
-  box-shadow: 0 14px 28px -20px rgb(23 58 42 / 0.5);
 }
 .lineBad {
   border-color: var(--conflict);
@@ -262,7 +261,7 @@
   display: inline-flex;
   align-items: center;
   padding: 6px 11px;
-  border-radius: 999px;
+  border-radius: var(--r-sm);
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--no-evidence);

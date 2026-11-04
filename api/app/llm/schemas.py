@@ -44,6 +44,19 @@ class DraftItem(BaseModel):
     source_span: str
 
 
+class DraftAchievement(BaseModel):
+    kind: Literal["achievement", "publication"]
+    text: str = Field(description="The line exactly as written")
+    source_span: str
+
+
+class DraftBreak(BaseModel):
+    start: Month | None = None
+    end: Month | None = None
+    reason: str | None = Field(None, description="The reason in the resume's own words, if one is written")
+    source_span: str
+
+
 class ResumeExtract(BaseModel):
     experiences: list[DraftExperience] = []
     projects: list[DraftExperience] = []
@@ -51,6 +64,8 @@ class ResumeExtract(BaseModel):
     skills: list[DraftItem] = []
     certifications: list[DraftItem] = []
     languages: list[DraftItem] = []
+    achievements: list[DraftAchievement] = []
+    career_breaks: list[DraftBreak] = []
 
 
 class ProfileEnrich(BaseModel):
@@ -69,7 +84,7 @@ class JobEligibilityDraft(BaseModel):
     field: Literal[
         "location", "work_mode", "employment_type", "experience_years", "salary", "notice_period", "visa"
     ]
-    value: str | None = None
+    value: str | None = Field(None, description="A short normalized value of a few words, never the whole sentence")
     quote: str | None = None
 
 

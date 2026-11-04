@@ -563,13 +563,14 @@ export function Experience({
                         type="button"
                         className={s.edit}
                         disabled={!!busy}
+                        aria-label={`Edit fact: ${f.text.split(/\s+/).length > 6 ? `${f.text.split(/\s+/).slice(0, 6).join(" ")}…` : f.text}`}
                         onClick={() => {
                           setError(null);
                           setAdding(false);
                           setEditing(f.id);
                         }}
                       >
-                        Edit<span className="sr-only"> fact {f.id}</span>
+                        Edit
                       </button>
                     </>
                   )}

@@ -251,10 +251,11 @@ export type Profile = typeof profile;
 
 /** Education rows: `id`, `status` and `version` are needed to confirm one (TRD §5.2). */
 export type Education = { id?: string; degree: string; org: string; dates: string; status?: "draft" | "confirmed"; version?: number };
-/** Every career break the user recorded; only `showOnResume` ones go on resumes (a dated "Career break" entry). */
-export type CareerBreak = { id: string; dates: string; reason: string; showOnResume: boolean; version?: number };
-/** One resume line as the user wrote it, under the template's Achievements or Publications section. */
-export type Achievement = { id: string; kind: "achievement" | "publication"; text: string; version?: number };
+/** Every career break the user recorded; only confirmed `showOnResume` ones go on resumes (a dated "Career break" entry).
+ * Imported ones are drafts until confirmed. */
+export type CareerBreak = { id: string; dates: string; reason: string; showOnResume: boolean; status?: "draft" | "confirmed"; version?: number };
+/** One resume line as the user wrote it, under the template's Achievements or Publications section. Imported ones are drafts until confirmed. */
+export type Achievement = { id: string; kind: "achievement" | "publication"; text: string; status?: "draft" | "confirmed"; version?: number };
 /** Imported languages are drafts until confirmed. */
 export type Language = { id: string; name: string; proficiency: string; status: "draft" | "confirmed"; version?: number };
 /** Enrichment question (GET /v1/enrichment-questions items): the answer becomes a draft fact. */

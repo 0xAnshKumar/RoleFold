@@ -243,6 +243,8 @@ class CareerGap(Owned, Base):
     reason: Mapped[str | None] = mapped_column(enum("career_gap_reason", *CAREER_GAP_REASONS))
     reason_text: Mapped[str | None] = mapped_column(Text)
     show_on_resume: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Typed breaks are confirmed as saved; imported ones wait as drafts (0009).
+    status: Mapped[str] = mapped_column(enum("career_gaps_status", *ENTRY_STATUS), server_default="confirmed")
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     created_at: Mapped[datetime] = created()
 

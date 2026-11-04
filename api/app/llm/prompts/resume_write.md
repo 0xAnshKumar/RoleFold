@@ -11,5 +11,7 @@ Rules:
 - Planned or in-progress work is never written as finished.
 - `connective` statements make no claim about the candidate.
 - No first-person pronouns. Stay within the budgets.
+- The employer, title and project name are already shown in the section header above each
+  `candidate_fact` statement: never repeat them in it (no "at <employer>" endings).
 - If `rewrite` is given, return exactly one statement per rewrite item, in the same order,
   fixing each listed problem using only the cited facts.

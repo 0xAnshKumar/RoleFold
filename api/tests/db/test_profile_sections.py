@@ -174,3 +174,46 @@ def test_export_zip_has_data_exported_files_and_current_pdfs(pg, alice, bob, mon
     assert z.read(f"resumes/{rid}/exported-v1-{export_id}.docx") == alice.get(f"/v1/exports/{export_id}/download").content
     assert json.loads(z.read("data.json"))["data"]["resumes"][0]["id"] == rid
     assert zipfile.ZipFile(io.BytesIO(bob.get("/v1/me/export").content)).namelist() == ["data.json"]
+
+
+def test_imported_achievements_publications_and_breaks_are_drafts_until_confirmed(pg, alice, monkeypatch):
+    """QA 2026-11-04: import silently dropped these sections."""
+    rid = master_resume(pg, alice, monkeypatch)
+    extract = {
+        "achievements": [{"kind": "achievement", "text": "Speaker, React Bangalore meetup, 2024", "source_span": "Speaker"},
+                         {"kind": "publication", "text": "Iyer R. Shipping smaller bundles, 2025", "source_span": "Iyer"}],
+        "career_breaks": [{"start": "2023-02", "end": "2023-09", "reason": "Caregiving", "source_span": "Career break"},
+                          {"start": None, "reason": "Travel", "source_span": "Break"}],  # no start month: not guessed
+    }
+    resume = b"Rohan Iyer\nSpeaker, React Bangalore meetup, 2024\nIyer R. Shipping smaller bundles, 2025\n" \
+             b"Career break (Feb 2023 - Sep 2023): Caregiving\n"
+    llm_fake = fake(monkeypatch, [extract])
+    upload(alice, "cv.txt", resume)
+    assert run_once(pg.worker) and task_row(pg, "import")[0] == "succeeded"
+    assert "Iyer" not in llm_fake.requests[0].user  # the header name is redacted, then restored in the draft
+    p = alice.get("/v1/profile").json()
+    assert [(x["kind"], x["text"], x["status"]) for x in p["achievements"]] == [
+        ("achievement", "Speaker, React Bangalore meetup, 2024", "draft"),
+        ("publication", "Iyer R. Shipping smaller bundles, 2025", "draft")]
+    assert [(g["dates"], g["reason"], g["status"]) for g in p["gaps"]] == [("Feb 2023 – Sep 2023", "Caregiving", "draft")]
+    doc, _ = doc_of(pg, alice, rid)  # drafts never reach a resume
+    assert doc["sections"]["achievements"]["lines"] == [] and doc["sections"]["publications"]["lines"] == []
+    assert [e["title"] for e in doc["sections"]["experience"]["entries"]] == ["Frontend Engineer"]
+
+    speaker, pub = p["achievements"]
+    [gap] = p["gaps"]
+    assert alice.write("POST", f"/v1/achievements/{speaker['id']}/confirm", {"version": 1}).json()["status"] == "confirmed"
+    assert alice.write("POST", f"/v1/career-gaps/{gap['id']}/confirm", {"version": 1}).json()["status"] == "confirmed"
+    assert alice.write("DELETE", f"/v1/achievements/{pub['id']}", {"version": 1}).status_code == 200
+    doc, _ = doc_of(pg, alice, rid)
+    assert doc["sections"]["achievements"]["lines"] == ["Speaker, React Bangalore meetup, 2024"]
+    assert [(e["title"], e["org"]) for e in doc["sections"]["experience"]["entries"]] == [
+        ("Career break", "Caregiving"), ("Frontend Engineer", "Northwind Commerce")]
+
+    # A re-import merges: same kind + text, same break start month.
+    fake(monkeypatch, [{"achievements": [{**extract["achievements"][0], "text": "speaker, React Bangalore meetup 2024"}],
+                        "career_breaks": [{**extract["career_breaks"][0], "reason": "Family care"}]}])
+    upload(alice, "cv.txt", resume)
+    assert run_once(pg.worker)
+    assert count(pg, "SELECT count(*) FROM achievements") == 1
+    assert count(pg, "SELECT count(*) FROM career_gaps") == 1

@@ -328,6 +328,16 @@ def experience_years(db: Session) -> float:
     return months / 12
 
 
+_YEARS_RE = re.compile(r"\b(\d{1,2})\s*(?:\+|plus)?\s*(?:(?:-|–|to)\s*\d{1,2}\s*\+?\s*)?(?:years?|yrs?)\b",
+                       re.IGNORECASE)
+
+
+def years_asked(text: str | None) -> int | None:
+    """Minimum years in a requirement like "5+ years of ...", "3-5 yrs"; None when it asks for no years."""
+    m = _YEARS_RE.search(text or "")
+    return int(m.group(1)) if m else None
+
+
 def latest_analysis(db: Session, job_version_id: uuid.UUID) -> MatchAnalysis | None:
     return db.scalars(
         select(MatchAnalysis).where(MatchAnalysis.job_version_id == job_version_id)
@@ -363,15 +373,21 @@ def assess(db: Session, job: Job, jv: JobVersion, analysis: MatchAnalysis) -> di
         support = vr.resolve_support(m["model_support"], len(m["cited_fact_version_ids"]),
                                      self_declared=bool(r.value and r.value.lower() in declared),
                                      does_not_have=bool(keys & lacking))
+        asked = years_asked(r.quote) if r.category in ("experience", "skill") else None
+        if asked is not None and support != "confirmed_gap":
+            # Years come from confirmed role dates in code, never from a fact the model cited.
+            support = "supported" if exp_years >= asked else "no_evidence_recorded"
         requirements.append(vr.Requirement(str(r.id), r.importance, r.gate, support, text))
         row = {"id": str(r.id), "text": text, "importance": "required" if r.importance == "required" else "preferred",
                "status": STATUS[support], "quote": r.quote}
         first = next(iter(m["cited_fact_version_ids"]), None)
-        if support in ("supported", "partial") and first in degrees:
+        if asked is not None:
+            row["note"] = f"Counted from your confirmed role dates: about {exp_years:.1f} years."
+        elif support in ("supported", "partial") and first in degrees:
             row["note"] = f"Your confirmed education: {degrees[first]}"
         elif support in ("supported", "partial") and first:
             row["factId"] = str(fact_of.get(uuid.UUID(first), ""))
-        if support != "supported" and m["reason"]:
+        if support != "supported" and m["reason"] and asked is None:
             row["note"] = m["reason"]
         req_rows.append(row)
 

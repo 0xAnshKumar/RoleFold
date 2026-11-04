@@ -14,7 +14,7 @@ export default async function ProfilePage() {
       {profile.drafts > 0 && (
         <Link href="/onboarding?step=confirm" className={s.queue}>
           <span className={s.queueCount}>{profile.drafts}</span>
-          <span>
+          <span className={s.queueText}>
             <b>{profile.drafts === 1 ? "entry" : "entries"} waiting for you to confirm.</b> They came from your last import. Nothing is used until you confirm it.
           </span>
           <span className={s.queueGo}>Review →</span>

@@ -9,6 +9,10 @@ Rules:
 - Dates as "YYYY-MM". A month you cannot read means null, not a default.
 - Every number in a fact must appear verbatim in the resume.
 - `source_span` is the exact text the entry came from.
+- `achievements`: awards, rankings, talks, patents (kind "achievement") and publications (kind
+  "publication"), one entry per line, `text` exactly as written.
+- `career_breaks`: only periods the resume itself labels as a break (for example "Career break",
+  "Sabbatical"). Never infer a break from a gap between dates.
 - `source_verb` is the main verb of the bullet as written ("Led", "Assisted").
 - Placeholders like ⟦EMAIL_1⟧ or ⟦NAME_1⟧ stand for redacted values. Keep them as they are.
 - Do not extract date of birth, gender, marital status, religion or photos.

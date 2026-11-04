@@ -74,8 +74,8 @@
   top: 0.55em;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
-  background: var(--highlighter);
+  border-radius: 2px;
+  background: var(--on-primary);
 }
 .basis {
   font: 500 0.8125rem/1.3 var(--font-mono), monospace;
@@ -113,7 +113,7 @@
 }
 .tally b {
   font: 800 1.125rem/1 var(--font-display), sans-serif;
-  color: var(--highlighter);
+  color: var(--on-primary);
 }
 .noPct {
   font-size: 0.8125rem;
@@ -172,11 +172,10 @@
   align-items: center;
   gap: 8px;
 }
+/* inline label (DESIGN label type), not a mono eyebrow: mono is only for verbatim text */
 .field {
-  font: 600 0.75rem/1 var(--font-mono), monospace;
+  font: 600 0.8125rem/1.3 var(--font-body), sans-serif;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .eligValue {
   font: 700 1.125rem/1.2 var(--font-display), sans-serif;
@@ -196,11 +195,8 @@
   flex-direction: column;
   gap: 10px;
 }
+/* a real sub-heading (global h3), not an eyebrow label */
 .reqGroupTitle {
-  font: 600 0.8125rem/1 var(--font-mono), monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
   margin-top: 8px;
 }
 .reqs {
@@ -314,10 +310,6 @@
   font: 800 1.1875rem/1.15 var(--font-display), sans-serif;
   font-stretch: 106%;
 }
-.tailor {
-  background: #fff;
-  box-shadow: 0 24px 40px -28px rgb(23 58 42 / 0.45);
-}
 .tailor p {
   color: var(--text-muted);
   line-height: 1.5;
@@ -371,7 +363,7 @@
 }
 .chip {
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: var(--r-md);
   border: 1px solid var(--border-strong);
   background: transparent;
   font: 600 0.8125rem/1 var(--font-body), sans-serif;

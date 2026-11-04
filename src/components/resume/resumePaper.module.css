@@ -88,6 +88,9 @@
   padding: 0;
   list-style: none;
 }
+/* linked line gets an ink underline; its source fact carries the highlighter (DESIGN.md evidence mark) */
 .active {
-  background: #ffe45c;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
 }

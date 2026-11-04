@@ -7,6 +7,7 @@ import { Fragment, useState } from "react";
 import a from "@/components/app/app.module.css";
 import { StatusIcon } from "@/components/ui";
 import { ApiError, api, waitFor, type Operation } from "@/lib/api";
+import { naturalName } from "@/lib/names";
 import { LEVELS, type Draft, type DraftGroup, type Education, type Fact, type Goals, type Prefs, type Question } from "@/lib/mock";
 import { useAction } from "@/lib/useAction";
 import { AboutForm, EducationRow, useEducation, type About } from "../profile/Edit";
@@ -176,7 +177,7 @@ export default function Onboarding({
       // Contact details the redaction step found (never sent to a model): offered on the "You" step, empty fields only.
       const c = (op.result?.contact ?? {}) as Found;
       const fill = (["name", "email", "phone"] as const).filter((k) => c[k] && !about[k]);
-      setAbout({ ...about, ...Object.fromEntries(fill.map((k) => [k, c[k]])) });
+      setAbout({ ...about, ...Object.fromEntries(fill.map((k) => [k, k === "name" ? naturalName(c[k]!) : c[k]])) });
       setFound(fill);
       router.refresh();
       setStep(1);

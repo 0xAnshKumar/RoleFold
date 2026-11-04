@@ -1,4 +1,4 @@
-# Hunt — Handoff (2026-11-04)
+# Hunt — Handoff (2026-11-04, branch launch-readiness)
 
 Read this first in any new session. It replaces the lost chat history. Product specs: `docs/PRD v4 …md`,
 `docs/TRD v4 …md`, `docs/Side Questions …md`. Design rules: `docs/DESIGN.md` (mandatory for UI).
@@ -30,11 +30,14 @@ fetched). The job feed, alerts and skills-insight view are deferred (see `docs/r
 ```
 src/                     Next.js 16.4 App Router, React 19.3, TS, CSS Modules, Motion 14
   app/page.tsx           landing (HeroDesk, Story, Sections, WhoFor, Receipt, FAQ)
-  app/(app)/             jobs, jobs/[id] (match), resumes, resumes/[id] (editor), profile, settings, onboarding
+  app/(app)/             jobs, jobs/[id] (match), feed, skills, resumes, resumes/[id] (editor + share panel),
+                         profile, settings, onboarding
+  app/admin/             admin console (ops, support access, skill terms, audit log)
+  app/r/[token]/         public shared resume; app/signin, app/unsubscribe
   components/            Nav, ui.tsx (StatusIcon/Stamp/Seal), landing/*, resume/ResumePaper
   lib/api.ts             typed fetch client (bearer or X-Dev-User, Idempotency-Key, ApiError, waitFor polling)
-  lib/auth.ts, app/auth/ OIDC code+PKCE login/callback/logout; session = ID token in httpOnly cookie
-  proxy.ts               adds the bearer to /v1/* and redirects signed-out users to /signin
+  lib/auth.ts, app/auth/ OIDC code+PKCE login/callback/logout; ID token cookie + AES-GCM refresh-token cookie
+  proxy.ts               adds the bearer to /v1/*, refreshes expiring sessions, guards app + admin routes
   lib/data.ts            server loaders + demo-mode detection
   lib/mock.ts            sample data AND the response-shape contract the API must match
   lib/templates.ts       re-exports shared/resume-templates.json
@@ -43,14 +46,19 @@ api/                     Python 3.12+ uv project: FastAPI, SQLAlchemy 2, Alembic
   app/core/              config, auth (OIDC JWT via JWKS + dev header), errors, idempotency, usage, storage
                          (+ write-once tombstones), parsing (sandboxed PDF/DOCX extraction subprocess), display
   app/db/                models (~32 tables), session (sets app.user_id for RLS)
-  app/routes/            me, profile (experiences/facts/education), imports, jobs, resumes, system
+  app/routes/            me, profile (experiences/facts/education/achievements/languages/career gaps), imports,
+                         jobs, resumes, share, insights, feed, admin, system
+  app/catalog/           job sources (Greenhouse/Lever/manual), ingest (dedupe/scam/expiry), feed ranking, alerts, cli
   app/tasks/             queue (Postgres SKIP LOCKED + leases), worker HANDLERS: import, match, tailor,
-                         render (exports), regenerate, delete_user; reapply_tombstones (restore runbook CLI); llm.py = spend cap
+                         render (exports), regenerate, delete_user, catalog_ingest, alert_digest; reapply_tombstones (restore runbook CLI); llm.py = spend cap
   app/llm/               gateway.py (only module that talks to Gemini), schemas.py, prompts/*.md
-  app/truth/             redact, numbers, checks (statement truth checks), verb_classes.yaml, verdict, url_paste
+  app/truth/             redact, numbers, checks (statement truth checks), verb_classes.yaml, verdict, url_paste,
+                         aliases (curator-approved skill aliases)
   app/render.py          PDF via Typst (vendored fonts in api/fonts) + DOCX via python-docx
-  alembic/               bootstrap.sql (roles), versions 0001–0005 (0005: achievements, languages)
+  alembic/               bootstrap.sql (roles), versions 0001–0009 (0005 achievements/languages, 0006 share links,
+                         0007 catalog, 0008 admin role + skill_aliases, 0009 career_gaps.status)
   tests/                 unit + DB (testcontainers) + live (opt-in)
+  Dockerfile             one image for API, workers, migrations (build from repo root)
 docs/                    PRD, TRD, Side Questions, DESIGN.md, HANDOFF.md, reviews/
 ```
 
@@ -59,11 +67,11 @@ docs/                    PRD, TRD, Side Questions, DESIGN.md, HANDOFF.md, review
 ```bash
 # Frontend (demo mode = sample data, works with no backend)
 npm install && npx next dev -p 3100            # http://localhost:3100
-npm run build && npx eslint src && npx tsc --noEmit
+npm run build && npx eslint src && npx tsc --noEmit && npm test   # Node 24 (.nvmrc)
 
 # Backend
 cd api && uv sync
-uv run pytest -q          # 212 pass + 1 skipped live test; DB tests need Docker running
+uv run pytest -q          # 253 pass + 2 skipped (live tests); DB tests need Docker running
 uv run ruff check app tests
 RUN_LIVE_LLM=1 uv run pytest tests/live -s     # opt-in real Gemini smoke test (costs ~cents)
 ```
@@ -77,8 +85,12 @@ from `api/`) → frontend `.env.local` with `API_URL=http://127.0.0.1:8000` and
 **Real login (OIDC, any provider):** frontend `.env.local`: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
 `APP_URL`; `api/.env`: the same `OIDC_ISSUER` and `OIDC_AUDIENCE=<client id>` (the API verifies the ID token).
 Register redirect `{APP_URL}/auth/callback`, post-logout `{APP_URL}/`, scopes `openid email profile`. Issuer
-and audience must match on both sides or users bounce between sign-in and 401. No refresh tokens: users sign in
-again when the ID token expires (~1h). Tombstones: `TOMBSTONE_DIR` (WORM bucket in prod); restore runbook in
+and audience must match on both sides or users bounce between sign-in and 401. Set `SESSION_SECRET` (32+ chars) in the
+frontend to keep users signed in via refresh tokens (provider must offer `offline_access`). Admins:
+`ADMIN_SUBJECTS` or `ADMIN_ROLE_CLAIM`/`ADMIN_ROLE`, plus `ADMIN_DATABASE_URL` (hunt_admin, BYPASSRLS; created in
+`bootstrap.sql`). Job feed: `CATALOG_SOURCES` (empty = off) + hourly cron `uv run python -m app.catalog.cli tick`;
+alerts need `SMTP_*` (log-only otherwise). Worker pools: `python -m app.tasks.worker --types import,match`.
+All of this is documented in `api/README.md` and the `.env.example` files. Tombstones: `TOMBSTONE_DIR` (WORM bucket in prod); restore runbook in
 `api/README.md` (`python -m app.tasks.reapply_tombstones`, needs `RESTORE_DATABASE_URL` with BYPASSRLS). Frontend proxies `/v1/*` to `API_URL` (no CORS).
 
 Env files: `.env.example` (frontend), `api/.env.example` (backend). `api/.env` currently holds the Gemini
@@ -113,37 +125,45 @@ before any model call (other people's names / nicknames / initials are NOT detec
 
 ## 7. Status
 
-Done and verified: landing page; all app screens with loading/empty/error/progress/limit states; demo mode;
-6 ATS templates with PDF + DOCX export; full pipeline import → paste job → match → tailor → edit → export;
-profile/goals/prefs; facts and education confirm; job status, gap marking, feedback; usage meter; account deletion.
+Everything in PRD/TRD launch scope plus the formerly deferred features is built, on branch `launch-readiness`
+(not merged to `main`). Checks on 2026-11-04: backend 253 pass + 2 skipped (DB tests ran), ruff, eslint, tsc,
+`npm test`, `npm run build` clean; `npm audit --omit=dev` 0 vulnerabilities; Next.js 16.4.5.
 
-Added 2026-11-04 (all tests green, 212 backend incl. DB tests; eslint, tsc, build clean):
-- Production login: provider-agnostic OIDC (backend JWKS validation, frontend code+PKCE, sign-in page, sign-out).
-  Smoke-tested against a local fake provider only, not yet a real one.
-- `redact()` address rules apply only to real resume headers (`header=True`, import only).
-- Tailor and match restore redaction placeholders from one shared map; lines with leftover placeholders are blocked.
-- Deletion tombstones written outside the DB (at request and in the worker) + re-apply CLI and runbook.
-- Uploads: sandboxed parsing subprocess (timeout, rlimits, empty env), PDFium fallback extractor (pypdfium2),
-  10-page / 50k-char limits (413 FILE_TOO_LARGE), no orphan files on failed requests, `NO_EXTRACTABLE_TEXT` only.
-- Gaps closed: draft facts under projects (incl. new project), onboarding enrichment questions (code, no AI) and
-  draft edit, "Update with new facts" (regenerate master as next version), career breaks, achievements and
-  publications (profile + resumes), export is a zip with data.json + uploads + resume files, languages stored.
-- Next.js 16.4.0 → 16.4.5 (critical RCE advisories fixed).
+- Core: landing; all app screens with every state; demo mode; 6 ATS templates (now with a languages section)
+  PDF + DOCX; import → paste job → match → tailor → edit → export; profile, goals, prefs; usage limits.
+- Login: provider-agnostic OIDC with refresh tokens; admin console with audited support access, DLQ replay,
+  skill-alias curator (aliases applied on import and job extraction), ops stats.
+- Truth/privacy: redaction header bug fixed, placeholders restored or blocked, "N+ years" judged in code from role
+  dates, match notes say "you".
+- Data: tombstones outside the DB + re-apply CLI; zip export with files; account deletion clears the session.
+- Uploads: sandboxed parser (subprocess, rlimits, seccomp no-network on Linux), PDFium fallback, page/char limits.
+- Profile: projects, career breaks, achievements, publications, languages (imported as drafts to confirm),
+  enrichment questions, "Update with new facts".
+- New features: job feed (code-only preliminary fit, learned ranking, weekly alerts; no source enabled),
+  skills insight, revocable shareable resume links.
+- QA: a live run with real Gemini and Postgres passed every flow after 8 fixes; a design pass removed non-proof
+  yellow, pill shapes and mono eyebrow labels from the app and fixed 390px layouts.
 
-## 8. Open items
+## 8. Open items (owner)
 
-No code items left for launch scope. Remaining work is owner setup / decisions:
-1. Pick the OIDC provider, register the app, set env vars, and do one real sign-in end to end.
-2. Real Postgres; Google billing ON before any real user data; **rotate the Gemini key**; choose the product name.
-3. Production: `TOMBSTONE_DIR` on an object-locked bucket; run upload parsing in a no-network container/nsjail
-   (`shortcut:` in `api/app/core/parsing.py`; RLIMIT_AS is ignored on macOS).
-4. Owner sign-off needed: a languages section in resume templates (would change DESIGN.md template orders).
-5. Spec open questions (PRD OQ-1..9, TRD T-OQ-1..7): launch professions, beta size, pricing, legal review,
-   LinkedIn, ESCO licence, data residency.
-6. Later (TODOS, deferred by owner on 2026-11-04): catalog feed + alerts, skills insight, shareable resume link,
-   admin console, scale-out. Landing page keeps its own expressive radius/pill rules (owner, 2026-11-04).
-7. Known limits: no refresh tokens; other people's names/nicknames aren't redacted; garbled PDF text made of normal
-   letters passes the quality check; dev-only npm advisories (minimatch via eslint tooling) need a breaking upgrade.
+1. Pick the OIDC provider, register the app, set env vars, do one real sign-in (incl. admin role claim).
+2. Google billing ON (the free tier also caps the writer model at 20 requests/day; QA hit it), **rotate the
+   Gemini key**, real Postgres, product name. Then rerun `RUN_LIVE_LLM=1 uv run pytest tests/live -s`: the writer
+   model's new no-employer-suffix rule and the verifier haven't been live-checked.
+3. Production: `TOMBSTONE_DIR` on an object-locked bucket; build `api/Dockerfile`; confirm seccomp parser on a real
+   x86_64 host (tested on arm64 only).
+4. Job feed: approve sources per market (T-OQ-2) before setting `CATALOG_SOURCES`; untested against real
+   Greenhouse/Lever responses and real SMTP.
+5. Confirm: an outdated master now also shows "Update with new facts" when the confirmed profile has moved on
+   (beyond TRD §16.2 wording; QA change).
+6. Spec questions (PRD OQ-1..9, TRD T-OQ-1..7): launch professions, beta size, pricing, legal review, LinkedIn,
+   ESCO licence (no taxonomy exists; skill ids come only from curator aliases), data residency.
+7. Known limits (`shortcut:` comments mark most): other people's names/nicknames aren't redacted (accepted, D12);
+   share-link rate limit is per process; refresh de-dup is per Next instance; digest email can resend if the commit
+   fails after sending; "5+ years of React" is judged on total role years; feed has no full-text index; partition/
+   replicas/Redis not built (triggers in `api/README.md`); dev-only npm advisory (minimatch) needs a breaking
+   upgrade. A rare flaky DB test (a worker task ends `failed` instead of `succeeded`; ~1 in 10+ full runs, not
+   reproduced in 40 reruns) is unexplained.
 
 ## 9. Decisions made by agents (owner may still override)
 
@@ -151,7 +171,9 @@ Dev auth header only in non-production; 402 `PLAN_LIMIT_REACHED` for limits; 50k
 200-char minimum (`PASTE_TOO_SHORT`); verifier is a different Gemini model (not a different family, as TRD
 wanted) because only a Gemini key exists; DOCX uses Times New Roman / Calibri / Arial / Cambria (PDF uses
 vendored Tinos / Carlito / Arimo / Libertinus); master resumes are free, tailored resumes count; achievements/languages/career breaks are removed and
-re-added rather than edited; draft languages are confirmed on the profile, not in onboarding.
+re-added rather than edited; draft languages are confirmed on the profile, not in onboarding. Imported career breaks
+are drafts with show-on-resume on (they were on the user's own resume); a break without a readable start month is
+not imported.
 
 ## 10. Tooling notes
 

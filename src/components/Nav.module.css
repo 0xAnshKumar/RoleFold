@@ -26,7 +26,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: var(--r-md);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.9375rem;
@@ -78,7 +78,7 @@
 .dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: 2px;
   background: var(--partial);
 }
 .avatar {
@@ -86,9 +86,9 @@
   place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  background: var(--highlighter);
-  color: var(--on-highlighter);
+  border-radius: var(--r-md);
+  background: var(--primary);
+  color: var(--on-primary);
   font: 800 0.8125rem/1 var(--font-display), sans-serif;
 }
 
@@ -108,9 +108,11 @@
   .link {
     flex: 1;
     flex-direction: column;
+    justify-content: center;
     gap: 3px;
     padding: 6px 4px;
-    border-radius: 10px;
+    border-radius: var(--r-lg);
+    text-align: center;
     font-size: 0.75rem;
   }
   .queue {

@@ -30,7 +30,24 @@ function useRows<T extends Row>(live: T[], demo: boolean) {
       router.refresh();
     });
   const remove = (path: string, row: T) => send(`rm:${row.id}`, "DELETE", `${path}/${row.id}`, { version: row.version }, (l) => l.filter((x) => x.id !== row.id));
-  return { list: demo ? local : live, send, remove, ...action };
+  const confirm = (path: string, row: T) =>
+    send(`confirm:${row.id}`, "POST", `${path}/${row.id}/confirm`, { version: row.version }, (l) => l.map((x) => (x.id === row.id ? { ...x, status: "confirmed" } : x)));
+  return { list: demo ? local : live, send, remove, confirm, ...action };
+}
+
+// Imported rows wait as drafts: confirm one, or remove it if it isn't yours.
+function DraftActions({ busy, id, label, onConfirm, onRemove }: { busy: string | null; id: string; label: string; onConfirm: () => void; onRemove: () => void }) {
+  return (
+    <div className={s.eduActions}>
+      <button type="button" className="btn btn-primary btn-small" disabled={!!busy} onClick={onConfirm}>
+        {busy === `confirm:${id}` ? "Confirming…" : "Confirm"}
+        <span className="sr-only"> {label}</span>
+      </button>
+      <button type="button" className="btn btn-secondary btn-small" disabled={!!busy} onClick={onRemove}>
+        Not mine, remove<span className="sr-only"> {label}</span>
+      </button>
+    </div>
+  );
 }
 
 const localId = () => `local-${Date.now()}`;
@@ -60,7 +77,7 @@ function SaveButtons({ busy, disabled, onCancel }: { busy: boolean; disabled?: b
 // ---- Career breaks (CEO D25): dates, the user's own words, and whether the resume shows it.
 
 export function CareerBreaks({ initial, demo }: { initial: CareerBreak[]; demo: boolean }) {
-  const { list, send, remove, busy, error } = useRows(initial, demo);
+  const { list, send, remove, confirm, busy, error } = useRows(initial, demo);
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState({ from: "", to: "", reason: "", show: false });
   const add = async (e: React.FormEvent) => {
@@ -117,9 +134,13 @@ export function CareerBreaks({ initial, demo }: { initial: CareerBreak[]; demo: 
               <div className={a.rowMain}>
                 <span className={a.mono}>{g.dates}</span>
                 {g.reason && <span>{g.reason}</span>}
-                <span className={a.note}>{g.showOnResume ? "Shown on your resumes" : "Kept off your resumes"}</span>
+                <span className={a.note}>{g.status === "draft" ? "Read from your resume. Confirm it’s yours." : g.showOnResume ? "Shown on your resumes" : "Kept off your resumes"}</span>
               </div>
-              <RemoveButton busy={!!busy} label={`career break ${g.dates}`} onClick={() => remove("/career-gaps", g)} />
+              {g.status === "draft" ? (
+                <DraftActions busy={busy} id={g.id} label={`career break ${g.dates}`} onConfirm={() => confirm("/career-gaps", g)} onRemove={() => remove("/career-gaps", g)} />
+              ) : (
+                <RemoveButton busy={!!busy} label={`career break ${g.dates}`} onClick={() => remove("/career-gaps", g)} />
+              )}
             </li>
           ))}
         </ul>
@@ -141,7 +162,7 @@ export function CareerBreaks({ initial, demo }: { initial: CareerBreak[]; demo: 
 const KINDS = { achievement: "Achievement", publication: "Publication" } as const;
 
 export function Achievements({ initial, demo }: { initial: Achievement[]; demo: boolean }) {
-  const { list, send, remove, busy, error } = useRows(initial, demo);
+  const { list, send, remove, confirm, busy, error } = useRows(initial, demo);
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState({ kind: "achievement" as Achievement["kind"], text: "" });
   const add = async (e: React.FormEvent) => {
@@ -161,9 +182,14 @@ export function Achievements({ initial, demo }: { initial: Achievement[]; demo: 
             <li key={x.id}>
               <div className={a.rowMain}>
                 <span>{x.text}</span>
-                <span className={a.mono}>{KINDS[x.kind]}</span>
+                <span className={a.note}>{KINDS[x.kind]}</span>
+                {x.status === "draft" && <span className={a.note}>Read from your resume. Confirm it’s yours.</span>}
               </div>
-              <RemoveButton busy={!!busy} label={x.text} onClick={() => remove("/achievements", x)} />
+              {x.status === "draft" ? (
+                <DraftActions busy={busy} id={x.id} label={x.text} onConfirm={() => confirm("/achievements", x)} onRemove={() => remove("/achievements", x)} />
+              ) : (
+                <RemoveButton busy={!!busy} label={x.text} onClick={() => remove("/achievements", x)} />
+              )}
             </li>
           ))}
         </ul>

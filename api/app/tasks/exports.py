@@ -39,7 +39,8 @@ def _education(ed: Education) -> dict:
 
 
 def career_breaks(db: Session) -> list[CareerGap]:
-    return list(db.scalars(select(CareerGap).where(CareerGap.show_on_resume).order_by(CareerGap.start_month.desc())))
+    return list(db.scalars(select(CareerGap).where(CareerGap.show_on_resume, CareerGap.status == "confirmed")
+                        .order_by(CareerGap.start_month.desc())))
 
 
 def resume_doc(db: Session, user: User, rv: ResumeVersion) -> dict:

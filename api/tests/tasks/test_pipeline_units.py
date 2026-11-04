@@ -20,6 +20,7 @@ from app.tasks.match import (
     compare,
     enrichment,
     evidence_pack,
+    years_asked,
 )
 from app.tasks.queue import Claimed, Deferred, TaskError
 from app.tasks.tailor import MAX_PER_ROLE, _validate, check_fact, model_fact, select_facts
@@ -211,3 +212,8 @@ def test_tailor_restores_placeholders_and_blocks_unknown_ones(runner):
 def test_match_reason_placeholders_restored_or_dropped():
     assert _restored("⟦NAME_1⟧ led the rewrite", {"⟦NAME_1⟧": "Priya"}) == "Priya led the rewrite"
     assert _restored("⟦NAME_2⟧ led it", {"⟦NAME_1⟧": "Priya"}) == ""
+
+
+def test_years_asked_reads_the_minimum():
+    assert [years_asked(t) for t in ("5+ years of frontend", "3-5 yrs", "at least 4 years", "3 to 5 years",
+                                     "Python 3 experience", "24/7 support", None)] == [5, 3, 4, 3, None, None, None]
