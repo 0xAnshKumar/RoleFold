@@ -2,7 +2,7 @@ import type { Status, Verdict } from "@/lib/mock";
 
 type Icon = "check" | "half" | "dash" | "cross" | "alert" | "question";
 
-// Authored 12px stamp glyphs, one stroke weight (docs/DESIGN.md "Stamp").
+// Authored 12px status glyphs, one stroke weight (docs/DESIGN.md 3.6). New code: StatusMark in ./Status.
 export function StatusIcon({ name }: { name: Icon }) {
   return (
     <svg viewBox="0 0 12 12" width="1em" height="1em" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -56,10 +56,10 @@ export const SEAL_COLOR: Record<Verdict, string> = {
   "Strong fit": "var(--supported)",
   "Good fit with gaps": "var(--supported)",
   Stretch: "var(--partial)",
-  "Poor fit": "var(--no-evidence)",
+  "Poor fit": "var(--missing)",
   "Not eligible": "var(--conflict)",
   // Calm: the posting is the thing that's thin, not the person.
-  "Not enough detail in this posting": "var(--unknown)",
+  "Not enough detail in this posting": "var(--missing)",
 };
 
 /** Seal text where space is tight (list rows). */

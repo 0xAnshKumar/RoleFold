@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
-import { Archivo, Atkinson_Hyperlegible_Next, JetBrains_Mono, Kalam } from "next/font/google";
+import { BootScript } from "./BootScript";
+import { fontVars } from "./fonts";
 import "./globals.css";
-
-const display = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-display" });
-const body = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--font-body", adjustFontFallback: false, fallback: ["system-ui", "sans-serif"] });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", preload: false });
-const hand = Kalam({ subsets: ["latin"], weight: "400", variable: "--font-hand", preload: false });
 
 export const metadata: Metadata = {
   title: { default: "Hunt — a resume where every line is true", template: "%s — Hunt" },
@@ -13,9 +9,16 @@ export const metadata: Metadata = {
     "Build a free, ATS-safe resume from facts you confirm, and see honestly how any job fits you. No fake scores.",
 };
 
+// Runs before first paint: the saved theme (Light / Night / System; the landing is always light) and Save-Data / 2G,
+// which drops texture. Save-Data is read here rather than from the request header so every route can stay static.
+const BOOT = `(function(){var d=document.documentElement;try{var t=localStorage.getItem("hunt-theme");if(t==="system")t=matchMedia("(prefers-color-scheme: dark)").matches?"night":"light";if(t==="night"&&location.pathname!=="/")d.setAttribute("data-theme","night")}catch(e){}var c=navigator.connection;if(c&&(c.saveData||/2g/.test(c.effectiveType)))d.classList.add("save-data")})()`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable} ${hand.variable}`}>
+    <html lang="en" className={fontVars} suppressHydrationWarning>
+      <head>
+        <BootScript html={BOOT} />
+      </head>
       <body>{children}</body>
     </html>
   );

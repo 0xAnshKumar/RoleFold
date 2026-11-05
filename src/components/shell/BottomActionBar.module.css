@@ -1,0 +1,26 @@
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-tabbar);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 12px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  box-shadow: var(--shadow-3);
+}
+@media (min-width: 1024px) {
+  .bar {
+    position: static;
+    display: flex;
+    justify-content: flex-end;
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+}

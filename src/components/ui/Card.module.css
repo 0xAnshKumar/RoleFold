@@ -1,0 +1,67 @@
+.card {
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+}
+@media (min-width: 600px) {
+  .card {
+    padding: 20px;
+  }
+}
+@media (min-width: 1024px) {
+  .card {
+    padding: 24px;
+  }
+}
+/* rows separated by hairlines run edge to edge */
+.flush {
+  padding: 0;
+}
+.interactive {
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) {
+  .interactive:hover {
+    box-shadow: var(--shadow-2);
+    transform: translateY(-1px);
+  }
+}
+.interactive:active {
+  transform: translateY(0) scale(0.995);
+}
+.interactive:has(.link:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.link {
+  text-decoration: none;
+}
+.link:focus-visible {
+  outline: 0;
+}
+.link::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.raised {
+  position: relative;
+  z-index: var(--z-raised);
+}
+@media (hover: hover) {
+  .set:has(> :hover) > :not(:hover) {
+    opacity: 0.55;
+  }
+}
+.set > * {
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+.set {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

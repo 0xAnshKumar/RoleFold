@@ -1,0 +1,73 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.label {
+  font: var(--type-sm);
+  font-variant-numeric: tabular-nums;
+}
+.track {
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--line);
+  overflow: hidden;
+}
+.fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+@media (forced-colors: active) {
+  .fill {
+    background: Highlight;
+  }
+}
+
+.stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font: var(--type-body);
+  color: var(--text-muted);
+}
+.stage[data-state="current"],
+.stage[data-state="done"] {
+  color: var(--text);
+}
+.marker {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+}
+.stage[data-state="current"] .marker {
+  border: 0;
+  background: radial-gradient(circle, var(--accent) 4px, transparent 4.5px);
+}
+.stage[data-state="done"] .marker {
+  border: 0;
+  color: var(--supported);
+}
+.marker svg {
+  width: 14px;
+  height: 14px;
+}
+.dots {
+  width: 18px;
+  height: 4px;
+  background: radial-gradient(circle, currentColor 1.6px, transparent 2px) 0 50% / 6px 4px repeat-x;
+}

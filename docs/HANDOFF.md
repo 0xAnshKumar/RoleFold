@@ -35,11 +35,22 @@ fetched). The job feed, alerts and skills-insight view are deferred (see `docs/r
 ```
 src/                     Next.js 16.4 App Router, React 19.3, TS, CSS Modules, Motion 14
   app/page.tsx           landing (HeroDesk, Story, Sections, WhoFor, Receipt, FAQ)
-  app/(app)/             jobs, jobs/[id] (match), feed, skills, resumes, resumes/[id] (editor + share panel),
+  app/(app)/             jobs (tabs: For you = feed, ?tab=saved = Saved & pasted), jobs/[id] (match), resumes,
+                         resumes/[id] (editor + share panel),
                          profile, settings, onboarding
   app/admin/             admin console (ops, support access, skill terms, audit log)
   app/r/[token]/         public shared resume; app/signin, app/unsubscribe
-  components/            Nav, ui.tsx (StatusIcon/Stamp/Seal), landing/*, resume/ResumePaper
+  app/kit/               design-system v2 kit: every primitive in every state, light + night (dev only; HUNT_KIT=1 in prod)
+  app/fonts.ts, providers.tsx (MotionConfig + LazyMotion), BootScript.tsx (pre-paint theme + Save-Data)
+  components/ui/         v2 primitives, one file each (import from the file, no barrel): Button (+ButtonLink,
+                         IconButton, buttonClass), Field (Input/Textarea/Select), Choice (Checkbox/Radio/Switch),
+                         Segmented, Chip (FilterChip/ChipRow/SkillChip), Status (StatusMark/VerdictMark/Badge),
+                         VerdictSeal, Proof (ProofMark/FactTag/SignatureLine), Card, Tabs (TabLinks/Tabs), Disclosure,
+                         Dialog (dialog/wide/drawer/sheet), Toast (ToastProvider/useToast), Skeleton, State
+                         (EmptyState/ErrorState), Progress (ProgressBar/StageList), Icon; index.tsx = v1 StatusIcon/Stamp
+  components/shell/      AppNav (desktop bar + morphing plate, phone top bar + tab bar + account sheet), theme.ts,
+                         BottomActionBar
+  components/            landing/* (v1, step 2 rebuilds it), resume/ResumePaper, app/PageHeader
   lib/api.ts             typed fetch client (bearer or X-Dev-User, Idempotency-Key, ApiError, waitFor polling)
   lib/auth.ts, app/auth/ OIDC code+PKCE login/callback/logout; ID token cookie + AES-GCM refresh-token cookie
   proxy.ts               adds the bearer to /v1/*, refreshes expiring sessions, guards app + admin routes
@@ -148,6 +159,12 @@ Everything in PRD/TRD launch scope plus the formerly deferred features is built,
   skills insight, revocable shareable resume links.
 - QA: a live run with real Gemini and Postgres passed every flow after 8 fixes; a design pass removed non-proof
   yellow, pill shapes and mono eyebrow labels from the app and fixed 390px layouts.
+
+**Design system v2, step 1 (foundation) done 2026-11-06** (DESIGN.md 6.8): tokens + v1 aliases in globals.css,
+fonts, `public/brand/` (scripts in `scripts/brand/`), providers, primitives, app shell, `/kit`. Nav is Jobs / Resume /
+Profile (+ Settings under the avatar); `/feed` → `/jobs`, `/skills` → `/profile#skills` (next.config redirects). Old
+screens still use v1 CSS through the aliases until steps 3-7 rebuild them. Known: first-load JS on `/jobs` is ~197 KB
+gzip against a 150 KB budget; the Next 16 + React 19 runtime alone is ~151 KB.
 
 ## 8. Open items (owner)
 

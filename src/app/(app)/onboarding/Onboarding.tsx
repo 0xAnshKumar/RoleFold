@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import { Fragment, useState } from "react";
 import a from "@/components/app/app.module.css";
 import { StatusIcon } from "@/components/ui";
@@ -262,7 +263,7 @@ export default function Onboarding({
       </ol>
 
       <AnimatePresence mode="wait" initial={false}>
-        <motion.section
+        <m.section
           key={step}
           className={s.stage}
           initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }}
@@ -607,7 +608,7 @@ export default function Onboarding({
               </form>
             </>
           )}
-        </motion.section>
+        </m.section>
       </AnimatePresence>
     </div>
   );

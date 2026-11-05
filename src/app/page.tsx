@@ -6,10 +6,12 @@ import { Compare, Faq, Features, Problem, Promises, WhatWeDo } from "@/component
 import Story from "@/components/landing/Story";
 import WhoFor from "@/components/landing/WhoFor";
 import s from "@/components/landing/landing.module.css";
+import { landingV1Fonts } from "@/components/landing/v1fonts";
 
 export default function Landing() {
   return (
-    <>
+    // display: contents so the v1 font variables reach the landing without changing its layout
+    <div className={landingV1Fonts} data-theme="light" style={{ display: "contents" }}>
       {/* shared ink filters: pen wobble for line art, speckle for rubber-stamp ink */}
       <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden>
         <filter id="ink-wobble">
@@ -120,6 +122,6 @@ export default function Landing() {
           Hunt<span className={s.wordmarkDot}>.</span>
         </p>
       </footer>
-    </>
+    </div>
   );
 }

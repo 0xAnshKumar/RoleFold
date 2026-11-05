@@ -1,0 +1,88 @@
+.seal {
+  --d: 120px;
+  position: relative;
+  flex: none;
+  width: var(--d);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: rotate(-4deg);
+}
+.seal[data-size="96"] {
+  --d: 96px;
+}
+.seal[data-size="64"] {
+  --d: 64px;
+}
+.ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--seal);
+  -webkit-mask: url("/brand/guilloche-rosette.svg") center / contain no-repeat;
+  mask: url("/brand/guilloche-rosette.svg") center / contain no-repeat;
+}
+.disc {
+  position: absolute;
+  inset: 14%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-2), inset 0 0 0 2px var(--surface), inset 0 0 0 3px var(--seal);
+  text-align: center;
+}
+.verdict {
+  font: 500 1.0625rem/1.1 var(--ff-display);
+  letter-spacing: -0.005em;
+  color: var(--text);
+  text-wrap: balance;
+}
+.seal[data-size="96"] .verdict {
+  font-size: 0.9375rem;
+}
+.seal[data-size="64"] .verdict {
+  font-size: 0.6875rem;
+}
+.seal[data-size="96"] .disc {
+  padding: 8px;
+}
+.seal[data-size="64"] .disc {
+  inset: 12%;
+  padding: 2px;
+  box-shadow: var(--shadow-1);
+}
+.date {
+  font: 500 10px/1 var(--ff-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* static three-dot glyph while checking */
+.dots {
+  width: 18px;
+  height: 4px;
+  background: radial-gradient(circle, var(--text-muted) 1.6px, transparent 2px) 0 50% / 6px 4px repeat-x;
+}
+.seal[data-press] {
+  animation: seal-press var(--dur-press) var(--ease-press) both;
+}
+@keyframes seal-press {
+  from {
+    opacity: 0;
+    transform: rotate(-6deg) scale(1.08);
+  }
+}
+:global(.save-data) .seal[data-press] {
+  animation: none;
+}
+@media (forced-colors: active) {
+  .ring {
+    background: CanvasText;
+  }
+}

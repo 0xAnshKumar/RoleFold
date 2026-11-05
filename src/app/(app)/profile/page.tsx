@@ -4,6 +4,7 @@ import a from "@/components/app/app.module.css";
 import { getProfile, isDemo } from "@/lib/data";
 import { EducationList, Experience, GoalsCard, PrefsCard, ProfileHeader } from "./Edit";
 import { Achievements, CareerBreaks, Languages } from "./Sections";
+import SkillsInsight from "./SkillsInsight";
 import s from "./profile.module.css";
 
 export const metadata: Metadata = { title: "Profile" };
@@ -44,6 +45,7 @@ export default async function ProfilePage() {
                 </li>
               ))}
             </ul>
+            <SkillsInsight />
           </section>
 
           <section className={a.section} aria-labelledby="edu">

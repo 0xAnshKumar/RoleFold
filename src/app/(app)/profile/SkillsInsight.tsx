@@ -1,12 +1,8 @@
-import type { Metadata } from "next";
 import Link from "next/link";
-import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
-import { StatusIcon } from "@/components/ui";
+import { StatusMark } from "@/components/ui/Status";
 import { getSkillsInsight } from "@/lib/data";
 import type { InsightGap } from "@/lib/mock";
-
-export const metadata: Metadata = { title: "What to learn next" };
 
 // PRD §6.4: gaps that recur across your analysed jobs, as counts out of your jobs. Never a percentage or a score.
 function Gaps({ items, jobs, kind }: { items: InsightGap[]; jobs: number; kind: "gap" | "no_evidence" }) {
@@ -20,47 +16,42 @@ function Gaps({ items, jobs, kind }: { items: InsightGap[]; jobs: number; kind: 
               Asked for in {g.jobs} of {jobs} jobs · {g.required ? `required in ${g.required}` : "a nice-to-have in each"}
             </p>
           </div>
-          {kind === "gap" ? (
-            <span className="stamp stamp-gap">
-              <StatusIcon name="cross" /> Gap (you confirmed)
-            </span>
-          ) : (
-            <span className="stamp stamp-no_evidence">
-              <StatusIcon name="dash" /> No evidence yet
-            </span>
-          )}
+          <StatusMark status={kind} />
         </li>
       ))}
     </ul>
   );
 }
 
-export default async function SkillsPage() {
+/** Skills insight, a part of the Profile "Skills" section (was /skills, which now redirects to /profile#skills). */
+export default async function SkillsInsight() {
   const insight = await getSkillsInsight();
   const enough = insight.jobs >= insight.minJobs;
   return (
-    <>
-      <PageHeader
-        title="What to learn next"
-        sub="The skills your jobs keep asking for that your profile doesn’t show yet, counted across the jobs you’ve checked. Jobs you marked not interested are left out."
-      />
+    <div className={a.subsection} aria-labelledby="learn-next">
+      <div className={a.sectionHead}>
+        <h3 id="learn-next" className={a.h3}>
+          What to learn next
+        </h3>
+        <p className={a.note}>The skills your jobs keep asking for that your profile doesn’t show yet, counted across the jobs you’ve checked. Jobs you marked not interested are left out.</p>
+      </div>
       {!enough ? (
         <div className={a.empty}>
           <p className="margin-note">Not enough jobs to see a pattern yet.</p>
           <p className={a.note}>
             Check at least {insight.minJobs} jobs and the skills they keep asking for show up here. So far: {insight.jobs}.
           </p>
-          <Link href="/jobs" className="btn btn-secondary btn-small">
+          <Link href="/jobs?tab=saved#paste" className="btn btn-secondary btn-small">
             Paste a job you’re eyeing
           </Link>
         </div>
       ) : (
         <>
-          <section className={a.section} aria-labelledby="learn">
+          <section className={a.subsection} aria-labelledby="learn">
             <div className={a.sectionHead}>
-              <h2 id="learn" className={a.h2}>
+              <h4 id="learn" className={a.h4}>
                 You said you don’t have these
-              </h2>
+              </h4>
               <p className={a.note}>From “I don’t have this” on a match page.</p>
             </div>
             {insight.learn.length ? (
@@ -69,13 +60,13 @@ export default async function SkillsPage() {
               <p className={a.note}>Nothing yet. When a match page asks for something you don’t have, mark it there and it’s counted here.</p>
             )}
           </section>
-          <section className={a.section} aria-labelledby="record">
+          <section className={a.subsection} aria-labelledby="record">
             <div className={a.sectionHead}>
-              <h2 id="record" className={a.h2}>
+              <h4 id="record" className={a.h4}>
                 Asked for often, nothing recorded
-              </h2>
+              </h4>
               <p className={a.note}>
-                If you’ve done it, <Link href="/profile">add it to your profile</Link>. If not, it may be worth learning.
+                If you’ve done it, <Link href="/profile#exp">add it as a fact</Link>. If not, it may be worth learning.
               </p>
             </div>
             {insight.record.length ? (
@@ -86,6 +77,6 @@ export default async function SkillsPage() {
           </section>
         </>
       )}
-    </>
+    </div>
   );
 }

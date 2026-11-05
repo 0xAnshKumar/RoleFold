@@ -1,0 +1,37 @@
+.region {
+  animation:
+    skeleton-in var(--dur-base) var(--ease-out) 300ms both,
+    skeleton-pulse 1.6s var(--ease-in-out) 500ms 3;
+}
+@keyframes skeleton-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.6;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .region {
+    animation: skeleton-in 0.01ms linear 300ms both;
+  }
+}
+:global(.save-data) .region {
+  animation: skeleton-in 0.01ms linear 300ms both;
+}
+.block,
+.line {
+  display: block;
+  background: var(--bg-sunken);
+  border-radius: var(--r-xs);
+}
+.text {
+  display: flex;
+  flex-direction: column;
+}
+.line {
+  height: calc(var(--lh) * 0.6);
+  margin: calc(var(--lh) * 0.2) 0;
+}

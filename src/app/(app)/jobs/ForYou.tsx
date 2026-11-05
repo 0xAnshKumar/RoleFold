@@ -1,13 +1,9 @@
-import type { Metadata } from "next";
 import Link from "next/link";
-import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
 import { getFeed, getUsage, isDemo } from "@/lib/data";
 import { AlertSettings, Learned } from "./Side";
 import FeedCard from "./FeedCard";
 import s from "./feed.module.css";
-
-export const metadata: Metadata = { title: "Job feed" };
 
 const DAYS = [
   { value: "", label: "Any time" },
@@ -16,8 +12,8 @@ const DAYS = [
   { value: "14", label: "Last 2 weeks" },
 ];
 
-export default async function FeedPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const sp = await searchParams;
+/** "For you" tab of /jobs (was /feed). Screen redesign: DESIGN.md 4.5, build step 5. */
+export default async function ForYou({ sp }: { sp: Record<string, string | string[] | undefined> }) {
   const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
   const query = { q: one("q").slice(0, 100), remote: one("remote") === "1", days: Number(one("days")) || undefined, saved: one("saved") === "1" };
   const filtered = !!(query.q || query.remote || query.days || query.saved);
@@ -26,17 +22,14 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
 
   return (
     <>
-      <PageHeader
-        title="Jobs that may fit you"
-        sub="Open jobs from company job boards, ordered by how many of your confirmed skills they mention. That’s an early read, not a verdict: open the full check to see every requirement against your facts."
-      />
+      <p className={a.sub}>Open jobs from company job boards, ordered by how many of your confirmed skills they mention. That’s an early read, not a verdict: open the full check to see every requirement against your facts.</p>
 
       <div className={s.layout}>
         <section aria-labelledby="feed-title" className={s.main}>
           <h2 id="feed-title" className="sr-only">
             Feed
           </h2>
-          <form className={s.filters} role="search" action="/feed">
+          <form className={s.filters} role="search" action="/jobs">
             <label className={s.search}>
               <span className="sr-only">Search jobs</span>
               <input type="search" name="q" defaultValue={query.q} placeholder="Search title, company or place" maxLength={100} />
@@ -63,7 +56,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
               Show jobs
             </button>
             {filtered && (
-              <Link href="/feed" className={s.reset}>
+              <Link href="/jobs" className={s.reset}>
                 Clear filters
               </Link>
             )}
@@ -76,7 +69,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
                 We add job boards only after checking that their terms allow it. Until then, paste any job you’re eyeing and we’ll check it
                 the same way.
               </p>
-              <Link href="/jobs" className="btn btn-primary btn-small">
+              <Link href="/jobs?tab=saved#paste" className="btn btn-primary btn-small">
                 Paste a job
               </Link>
             </div>
@@ -88,7 +81,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
                   ? "Try fewer filters, or a different word."
                   : "Jobs that clash with your location, work mode or job type are left out. You can change those on your profile."}
               </p>
-              <Link href={filtered ? "/feed" : "/profile"} className="btn btn-secondary btn-small">
+              <Link href={filtered ? "/jobs" : "/profile"} className="btn btn-secondary btn-small">
                 {filtered ? "Clear filters" : "Review your preferences"}
               </Link>
             </div>
@@ -101,7 +94,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
           )}
         </section>
 
-        <aside className={s.side} aria-label="Alerts and what the feed learned">
+        <aside id="feed-settings" className={s.side} aria-label="Feed settings: alerts and what the feed learned">
           <AlertSettings initial={feed.alerts} demo={demo} />
           <Learned initial={feed.learned} demo={demo} />
           <div className={`${a.card} ${s.sideCard}`}>

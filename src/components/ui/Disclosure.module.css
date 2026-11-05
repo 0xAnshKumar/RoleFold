@@ -1,0 +1,40 @@
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  font: var(--type-body);
+  text-align: left;
+}
+.summaryText {
+  flex: 1;
+  min-width: 0;
+}
+.chevron {
+  flex: none;
+  color: var(--text-muted);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.root[data-open] .chevron {
+  transform: rotate(180deg);
+}
+.region {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-base) var(--ease-out);
+}
+.root[data-open] .region {
+  grid-template-rows: 1fr;
+}
+.inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.pad {
+  padding-bottom: 16px;
+}

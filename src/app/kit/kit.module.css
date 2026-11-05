@@ -1,0 +1,138 @@
+.page {
+  padding: 24px var(--gutter) 80px;
+}
+.top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: var(--w-content);
+  margin-bottom: 24px;
+}
+.themes {
+  display: grid;
+  gap: 24px;
+}
+@media (min-width: 1200px) {
+  .themes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.theme {
+  min-width: 0;
+  padding: 20px;
+  border-radius: var(--r-xl);
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.h1 {
+  font: var(--type-d2);
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.h2 {
+  font: var(--type-h);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rowLabel {
+  font: var(--type-id);
+  color: var(--text-muted);
+}
+.rowItems {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.note {
+  font: var(--type-sm);
+  color: var(--text-muted);
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+}
+.swatches {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: var(--type-id);
+  font-size: 0.75rem;
+  min-width: 0;
+}
+.swatch code {
+  overflow-wrap: anywhere;
+}
+.chip {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+}
+.shadows {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.shadowBox {
+  display: grid;
+  place-items: center;
+  height: 72px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  font: var(--type-id);
+}
+.seals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.claim {
+  padding: 8px;
+  border-radius: var(--r-sm);
+}
+.cards {
+  display: grid;
+  gap: 12px;
+}
+.cards > * {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cardActions {
+  margin-top: 8px;
+}
+.disclosures {
+  padding: 0 16px;
+}
+.disclosures > * + * {
+  border-top: 1px solid var(--line);
+}

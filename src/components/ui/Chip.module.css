@@ -1,0 +1,99 @@
+.chip {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-full);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--type-label);
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    transform var(--dur-instant) var(--ease-out);
+}
+/* 44px hit area around the 36px chip */
+.chip::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+@media (hover: hover) {
+  .chip:hover {
+    background: var(--bg-sunken);
+  }
+}
+.chip[data-force="hover"] {
+  background: var(--bg-sunken);
+}
+.chip:active,
+.chip[data-force="press"] {
+  transform: scale(0.97);
+}
+.chip[data-on],
+.chip[data-on]:hover {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.chip[aria-disabled="true"],
+.chip:disabled {
+  opacity: 0.45;
+}
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--on-accent);
+  font: var(--type-xs);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  padding: 4px var(--gutter);
+  margin: 0 calc(-1 * var(--gutter));
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--gutter);
+  scrollbar-width: none;
+}
+.row > * {
+  scroll-snap-align: start;
+}
+@media (min-width: 1024px) {
+  .row {
+    flex-wrap: wrap;
+    overflow: visible;
+    padding: 4px 0;
+    margin: 0;
+  }
+}
+
+.skill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  font: var(--type-sm);
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}

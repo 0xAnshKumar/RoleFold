@@ -1,0 +1,74 @@
+.root {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font: var(--type-label);
+}
+.track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 96px), 1fr));
+  padding: 3px;
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+}
+.pill,
+.track:not([data-ready]) .item:has(:checked) {
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-1), inset 0 0 0 1px var(--line);
+}
+.pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: transform var(--dur-base) var(--ease-in-out);
+}
+.item {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  font: var(--type-label);
+  color: var(--text-muted);
+  text-align: center;
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+/* 44px hit area: the 38px item plus the track padding */
+.item::before {
+  content: "";
+  position: absolute;
+  inset: -3px 0;
+}
+.item:has(:checked) {
+  color: var(--text);
+}
+.item:has(:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 0;
+}
+@media (hover: hover) {
+  .item:hover {
+    color: var(--text);
+  }
+}
+.sm {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 72px), 1fr));
+}
+.sm .item {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: var(--t-xs);
+}
+@media (forced-colors: active) {
+  .item:has(:checked) {
+    outline: 2px solid Highlight;
+  }
+}

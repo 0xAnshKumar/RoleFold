@@ -1,6 +1,6 @@
 import s from "./app.module.css";
 
-/** Page header on notebook ruling: context line, title, sub-copy, and actions on the right. */
+/** App page header (DESIGN.md 3.1): display title, optional one-line description, actions right (stacked on phone). */
 export default function PageHeader({
   context,
   title,
@@ -8,7 +8,7 @@ export default function PageHeader({
   children,
 }: {
   context?: string;
-  title: string;
+  title: React.ReactNode;
   sub?: React.ReactNode;
   children?: React.ReactNode;
 }) {

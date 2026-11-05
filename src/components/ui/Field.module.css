@@ -1,0 +1,108 @@
+/* Inputs (DESIGN.md 3.4). Base control look lives in globals.css (native elements); this adds the field frame. */
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.label {
+  margin-bottom: 6px;
+  font: var(--type-label);
+  letter-spacing: 0.005em;
+  color: var(--text);
+}
+.helper {
+  margin-top: 6px;
+  font: var(--type-sm);
+  color: var(--text-muted);
+}
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  font: var(--type-sm);
+  font-weight: 600;
+  color: var(--danger);
+}
+.error svg {
+  flex: none;
+  margin-top: 2px;
+}
+.input,
+.textarea,
+.select {
+  width: 100%;
+}
+.input[readonly],
+.textarea[readonly] {
+  border-color: transparent;
+  background: var(--bg-sunken);
+}
+.input[data-force="hover"] {
+  border-color: var(--text-muted);
+}
+.input[data-force="focus"] {
+  border-color: var(--accent);
+}
+
+/* textarea grows with its content, 3 to 12 rows */
+@supports (field-sizing: content) {
+  .textarea {
+    field-sizing: content;
+    min-height: calc(3lh + 22px);
+    max-height: calc(12lh + 22px);
+  }
+}
+
+.selectWrap {
+  position: relative;
+}
+.select {
+  appearance: none;
+  padding-right: 40px;
+}
+.chevron {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  translate: 0 -50%;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* "+91 [ … ]" and "₹ [ … ] LPA": one bordered control with fixed segments */
+.affixed {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease-standard);
+}
+.affixed:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.affixed[data-invalid] {
+  border-color: var(--danger);
+}
+.affixed .input {
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+  flex: 1;
+}
+.affixed .input:focus-visible {
+  outline: 0;
+}
+.affix {
+  display: grid;
+  place-items: center;
+  padding: 0 12px;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font: var(--type-body);
+  font-variant-numeric: tabular-nums;
+}
