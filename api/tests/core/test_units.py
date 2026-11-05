@@ -54,7 +54,9 @@ def test_policies_fail_closed_and_split():
 def test_backoff_grows_with_jitter_and_caps():
     for attempts in range(1, 15):
         d = backoff_seconds(attempts)
-        assert min(2.0**attempts, 600) * 0.5 <= d <= min(2.0**attempts, 600)
+        assert min(30 * 2.0 ** (attempts - 1), 600) * 0.5 <= d <= min(30 * 2.0 ** (attempts - 1), 600)
+    # Regression: 5 attempts used to span ~30 s, so one busy minute at the AI provider killed a resume import.
+    assert sum(min(30 * 2.0 ** (a - 1), 600) * 0.5 for a in range(1, 5)) >= 220
 
 
 def test_dead_letter_shows_as_failed_operation():

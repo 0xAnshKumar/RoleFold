@@ -96,10 +96,11 @@ def send(msg: EmailMessage) -> bool:
     return True
 
 
-def digest_items(db: Session, uid: uuid.UUID, since: datetime | None, now: datetime | None = None) -> list[dict]:
+def digest_items(db: Session, uid: uuid.UUID, since: datetime | None, now: datetime | None = None,
+                 frequency: str = "weekly") -> list[dict]:
     """New strong matches: first seen after the last digest (or within one period for the first one)."""
     now = now or datetime.now(UTC)
-    items = feed.build(db, uid, since=since or now - PERIOD["weekly"], now=now)
+    items = feed.build(db, uid, since=since or now - PERIOD[frequency], now=now)
     return [it for it in items if feed.is_strong(it) and not it["saved"]][:MAX_JOBS]
 
 
@@ -112,7 +113,7 @@ def alert_digest(db: Session, task: Claimed) -> dict:
         return {"sent": False, "reason": "off or no email"}
     if row.last_alert_at and row.last_alert_at > now - PERIOD[row.alert_frequency] + SLACK:
         return {"sent": False, "reason": "not due"}
-    items = digest_items(db, uid, row.last_alert_at, now)
+    items = digest_items(db, uid, row.last_alert_at, now, row.alert_frequency)
     row.last_alert_at = now  # also when empty: the next digest looks only at jobs newer than this one
     if not items:
         return {"sent": False, "jobs": 0}

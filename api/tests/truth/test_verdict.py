@@ -63,7 +63,7 @@ def test_unknown_gate_caps_at_good_fit_and_its_question_comes_first():
 def test_non_gate_conflict_caps_at_good_fit_and_is_listed():
     out = v(reqs("supported", "supported", "supported"), [Eligibility("experience_years", "conflict", hard=False)])
     assert out.verdict == "good_fit_with_gaps"
-    assert out.capped_by[0].startswith("experience_years")
+    assert out.capped_by[0].startswith("Experience: ")  # a readable label, never the raw field name
     # A cap never raises a verdict.
     low = v(reqs("partial", "no_evidence_recorded", "no_evidence_recorded"),
             [Eligibility("salary", "conflict", hard=False)])
@@ -100,3 +100,11 @@ def test_D18_self_declared_skill_is_partial_never_supported():
 ])
 def test_gap_typing(support, in_resume, expected):
     assert gap_type(support, in_resume) == expected
+
+
+def test_eligibility_caps_use_readable_labels():
+    # Live test: the summary read "experience_years_min: doesn't match your preference".
+    from app.truth.verdict import cap_text
+    assert cap_text("experience_years_min") == "Experience: they ask for more years than your confirmed roles add up to"
+    assert cap_text("location") == "Location: doesn't match your preferences"
+    assert "_" not in cap_text("visa_sponsorship")

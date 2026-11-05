@@ -162,8 +162,14 @@ def test_prompts_sent_carry_the_quality_rules():
     gw.run("resume_extract", {}, untrusted_text="Career break, 2023")
     mapping, write, job, extract = fake.requests
     assert 'address them as "you"' in mapping.system and "never \"the candidate\"" in mapping.system
+    # Live test 2026-11-05: WebSockets "supported" Kafka and a sentiment model "supported" LLM frameworks.
+    assert "a different technology in the same area is at most \"partial\"" in mapping.system
+    assert "every part" in mapping.system
     assert 'no "at <employer>" endings' in write.system
     assert "never the whole sentence" in job.system
+    # Live test 2026-11-05: a HackerRank posting's five "Who you are" items were skipped (2 of 7 extracted).
+    assert "never a category name" in job.system  # an item was labelled "working qualities"
+    assert "every qualification" in job.system and '"Who you are"' in job.system and '"Even better if"' in job.system
     assert "short normalized value" in job.json_schema["$defs"]["JobEligibilityDraft"]["properties"]["value"]["description"]
     assert {"achievements", "career_breaks"} <= extract.json_schema["properties"].keys()
     assert "`career_breaks`" in extract.system and "publication" in extract.system

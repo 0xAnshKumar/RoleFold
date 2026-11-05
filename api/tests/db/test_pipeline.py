@@ -426,12 +426,16 @@ Requirements:
 - 3+ years of frontend experience required
 - 20+ years of frontend experience required
 - React in production required
+- 3+ years of Kubernetes required
+- 10+ years of TypeScript required
+- 3+ years of Vue required
 We build payment tools for small shops across India and care about clear, tested code every day.
 """
 
 
 def test_years_requirements_are_counted_from_role_dates_not_cited_facts(pg, alice, monkeypatch):
-    """QA 2026-11-04: "5+ years" was backed by a mentoring fact. Years come from confirmed role dates in code."""
+    """QA 2026-11-04: "5+ years" was backed by a mentoring fact. Generic experience years come from confirmed role
+    dates in code; a skill's years keep the model's cited evidence, with career length only as an upper gate."""
     f = confirmed_fact(alice, "Mentored two junior engineers", 2)  # role from Jul 2021
     fv = f["fact_version_id"]
     [role] = alice.get("/v1/profile").json()["roles"]
@@ -441,9 +445,14 @@ def test_years_requirements_are_counted_from_role_dates_not_cited_facts(pg, alic
             {"quote": "3+ years of frontend experience required", "category": "experience", "importance": "required"},
             {"quote": "20+ years of frontend experience required", "category": "experience", "importance": "required"},
             {"quote": "React in production required", "category": "skill", "importance": "required",
-             "skill_text": "React"}]},
+             "skill_text": "React"},
+            {"quote": "3+ years of Kubernetes required", "category": "skill", "importance": "required"},
+            {"quote": "10+ years of TypeScript required", "category": "skill", "importance": "required"},
+            {"quote": "3+ years of Vue required", "category": "skill", "importance": "required"}]},
         {"results": [{"requirement_id": r, "support": "supported", "cited_fact_version_ids": [fv],
-                      "reason": "The candidate mentored engineers."} for r in ("R1", "R2", "R3")]},
+                      "reason": "The candidate mentored engineers."} for r in ("R1", "R2", "R3", "R4", "R5")]
+         + [{"requirement_id": "R6", "support": "no_evidence_recorded", "cited_fact_version_ids": [],
+             "reason": "No Vue work in the evidence."}]},
     ])
     job_id = alice.write("POST", "/v1/jobs/paste", {"text": YEARS_POSTING}).json()["job_id"]
     assert run_once(pg.worker) and task_row(pg, "match")[0] == "succeeded"
@@ -454,3 +463,9 @@ def test_years_requirements_are_counted_from_role_dates_not_cited_facts(pg, alic
     for r in (three, twenty):
         assert r["note"].startswith("Counted from your confirmed role dates: about ")
     assert reqs["React in production required"]["factId"] == f["id"]  # other requirements keep their citation
+    # Skill years: role dates (about 5 years) only cap the model's cited evidence, they never create it.
+    kube, ts, vue = (reqs[f"{q} required"] for q in ("3+ years of Kubernetes", "10+ years of TypeScript",
+                                                       "3+ years of Vue"))
+    assert kube["status"] == "supported" and kube["factId"] == f["id"] and "note" not in kube
+    assert ts["status"] == "partial" and ts["factId"] == f["id"] and "under the 10 years asked" in ts["note"]
+    assert vue["status"] == "no_evidence" and vue["note"] == "No Vue work in the evidence."

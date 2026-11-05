@@ -31,10 +31,11 @@ def test_only_admins_get_in(root, alice):
     assert r.status_code == 200 and r.json()["llm_daily_cap_usd"] == get_settings().llm_daily_spend_cap_usd
 
 
-def test_dlq_replay_needs_reason_and_is_audited(pg, root):
+@pytest.mark.parametrize("status", ["dead", "failed"])  # out of attempts, or failed for good (not retryable)
+def test_dlq_replay_needs_reason_and_is_audited(pg, root, status):
     with pg.superuser.begin() as c:
         tid = c.scalar(text("""INSERT INTO tasks (type, status, idempotency_key, max_attempts, attempts, error_code)
-                               VALUES ('render', 'dead', 'k1', 5, 5, 'INTERNAL_ERROR') RETURNING id"""))
+                               VALUES ('render', :s, 'k1', 5, 5, 'INTERNAL_ERROR') RETURNING id"""), {"s": status})
     assert [t["id"] for t in root.get("/v1/admin/tasks").json()["items"]] == [str(tid)]
     assert root.write("POST", f"/v1/admin/tasks/{tid}/replay", {"reason": "short"}).status_code == 422
     assert root.write("POST", f"/v1/admin/tasks/{tid}/replay", {"reason": REASON}).status_code == 200
@@ -61,6 +62,7 @@ def test_support_session_reads_one_user_read_only_and_expires(pg, root, alice, b
     assert audit(pg, "admin.support.view") == [(root.id, f"user:{alice.id}", f"support session {s['session_id']}")]
     # Not the admin's session -> 404 even for another admin; after the time box -> 404.
     assert alice.get(f"/v1/admin/support/{s['session_id']}").status_code == 403
+    assert Api(root.client, "someone-else").get(f"/v1/admin/support/{s['session_id']}").status_code == 404
     with pg.superuser.begin() as c:
         c.execute(text("UPDATE audit_log SET created_at = now() - interval '31 minutes'"))
     assert root.get(f"/v1/admin/support/{s['session_id']}").status_code == 404

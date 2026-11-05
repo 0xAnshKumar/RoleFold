@@ -227,13 +227,9 @@ export function Achievements({ initial, demo }: { initial: Achievement[]; demo: 
 // ---- Languages: imported ones wait as drafts like other entries.
 
 export function Languages({ initial, demo }: { initial: Language[]; demo: boolean }) {
-  const { list, send, remove, busy, error } = useRows(initial, demo);
+  const { list, send, remove, confirm, busy, error } = useRows(initial, demo);
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState({ name: "", proficiency: "" });
-  const setStatus = (x: Language, to: "confirm" | "reject") =>
-    send(`${to}:${x.id}`, "POST", `/languages/${x.id}/${to}`, { version: x.version }, (l) =>
-      to === "confirm" ? l.map((y) => (y.id === x.id ? { ...y, status: "confirmed" } : y)) : l.filter((y) => y.id !== x.id),
-    );
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     const row: Language = { id: localId(), name: v.name.trim(), proficiency: v.proficiency.trim(), status: "confirmed" };
@@ -263,14 +259,13 @@ export function Languages({ initial, demo }: { initial: Language[]; demo: boolea
               {x.status === "confirmed" ? (
                 <RemoveButton busy={!!busy} label={x.name} onClick={() => remove("/languages", x)} />
               ) : (
-                <div className={s.eduActions}>
-                  <button type="button" className="btn btn-primary btn-small" disabled={!!busy} onClick={() => setStatus(x, "confirm")}>
-                    {busy === `confirm:${x.id}` ? "Confirming…" : "Confirm"}
-                  </button>
-                  <button type="button" className="btn btn-secondary btn-small" disabled={!!busy} onClick={() => setStatus(x, "reject")}>
-                    Not mine, remove
-                  </button>
-                </div>
+                <DraftActions
+                  busy={busy}
+                  id={x.id}
+                  label={x.name}
+                  onConfirm={() => confirm("/languages", x)}
+                  onRemove={() => send(`rm:${x.id}`, "POST", `/languages/${x.id}/reject`, { version: x.version }, (l) => l.filter((y) => y.id !== x.id))}
+                />
               )}
             </li>
           ))}

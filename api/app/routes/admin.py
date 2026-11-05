@@ -187,15 +187,20 @@ def _session(a: Admin, session_id: uuid.UUID) -> tuple[uuid.UUID, object]:
     """), {"id": session_id, "me": a.user.id, "m": get_settings().admin_support_minutes}).first()
     if row is None:
         raise ApiError(404, "NOT_FOUND", "This support session has ended or isn't yours. Open a new one with a reason.")
-    return uuid.UUID(row.target.removeprefix("user:")), row.expires_at
+    try:
+        return uuid.UUID(row.target.removeprefix("user:")), row.expires_at
+    except ValueError:  # the user was deleted: the target is now their pseudonym hash
+        raise ApiError(404, "NOT_FOUND", "This support session has ended: the account was deleted.") from None
 
 
 @router.post("/support")
 def open_support(body: SupportIn, a: AdminDep):
     who = body.user.strip()
-    if re.fullmatch(r"[0-9a-fA-F-]{36}", who):
-        cond = User.id == uuid.UUID(who)
-    else:
+    try:
+        cond = User.id == uuid.UUID(who) if re.fullmatch(r"[0-9a-fA-F-]{36}", who) else None
+    except ValueError:
+        raise ApiError(404, "NOT_FOUND", "No single user matches. Use their user id.") from None
+    if cond is None:
         cond = User.auth_subject == who if "|" in who else func.lower(User.email) == who.lower()
     users = a.db.scalars(select(User).where(cond).limit(2)).all()
     if len(users) != 1:

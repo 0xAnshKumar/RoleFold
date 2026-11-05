@@ -8,7 +8,7 @@ import zipfile
 import pytest
 from sqlalchemy import select
 
-from app.db.models import Resume, ResumeDraft, User
+from app.db.models import Language, Resume, ResumeDraft, User
 from app.routes.resumes import resume_view
 from app.tasks.exports import resume_doc
 from app.tasks.worker import run_once
@@ -87,6 +87,27 @@ def test_imported_languages_are_drafts_until_confirmed(pg, alice, monkeypatch):
     upload(alice, "cv.txt", b"Rohan Iyer\nLanguages: Hindi\n")
     assert run_once(pg.worker)
     assert count(pg, "SELECT count(*) FROM languages") == 3
+
+
+def test_deleting_draft_and_confirmed_languages(pg, alice, monkeypatch):
+    rid = master_resume(pg, alice, monkeypatch)
+    alice.write("POST", "/v1/languages", {"name": "Hindi", "proficiency": "Native"})
+    with as_user(pg.app, alice.id) as db:
+        db.add(Language(user_id=alice.id, name="Tamil"))  # an imported draft
+    p = alice.get("/v1/profile").json()
+    hindi, tamil = p["languages"]
+    assert (hindi["status"], tamil["status"]) == ("confirmed", "draft")
+    assert doc_of(pg, alice, rid)[0]["sections"]["languages"]["lines"] == ["Hindi (Native)"]  # drafts never show
+
+    pv = p["profileVersion"]
+    r = alice.write("DELETE", f"/v1/languages/{tamil['id']}", {"version": tamil["version"]})
+    assert r.status_code == 200 and r.json()["profile_version"] == pv  # a draft was never on the profile
+    r = alice.write("DELETE", f"/v1/languages/{hindi['id']}", {"version": hindi["version"]})
+    assert r.status_code == 200 and r.json()["profile_version"] == pv + 1
+    assert alice.get("/v1/profile").json()["languages"] == []
+    assert count(pg, "SELECT count(*) FROM languages") == 0
+    doc, view = doc_of(pg, alice, rid)
+    assert doc["sections"]["languages"]["lines"] == view["extras"]["languages"] == []
 
 
 def test_draft_fact_under_a_new_project(alice):

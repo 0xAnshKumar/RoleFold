@@ -140,11 +140,14 @@ SCAM_RULES = {
         r"debit card|credit card)\b", re.IGNORECASE),
 }
 _MESSAGING = re.compile(r"\b(whatsapp|telegram)\b|wa\.me/|t\.me/", re.IGNORECASE)
+# "We never charge a registration fee": a negation earlier in the same clause makes a hit an anti-scam disclaimer
+_NEGATED = re.compile(r"\b(never|no|not|don'?t|doesn'?t|won'?t)\b[^.;,!?\n]{0,40}$", re.IGNORECASE)
 
 
 def scam_reasons(description: str, apply_url: str | None) -> list[str]:
     """Rules only. Not done: "salary far outside the occupation's range" (needs salary data per occupation)."""
-    found = [name for name, rx in SCAM_RULES.items() if rx.search(description)]
+    found = [name for name, rx in SCAM_RULES.items()
+             if any(not _NEGATED.search(description[:m.start()]) for m in rx.finditer(description))]
     if _MESSAGING.search(description) and not apply_url:
         found.append("messaging_app_only_contact")
     return found
@@ -153,11 +156,11 @@ def scam_reasons(description: str, apply_url: str | None) -> list[str]:
 # ---------------------------------------------------------------- run
 
 
-def _fields(r: Record, description: str, notes: list[str]) -> dict:
+def _fields(r: Record, notes: list[str]) -> dict:
     return {
         "company": r.company, "title": r.title, "company_key": key(r.company, legal=True), "title_key": key(r.title),
         "location": r.location, "remote": detect_remote(r), "employment_type": r.employment_type,
-        "apply_url": r.apply_url, "apply_url_key": url_key(r.apply_url), "posted_at": r.posted_at,
+        "apply_url": r.apply_url if url_key(r.apply_url) else None, "apply_url_key": url_key(r.apply_url), "posted_at": r.posted_at,
         "cleaning_notes": notes,
     }
 
@@ -190,7 +193,7 @@ def ingest(db: Session, source: Source, records: list[Record], now: datetime | N
             counts["rejected"] += 1  # too thin to judge, or a repeat inside one listing
             continue
         seen.add(r.external_id)
-        f, h = _fields(r, description, notes), description_hash(description)
+        f, h = _fields(r, notes), description_hash(description)
         job = existing.get(r.external_id)
         if job is None:
             reasons = scam_reasons(description, r.apply_url)
@@ -221,11 +224,12 @@ def ingest(db: Session, source: Source, records: list[Record], now: datetime | N
     return counts
 
 
-def expire(db: Session, source: Source, run_started: datetime) -> int:
-    """After a COMPLETE run: start the absence clock for jobs it didn't list, close those absent for the grace
-    period (never on one failed fetch), and close anything unseen for JOB_MAX_AGE_DAYS."""
+def expire(db: Session, source: Source, run_started: datetime, partial: bool = False) -> int:
+    """After a run: start the absence clock for jobs it didn't list (complete runs only), close those absent for
+    the grace period (never on one failed fetch), and close anything unseen for JOB_MAX_AGE_DAYS (every run, so a
+    board that shrank for good can't keep stale jobs open)."""
     s = get_settings()
-    if source.full_listing:
+    if source.full_listing and not partial:
         db.execute(update(CatalogJob).where(
             CatalogJob.source == source.key, CatalogJob.lifecycle == "active",
             CatalogJob.last_seen_at < run_started, CatalogJob.absent_since.is_(None),
@@ -260,10 +264,10 @@ def run_source(db: Session, source: Source) -> dict:
     ).order_by(CatalogSourceRun.started_at.desc()).limit(1))
     partial = source.full_listing and previous is not None and len(records) < previous / 2
     if partial:
-        log.warning("catalog source %s listed %d jobs, last complete run %d: partial, no expiry",
+        log.warning("catalog source %s listed %d jobs, last complete run %d: partial, max-age expiry only",
                     source.key, len(records), previous)
     counts = ingest(db, source, records, started)
-    expired = 0 if partial else expire(db, source, started)
+    expired = expire(db, source, started, partial)
     db.add(CatalogSourceRun(source=source.key, status="partial" if partial else "complete", job_count=len(records),
                             started_at=started, finished_at=datetime.now(UTC)))
     return {"source": source.key, "status": "partial" if partial else "complete", "expired": expired, **counts}

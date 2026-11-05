@@ -338,6 +338,34 @@ def years_asked(text: str | None) -> int | None:
     return int(m.group(1)) if m else None
 
 
+_GENERIC_WORDS = {
+    "experience", "experienced", "professional", "work", "working", "industry", "relevant", "overall", "total",
+    "software", "engineering", "engineer", "engineers", "development", "developer", "programming", "coding",
+    "building", "production", "web", "applications", "apps", "full", "time", "hands", "on", "years", "year",
+    "yrs", "of", "in", "as", "a", "an", "the", "and", "with", "at", "least", "minimum", "plus", "role",
+    "required", "requires", "preferred", "must", "have", "has", "needed", "strong", "solid", "proven", "or", "more",
+}
+
+
+def generic_experience(text: str | None, titles: tuple[str, ...] = ()) -> bool:
+    """True for general experience that role dates can prove: generic words ("4+ years building production web
+    applications") or words from the user's own confirmed job titles ("frontend experience" for a Frontend
+    Engineer). A specific role, domain or capacity ("1+ years in an FDE role", "backend development") needs a fact."""
+    allowed = _GENERIC_WORDS | {w for t in titles for w in re.findall(r"[a-z]+", t.lower())}
+    words = re.findall(r"[a-z]+", (text or "").lower())
+    return bool(words) and all(w in allowed for w in words)
+
+
+def years_gate(category: str, support: str, asked: int | None, exp_years: float) -> str:
+    """Generic experience years are counted from confirmed role dates in code. A skill ("5+ years of Kubernetes")
+    keeps the model's cited evidence; a career shorter than the years asked caps it at partial."""
+    if asked is None or support == "confirmed_gap":
+        return support
+    if category == "experience":
+        return "supported" if exp_years >= asked else "no_evidence_recorded"
+    return "partial" if support == "supported" and exp_years < asked else support
+
+
 def latest_analysis(db: Session, job_version_id: uuid.UUID) -> MatchAnalysis | None:
     return db.scalars(
         select(MatchAnalysis).where(MatchAnalysis.job_version_id == job_version_id)
@@ -352,6 +380,7 @@ def assess(db: Session, job: Job, jv: JobVersion, analysis: MatchAnalysis) -> di
     """
     prefs, goals = latest(db, PreferenceVersion), latest(db, CareerGoal)
     exp_years = experience_years(db)
+    titles = tuple(db.scalars(select(Experience.title).where(Experience.status == "confirmed", Experience.title.is_not(None))))
     reqs = db.scalars(select(JobRequirement).where(JobRequirement.job_version_id == jv.id)
                       .order_by(JobRequirement.quote_start)).all()
     stated = db.scalars(select(JobEligibility).where(JobEligibility.job_version_id == jv.id)).all()
@@ -374,21 +403,25 @@ def assess(db: Session, job: Job, jv: JobVersion, analysis: MatchAnalysis) -> di
                                      self_declared=bool(r.value and r.value.lower() in declared),
                                      does_not_have=bool(keys & lacking))
         asked = years_asked(r.quote) if r.category in ("experience", "skill") else None
-        if asked is not None and support != "confirmed_gap":
-            # Years come from confirmed role dates in code, never from a fact the model cited.
-            support = "supported" if exp_years >= asked else "no_evidence_recorded"
+        # General experience is counted from role dates; a specific role or domain keeps the model's evidence.
+        kind = "experience" if r.category == "experience" and generic_experience(r.value or r.quote, titles) else "skill"
+        counted = asked is not None and kind == "experience"  # from role dates, never from a cited fact
+        gated = years_gate(kind, support, asked, exp_years)
+        capped, support = gated != support and not counted, gated
         requirements.append(vr.Requirement(str(r.id), r.importance, r.gate, support, text))
         row = {"id": str(r.id), "text": text, "importance": "required" if r.importance == "required" else "preferred",
                "status": STATUS[support], "quote": r.quote}
         first = next(iter(m["cited_fact_version_ids"]), None)
-        if asked is not None:
+        if counted:
             row["note"] = f"Counted from your confirmed role dates: about {exp_years:.1f} years."
         elif support in ("supported", "partial") and first in degrees:
             row["note"] = f"Your confirmed education: {degrees[first]}"
         elif support in ("supported", "partial") and first:
             row["factId"] = str(fact_of.get(uuid.UUID(first), ""))
-        if support != "supported" and m["reason"] and asked is None:
+        if support != "supported" and m["reason"] and not counted:
             row["note"] = m["reason"]
+        if capped:
+            row["note"] = f"Your confirmed roles add up to about {exp_years:.1f} years, under the {asked} years asked."
         req_rows.append(row)
 
     eligibility, elig_rows = [], []

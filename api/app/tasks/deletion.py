@@ -31,7 +31,8 @@ def delete_user(db: Session, task: Claimed) -> dict:
     db.execute(delete(User).where(User.id == uid))
     # Before commit: if the commit fails the task retries, and deleting files twice is harmless.
     storage.delete_prefix(str(uid))
-    # ponytail: no sessions, cache or email lists exist at beta; add those stages with them.
+    # Alert settings (feed_settings) cascade with the user rows; the OIDC session lives at the provider and in a
+    # browser cookie the client clears; no cache or mailing list exists. Add stages if those change.
     stages = ["logs_pseudonymized", "tasks_deleted", "user_rows_deleted", "files_deleted"]
     # The DB tombstone keeps only the salted hash; the file tombstone above is what survives a restore.
     db.execute(

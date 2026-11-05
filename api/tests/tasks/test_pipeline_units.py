@@ -20,7 +20,9 @@ from app.tasks.match import (
     compare,
     enrichment,
     evidence_pack,
+    generic_experience,
     years_asked,
+    years_gate,
 )
 from app.tasks.queue import Claimed, Deferred, TaskError
 from app.tasks.tailor import MAX_PER_ROLE, _validate, check_fact, model_fact, select_facts
@@ -217,3 +219,28 @@ def test_match_reason_placeholders_restored_or_dropped():
 def test_years_asked_reads_the_minimum():
     assert [years_asked(t) for t in ("5+ years of frontend", "3-5 yrs", "at least 4 years", "3 to 5 years",
                                      "Python 3 experience", "24/7 support", None)] == [5, 3, 4, 3, None, None, None]
+
+
+def test_years_gate_counts_experience_from_dates_and_only_caps_skills():
+    assert years_gate("experience", "no_evidence_recorded", 3, 5.0) == "supported"  # role dates decide
+    assert years_gate("experience", "supported", 10, 5.0) == "no_evidence_recorded"
+    assert years_gate("skill", "supported", 3, 5.0) == "supported"  # the model's cited evidence stands
+    assert years_gate("skill", "supported", 10, 5.0) == "partial"  # career shorter than asked: at best partial
+    assert years_gate("skill", "no_evidence_recorded", 3, 5.0) == "no_evidence_recorded"  # years alone prove nothing
+    assert years_gate("skill", "partial", 10, 5.0) == "partial"
+    for category in ("experience", "skill"):  # "I don't have this" always wins
+        assert years_gate(category, "confirmed_gap", 3, 5.0) == "confirmed_gap"
+    assert years_gate("skill", "supported", None, 0.0) == "supported"  # no years asked
+
+
+def test_only_generic_experience_is_counted_from_role_dates():
+    # Live test: "1+ years in an FDE role" was marked supported from 1.4 years of unrelated work.
+    for generic in ["software engineering", "4+ years building production web applications", "professional experience",
+                    "Experience", "3+ years of industry experience as a software engineer"]:
+        assert generic_experience(generic), generic
+    for specific in ["FDE role", "1+ years in an FDE role, working directly with internal customers",
+                     "software engineering and API/full-stack/backend development", "Kubernetes",
+                     "senior/lead/architect capacity owning API and platform designs"]:
+        assert not generic_experience(specific), specific
+    assert generic_experience("3+ years of frontend experience", ("Frontend Engineer",))  # the user's own job family
+    assert not generic_experience("1+ years in an FDE role", ("Founding Software Developer", "Data Analyst"))

@@ -11,7 +11,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from app.catalog import feed
@@ -88,6 +88,8 @@ def check_job(catalog_job_id: uuid.UUID, ctx: WriteCtxDep):
     """Open the full check: 202 with the match operation, or 200 with the existing one (free, D19)."""
     db = ctx.db
     cj = _catalog_job(db, catalog_job_id)
+    # Two clicks or tabs at once: the second waits here, then finds the first one's job (no unique-index 500).
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"feed-check:{ctx.user.id}:{cj.id}"})
     existing = db.scalars(select(Job).where(Job.catalog_job_id == cj.id)).first()
     if existing:
         _, jv = _job(db, existing.id)

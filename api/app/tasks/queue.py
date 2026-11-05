@@ -129,8 +129,9 @@ def complete(db: DB, task: Claimed, result: dict | None) -> None:
 
 
 def backoff_seconds(attempts: int) -> float:
-    """Exponential backoff with jitter, capped at 10 minutes."""
-    return min(2.0**attempts, 600.0) * random.uniform(0.5, 1.0)
+    """Exponential backoff with jitter: 30 s, 1, 2, 4 min... capped at 10 minutes. Five attempts span ~4-7 minutes,
+    enough to ride out an AI-provider busy spell (503s) instead of failing the user's import in half a minute."""
+    return min(30.0 * 2.0 ** (attempts - 1), 600.0) * random.uniform(0.5, 1.0)
 
 
 def fail(db: DB, task: Claimed, code: str, message: str, retry: bool = True) -> str | None:

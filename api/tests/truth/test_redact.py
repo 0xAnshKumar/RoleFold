@@ -85,3 +85,9 @@ def test_shared_mapping_keeps_placeholders_unique_across_texts():
     b = redact("Mail b@y.com or a@x.com, by Priya", ["Priya"], mapping=mapping)
     assert a.text == "Mail ⟦EMAIL_1⟧" and b.text == "Mail ⟦EMAIL_2⟧ or ⟦EMAIL_1⟧, by ⟦NAME_1⟧"
     assert mapping == {"⟦EMAIL_1⟧": "a@x.com", "⟦EMAIL_2⟧": "b@y.com", "⟦NAME_1⟧": "Priya"}
+
+
+def test_uuids_are_not_phone_numbers():
+    # Regression: uuid4 digit groups like 7740-4670-9645 read as a phone, so the gateway blocked whole match runs.
+    assert find_pii('{"fact_version_id": "8f9ced61-7740-4670-9645-a99d5413e59f"}') == []
+    assert find_pii("Call +91 98765 43210") == ["+91 98765 43210"]

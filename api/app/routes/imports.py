@@ -90,7 +90,7 @@ def extract_text(data: bytes, fmt: str) -> str:
             raise too_long(pages)
     if not text.strip():
         raise ApiError(422, "NO_EXTRACTABLE_TEXT", NO_TEXT)
-    if pages is None and len(text) > settings.upload_max_chars:
+    if len(text) > settings.upload_max_chars:  # every format: this text goes to the model whole
         raise too_long()
     return text
 

@@ -55,6 +55,18 @@ class Verdict:
     open_questions: list[str] = field(default_factory=list)  # eligibility fields, unknown gates first
 
 
+
+_CAP_LABELS = {"experience_years_min": "Experience", "experience_years_max": "Experience", "work_mode": "Work mode",
+               "employment_type": "Employment", "notice_period": "Notice period", "visa_sponsorship": "Visa",
+               "education_level": "Education", "required_licence": "Licence", "shift_or_travel": "Shift or travel"}
+
+
+def cap_text(field: str) -> str:
+    """Why a soft eligibility conflict holds the verdict down, in the user's words (never a raw field name)."""
+    if field in ("experience_years", "experience_years_min"):
+        return "Experience: they ask for more years than your confirmed roles add up to"
+    return f"{_CAP_LABELS.get(field, field.replace('_', ' ').capitalize())}: doesn't match your preferences"
+
 def resolve_support(
     model_support: str, valid_citations: int, self_declared: bool = False, does_not_have: bool = False
 ) -> str:
@@ -114,8 +126,7 @@ def decide(
         verdict = "poor_fit"
 
     caps = [f"{g}: not confirmed yet" for g in unknown_gates]
-    caps += [f"{e.field}: doesn't match your preference" for e in eligibility
-             if e.status == "conflict" and not e.hard]
+    caps += [cap_text(e.field) for e in eligibility if e.status == "conflict" and not e.hard]
     if caps and _ORDER.index(verdict) > _ORDER.index("good_fit_with_gaps"):
         verdict = "good_fit_with_gaps"
     return Verdict(verdict, LABELS[verdict], coverage, caps, questions)

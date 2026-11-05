@@ -138,4 +138,9 @@ export function refresh(sealed: string): Promise<{ idToken: string; refreshToken
 }
 
 /** Same-origin path only, so ?next= can't bounce the user to another site. */
-export const safeNext = (next: string | null) => (next?.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/jobs");
+/** A post-login path on this site, else /jobs. Resolving it is what catches tab/newline and backslash tricks. */
+export const safeNext = (next: string | null) => {
+  if (!next?.startsWith("/")) return "/jobs";
+  const u = new URL(next, "http://x");
+  return u.origin === "http://x" ? u.pathname + u.search + u.hash : "/jobs";
+};

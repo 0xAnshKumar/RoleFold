@@ -7,7 +7,7 @@ import { API_URL, ApiError, DEV_USER, api as send } from "./api";
 import { SESSION_COOKIE } from "./auth";
 import * as mock from "./mock";
 import type { DraftGroup, Fact, Match, Profile, Resume, ResumeListItem, SavedJob, Usage } from "./mock";
-import type { Feed, ShareState, SharedResume, SkillsInsight } from "./mock";
+import type { Feed, Question, ShareState, SharedResume, SkillsInsight } from "./mock";
 
 /** Per request. /readyz checks the database too, so "API up, Postgres not set up" is also demo. */
 export const isDemo = cache(async () => {
@@ -69,6 +69,7 @@ export const getProfile = cache(() =>
 
 export const getShare = (resumeId: string) => load(mock.share, () => api<ShareState>(`/resumes/${resumeId}/share`));
 export const getSkillsInsight = () => load(mock.skillsInsight, () => api<SkillsInsight>("/insights/skills"));
+export const getQuestions = () => load(mock.questions, async () => (await api<{ items: Question[] }>("/enrichment-questions")).items);
 
 const sampleShared: SharedResume = { name: mock.profile.name, templateId: "tech", sections: mock.resumes[0].sections, extras: { ...mock.resumeExtras, contact: "" } };
 

@@ -33,16 +33,33 @@ from app.db.models import (
     PreferenceVersion,
     UserSkill,
 )
-from app.tasks.match import goal_fit, latest, tokens
+from app.tasks.match import _name, experience_years, goal_fit, latest, tokens, years_asked
 
-RANK_VERSION = "rank-1"
-WEIGHTS = {"skill": 3.0, "goal": 1.5, "fresh": 0.5, "feedback": 1.0, "unknown": 0.3}  # versioned with RANK_VERSION
+RANK_VERSION = "rank-2"
+WEIGHTS = {"skill": 3.0, "goal": 1.5, "fresh": 0.5, "feedback": 1.0, "unknown": 0.3,  # versioned with RANK_VERSION
+           "level": 3.0, "family": 2.0}
 FEEDBACK_MAX = 1.0  # TRD FEEDBACK_MAX_WEIGHT: feedback reorders, never hides a category on its own
 HALF_LIFE_DAYS = 30
 TOP, MAX_PER_COMPANY = 20, 3  # TRD §9.3 diversity
 SENIORITY = {"intern", "junior", "senior", "sr", "staff", "lead", "principal", "head", "director", "manager"}
 # Curated look-alikes (TRD §9.2): having the key does not mean having these, so they never count as it.
 LOOKALIKE = {"react": ["react native"], "java": ["javascript"], "c": ["c++", "c#"], "go": ["google"]}
+# Named by most postings or merely mentioned (AI coding assistants): a hit says little about fit, so it weighs less.
+LOW_SIGNAL = {"git", "github", "rest", "rest api", "rest apis", "restful apis", "sql", "excel", "jira", "linux", "agile",
+              "api", "apis", "json", "claude", "codex", "cursor", "kimi code", "copilot", "github copilot", "chatgpt",
+              "windsurf"}
+LOW_WEIGHT = 0.2
+# Rough years a title word or goal seniority stands for; the highest word in a title counts.
+LEVEL_YEARS = {"intern": 0, "entry": 0, "junior": 0, "graduate": 0, "mid": 3, "senior": 5, "sr": 5, "lead": 6,
+               "manager": 6, "architect": 7, "staff": 8, "principal": 10, "director": 10, "head": 10, "vp": 12}
+ENG_WORDS = {"engineer", "engineering", "developer", "programmer", "sde", "swe", "devops", "sre", "architect"}
+# shortcut: one role family (engineering) by title words; use an occupation taxonomy when one exists.
+OFF_FAMILY = re.compile(r"\b(sales|solutions|marketing|procurement|finance|financial|compliance|legal|counsel|recruit\w*|"
+                        r"talent|account\w*|content|designer|customer|support|consultant|strategy|"
+                        r"(product|program|project) (manager|owner))\b")
+# shortcut: regions for one market; add more as markets open (T-OQ-2).
+REGIONS = {"india": ("apac", "asia")}
+PLACELESS = re.compile(r"\b(remote|anywhere|worldwide|global|work from home|wfh)\b|[^a-z]+")
 
 
 @dataclass
@@ -52,12 +69,13 @@ class UserSide:
     goals: CareerGoal | None
     prefs: PreferenceVersion | None
     affinity: dict[str, float] = field(default_factory=dict)
+    years: float | None = None  # confirmed role years, raised to the goal seniority; None = unknown
 
     @property
     def terms(self) -> list[str]:
         words = {w for s in self.skills for w in re.findall(r"[a-z0-9]+", s)}
         words |= {w for t in (self.goals.target_occupations if self.goals else []) for w in tokens(str(t))}
-        return sorted(w for w in words if len(w) > 1)[:60]
+        return sorted(w for w in words if len(w) > 1 and re.fullmatch(r"\w+", w))[:60]  # safe to_tsquery terms
 
 
 def user_side(db: Session, uid: uuid.UUID, now: datetime | None = None) -> UserSide:
@@ -77,8 +95,10 @@ def user_side(db: Session, uid: uuid.UUID, now: datetime | None = None) -> UserS
             add(t.get("raw"), 1.0)
     for s in db.scalars(select(UserSkill)):
         add(s.raw_label, 1.0 if s.evidence_fact_ids else 0.5)
-    return UserSide(skills, labels, latest(db, CareerGoal), latest(db, PreferenceVersion),
-                    affinity(db, uid, now or datetime.now(UTC)))
+    goals = latest(db, CareerGoal)
+    have, want = experience_years(db), level(str(((goals.raw or {}) if goals else {}).get("seniority") or ""))
+    return UserSide(skills, labels, goals, latest(db, PreferenceVersion), affinity(db, uid, now or datetime.now(UTC)),
+                    max(have, want) if want is not None else have or None)
 
 
 # ---------------------------------------------------------------- feedback (TRD §9.6, CEO D26)
@@ -164,7 +184,26 @@ def skill_hits(posting: str, skills: dict[str, float]) -> list[str]:
                 t = t.replace(other, " ")
         if re.search(rf"(?<![a-z0-9]){re.escape(s)}(?![a-z0-9+#])", t):
             hits.append(s)
-    return hits
+    # Near-identical labels count once: "REST" inside "REST APIs", "React" inside "React.js".
+    return [h for h in hits if not any(o != h and re.search(rf"(?<![a-z0-9]){re.escape(h)}(?![a-z0-9])", o) for o in hits)]
+
+
+def level(text: str) -> int | None:
+    """Years a title or seniority word stands for (the highest one), None when it names no level."""
+    found = [LEVEL_YEARS[w] for w in re.findall(r"[a-z]+", text.lower()) if w in LEVEL_YEARS]
+    return max(found) if found else None
+
+
+def years_required(posting: str) -> int | None:
+    """The fewest years any experience line of the posting asks for ("3+ years of experience ...")."""
+    asked = [n for line in re.split(r"[\n•;]|\.\s", posting) if "experienc" in line.lower()
+             if (n := years_asked(line)) is not None and n <= 15]
+    return min(asked) if asked else None
+
+
+def engineering(title: str) -> bool:
+    t = title.lower()
+    return bool(set(re.findall(r"[a-z]+", t)) & ENG_WORDS) and not OFF_FAMILY.search(t)
 
 
 def preliminary(weight: float, goal: str) -> str:
@@ -192,10 +231,8 @@ def passes(job: CatalogJob, prefs: PreferenceVersion | None) -> bool:
         return False
     if modes and job.remote is False and all("remote" in m for m in modes):
         return False
-    if prefs.locations and job.location and job.remote is not True:
-        loc = job.location.lower()
-        if not any(str(p).lower() in loc for p in prefs.locations if str(p).strip()) and "remote" not in loc:
-            return False
+    if prefs.locations and job.location and not place_ok(job.location, prefs.locations):
+        return False
     if prefs.employment_types and job.employment_type:
         want = {key(str(t)).replace(" ", "") for t in prefs.employment_types}
         if key(job.employment_type).replace(" ", "") not in want:
@@ -203,21 +240,41 @@ def passes(job: CatalogJob, prefs: PreferenceVersion | None) -> bool:
     return True
 
 
+def place_ok(location: str, wanted: list) -> bool:
+    """A preferred place (or its region) is named, or no place is ("Remote"). "US - Remote" fails a preference for India."""
+    loc = location.lower()
+    places = [w for p in {str(p).strip().lower() for p in wanted} - {""} for w in (p, *REGIONS.get(p, ()))]
+    return any(re.search(rf"\b{re.escape(w)}\b", loc) for w in places) or not PLACELESS.sub("", loc)  # not "Indiana"
+
+
 def score(job: CatalogJob, side: UserSide, now: datetime) -> dict:
     hits = skill_hits(f"{job.title or ''}\n{job.description}", side.skills)
-    weight = sum(side.skills[h] for h in hits)
+    eff = {h: side.skills[h] * (LOW_WEIGHT if h in LOW_SIGNAL else 1) for h in hits}
+    weight = sum(eff.values())
     goal = goal_fit(job.title, side.goals)
+    targets = [n for t in (side.goals.target_occupations if side.goals else []) if (n := _name(t))]
+    off_family = any(engineering(t) for t in targets) and not engineering(job.title or "")
+    if off_family:  # "Sales Engineer" shares a word with "Software Engineer" but is a different job
+        goal = {"status": "not_aligned", "text": f"Different from your goal: {', '.join(targets)}."}
+    stated = years_required(job.description or "")
+    asked = max(level(job.title or "") or 0, stated or 0)
+    gap = asked - side.years if side.years is not None else 0
     age = (now - (job.posted_at or job.first_seen_at)).total_seconds() / 86400
     fresh = min(1.0, max(0.0, 1 - age / get_settings().feed_max_age_days))  # a future "posted" date is not fresher
     unknown = bool(side.prefs and side.prefs.locations and not job.location and job.remote is None)
     rank = (WEIGHTS["skill"] * min(weight, 6) / 6 + WEIGHTS["goal"] * {"aligned": 1, "partly": 0.5}.get(goal["status"], 0)
             + WEIGHTS["fresh"] * fresh + WEIGHTS["feedback"] * job_affinity(job, side.affinity)
-            - WEIGHTS["unknown"] * unknown)
+            - WEIGHTS["unknown"] * unknown - WEIGHTS["level"] * min(1.0, max(0.0, gap - 1) / 3)
+            - WEIGHTS["family"] * off_family)
+    # Left out of the default feed: no real skill in common with a role off the user's goals, or a posting that states
+    # 3x+ the user's years (and 3+ more). Everything else above the user's level is shown, ranked lower.
+    hide = (goal["status"] == "not_aligned" and not any(h not in LOW_SIGNAL for h in hits)) or (
+        stated is not None and side.years is not None and stated >= 3 * max(side.years, 1) and stated - side.years >= 3)
     return {
         "fit": preliminary(weight, goal["status"]),
-        "skills": [side.labels[h] for h in sorted(hits, key=lambda h: (-side.skills[h], h))][:6],
+        "skills": [side.labels[h] for h in sorted(hits, key=lambda h: (-eff[h], h))][:6],
         "goal": goal["text"] if goal["status"] in ("aligned", "partly") else None,
-        "_goal": goal["status"], "_rank": rank,
+        "_goal": goal["status"], "_rank": rank, "_hide": hide,
     }
 
 
@@ -254,25 +311,28 @@ def card(job: CatalogJob, scored: dict, saved: bool) -> dict:
 def build(db: Session, uid: uuid.UUID, *, q: str | None = None, remote: bool | None = None,
           days: int | None = None, since: datetime | None = None, saved_only: bool = False,
           now: datetime | None = None) -> list[dict]:
-    """Feed for the current user (RLS context set). Retrieval: active, not duplicate, not scam-flagged, recent;
+    """Feed for the current user (RLS context set). Retrieval: active, not duplicate, not scam-flagged, recent (any age
+    when searching);
     ordered by full-text rank of the user's skill and goal words, top RETRIEVE_K; then hard filters and rank."""
     s, now = get_settings(), now or datetime.now(UTC)
     side = user_side(db, uid, now)
     state = {j: fb.action for j, fb in feedback_state(db).items()}
+    search = bool(q and q.strip())
     max_age = min(days or s.feed_max_age_days, s.feed_max_age_days)
     posted = func.coalesce(CatalogJob.posted_at, CatalogJob.first_seen_at)
     stmt = select(CatalogJob).where(
-        CatalogJob.lifecycle == "active", CatalogJob.duplicate_of.is_(None),
-        CatalogJob.scam_state.in_(["none", "cleared"]), posted >= now - timedelta(days=max_age),
+        CatalogJob.lifecycle == "active", CatalogJob.duplicate_of.is_(None), CatalogJob.scam_state.in_(["none", "cleared"]),
     )
+    if days or not search:  # a search finds every still-listed job; older postings just rank lower (fresh = 0)
+        stmt = stmt.where(posted >= now - timedelta(days=max_age))
     if since is not None:
         stmt = stmt.where(CatalogJob.first_seen_at > since)
     if remote:
         stmt = stmt.where(CatalogJob.remote.is_(True))
     if saved_only:
         stmt = stmt.where(CatalogJob.id.in_([j for j, a in state.items() if a == "save"] or [uuid.uuid4()]))
-    if q and q.strip():
-        like = f"%{q.strip()[:100].replace('%', '').replace('_', ' ')}%"
+    if search:
+        like = f"%{q.strip()[:100].replace('\\', '').replace('%', '').replace('_', ' ')}%"
         stmt = stmt.where(CatalogJob.title.ilike(like) | CatalogJob.company.ilike(like)
                           | CatalogJob.location.ilike(like) | CatalogJob.description.ilike(like))
     if side.terms:
@@ -281,8 +341,8 @@ def build(db: Session, uid: uuid.UUID, *, q: str | None = None, remote: bool | N
         stmt = stmt.order_by(func.ts_rank(doc, func.to_tsquery(text("'simple'"), " | ".join(side.terms))).desc())
     stmt = stmt.order_by(CatalogJob.first_seen_at.desc(), CatalogJob.id).limit(s.retrieve_k)
 
-    items = [card(j, score(j, side, now), state.get(j.id) == "save")
-             for j in db.scalars(stmt) if state.get(j.id) != "dismiss" and passes(j, side.prefs)]
+    items = [it for j in db.scalars(stmt) if state.get(j.id) != "dismiss" and passes(j, side.prefs)
+             if not (it := card(j, score(j, side, now), state.get(j.id) == "save"))["_hide"] or it["saved"] or search]
     items.sort(key=lambda it: (-it["_rank"], it["id"]))
     return diversify(items)[: s.feed_size]
 

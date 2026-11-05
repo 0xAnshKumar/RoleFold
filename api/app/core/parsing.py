@@ -68,21 +68,24 @@ def _pdfium(data: bytes, max_pages: int) -> tuple[int | None, str]:
 
 
 def parse(data: bytes, fmt: str, max_pages: int) -> dict:
-    """Runs in the child. PDF: pypdf first; if its text is empty or garbled, PDFium, keeping the better one."""
+    """Runs in the child. PDF: PDFium first (it keeps word spacing pypdf loses on kerned fonts: "Engineered
+    TracX", not "EngineeredT racX"); if its text is empty or garbled, pypdf, keeping the better one."""
     if fmt == "docx":
         import docx
 
         d = docx.Document(io.BytesIO(data))
         cells = [c.text for t in d.tables for row in t.rows for c in row.cells]
         return {"text": "\n".join([p.text for p in d.paragraphs] + cells), "pages": None, "extractor": "python-docx"}
-    pages, text = _pypdf(data, max_pages)
+    pages, text = _pdfium(data, max_pages)
+    text = text.replace("\u02dc", "~")  # PDF fonts often map "~" to the spacing tilde: "\u02dc300 PDFs/day"
     good, total = good_chars(text)
     if (pages or 0) > max_pages or (good and good >= GOOD_SHARE * total):
-        return {"text": text, "pages": pages, "extractor": "pypdf"}
-    alt_pages, alt = _pdfium(data, max_pages)
+        return {"text": text, "pages": pages, "extractor": "pdfium"}
+    alt_pages, alt = _pypdf(data, max_pages)
+    alt = alt.replace("\u02dc", "~")
     if (alt_pages or 0) > max_pages or good_chars(alt)[0] > good:
-        return {"text": alt, "pages": alt_pages, "extractor": "pdfium"}
-    return {"text": text, "pages": pages, "extractor": "pypdf"}
+        return {"text": alt, "pages": alt_pages, "extractor": "pypdf"}
+    return {"text": text, "pages": pages, "extractor": "pdfium"}
 
 
 def _limit() -> None:

@@ -47,7 +47,7 @@
 }
 .tLine:nth-of-type(3),
 .tLine:nth-of-type(4) {
-  background: #b8b8b8;
+  background: var(--border-strong);
 }
 .masterBody {
   display: flex;

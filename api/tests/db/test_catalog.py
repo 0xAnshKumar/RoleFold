@@ -163,6 +163,20 @@ def test_feed_ranks_by_confirmed_skills_and_feedback_shapes_it(pg, alice, bob):
     assert alice.get("/v1/feed", params={"q": "kitchen"}).json()["items"][0]["title"] == "Head Chef"
     assert alice.get("/v1/feed", params={"remote": "true"}).json()["items"] == []
 
+    # With goals set, a role off them with no skill in common leaves the default feed; a search still finds it.
+    alice.write("PUT", "/v1/goals", {"roles": ["Frontend Engineer"], "industries": [], "seniority": ""})
+    assert [i["title"] for i in alice.get("/v1/feed").json()["items"]] == ["Frontend Engineer"]
+    assert alice.get("/v1/feed", params={"q": "kitchen"}).json()["items"][0]["title"] == "Head Chef"
+    # A search shows every listed job that passes the preferences: older than the feed window, or off the goals.
+    ingest(pg, FakeSource([rec("fde-old", title="Staff Forward Deployed Engineer", body="Deploy with customers. " * 9),
+                           rec("fde-ops", title="Forward Deployed Strategist", body="Own quarterly revenue plans and pricing. " * 6)],
+                          key="greenhouse:other", full_listing=False))
+    with pg.superuser.begin() as c:
+        c.execute(text("UPDATE catalog_jobs SET posted_at = now() - interval '200 days' WHERE external_id = 'fde-old'"))
+    assert "Forward" not in json.dumps(alice.get("/v1/feed").json()["items"])
+    found = alice.get("/v1/feed", params={"q": "Forward Deployed"}).json()["items"]
+    assert sorted(i["title"] for i in found) == ["Forward Deployed Strategist", "Staff Forward Deployed Engineer"]
+
     # Preferences are hard filters; an unstated location passes.
     alice.write("PUT", "/v1/preferences", {"locations": ["Delhi"], "modes": [], "type": "", "visa": "", "notice": ""})
     assert alice.get("/v1/feed").json()["items"] == []

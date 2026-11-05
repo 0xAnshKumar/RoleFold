@@ -1,7 +1,7 @@
 // node --test src/lib/auth.test.mjs (Node 22.18+ runs auth.ts directly by stripping its types).
 import assert from "node:assert/strict";
 import test from "node:test";
-import { live, seal, unseal, usable } from "./auth.ts";
+import { live, safeNext, seal, unseal, usable } from "./auth.ts";
 
 const SECRET = "x".repeat(32);
 
@@ -27,4 +27,10 @@ test("expiry margin and usable session tokens", () => {
   assert.ok(!usable(jwt({ iss: "https://evil/", aud: "hunt", exp: now + 600 }), cfg));
   assert.ok(!usable(jwt({ iss: cfg.issuer, aud: "other", exp: now + 600 }), cfg));
   assert.ok(!usable(jwt({ iss: cfg.issuer, aud: "hunt", exp: now - 1 }), cfg));
+});
+
+test("safeNext keeps post-login redirects on this site", () => {
+  for (const n of ["//evil.example", "/\\evil.example", "/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "https://evil.example", null])
+    assert.equal(new URL(safeNext(n), "https://app.example").origin, "https://app.example", JSON.stringify(n));
+  assert.equal(safeNext("/jobs?x=1#top"), "/jobs?x=1#top");
 });

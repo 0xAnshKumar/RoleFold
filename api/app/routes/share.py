@@ -73,6 +73,8 @@ def create_share(resume_id: uuid.UUID, body: ShareIn, ctx: WriteCtxDep):
     """A new link replaces the resume's active one. The token is in this response only: the stored idempotent
     replay leaves it out, so it is never at rest."""
     _resume(ctx.db, resume_id)
+    # Concurrent creates queue here, so the later one revokes the earlier link: one active link per resume.
+    ctx.db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"share:{resume_id}"})
     _revoke(ctx, resume_id)
     token = secrets.token_urlsafe(32)
     link = ShareLink(user_id=ctx.user.id, resume_id=resume_id, token_hash=token_hash(token),

@@ -2,13 +2,14 @@
 
 import io
 import json
+import logging
 import zipfile
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Response
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 
 from app import render
 from app.core import storage
@@ -31,6 +32,7 @@ from app.tasks.exports import resume_doc
 from app.tasks.queue import enqueue, operation
 
 router = APIRouter(tags=["account"])
+log = logging.getLogger(__name__)
 
 BACKUP_RETENTION_DAYS = 30  # TRD §12.3 (proposed); shown to the user as the full-purge date.
 
@@ -110,6 +112,13 @@ def export_me(ctx: CtxDep):
                     headers={"Content-Disposition": 'attachment; filename="hunt-export.zip"'})
 
 
+def _tombstone(user_hash: str) -> None:
+    try:
+        storage.write_tombstone(user_hash)
+    except OSError:
+        log.exception("request-time tombstone failed; the delete_user task writes it")
+
+
 @router.post("/me/delete", status_code=202)
 def delete_me(ctx: WriteCtxDep):
     uid = ctx.user.id
@@ -117,8 +126,9 @@ def delete_me(ctx: WriteCtxDep):
     req = DeletionRequest(user_id=uid, user_hash=pseudonym(uid))
     ctx.db.add_all([req, AuditLog(actor_id=uid, action="account.delete_requested")])
     ctx.db.flush()
-    # Tombstone at request time too, so a backup restored before the worker runs still re-applies the deletion.
-    storage.write_tombstone(req.user_hash)
+    # Tombstone once the request commits (never for a rolled-back one), so a backup restored before the worker
+    # runs still re-applies the deletion. The delete_user task writes it again, so a failure here only logs.
+    event.listen(ctx.db, "after_commit", lambda _db: _tombstone(req.user_hash), once=True)
     task = enqueue(ctx.db, user_id=uid, type="delete_user", payload={"deletion_request_id": str(req.id)},
                    key=f"delete_user:{uid}")
     now = datetime.now(UTC)

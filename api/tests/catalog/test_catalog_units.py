@@ -100,6 +100,22 @@ def test_scam_rules():
     assert scam_reasons("Valid passport required for travel. Apply via our site.", "https://x") == []
 
 
+def test_scam_rules_ignore_anti_scam_disclaimers():
+    for text in ("We never charge a registration fee. Apply on our site.",
+                 "We do not ask candidates for any processing fee.",
+                 "We will not charge a joining fee at any stage.",
+                 "Hunt won't ask you to pay a fee.",
+                 "Never pay a fee to anyone claiming to be us.",
+                 "No registration fee is required.",
+                 "We will never ask you to share your bank details or OTP."):
+        assert scam_reasons(text, "https://x.com/a") == [], text
+    # a real request is still flagged, even next to a disclaimer or a negation in another clause
+    for text in ("Pay a registration fee of Rs 500 to apply",
+                 "Don't worry, just pay a registration fee of Rs 500.",
+                 "We never call candidates. Pay a registration fee of Rs 500 to apply."):
+        assert scam_reasons(text, "https://x.com/a") == ["asks_for_fee"], text
+
+
 # ---------------------------------------------------------------- ranking
 
 
@@ -110,11 +126,11 @@ def job(**kw) -> SimpleNamespace:
     return SimpleNamespace(**{**base, **kw})
 
 
-def side(skills=None, roles=(), locations=(), modes=(), types=(), affinity=None) -> feed.UserSide:
+def side(skills=None, roles=(), locations=(), modes=(), types=(), affinity=None, years=None) -> feed.UserSide:
     skills = skills or {"react": 1.0, "typescript": 1.0, "jest": 1.0, "graphql": 0.5}
     goals = SimpleNamespace(target_occupations=list(roles)) if roles else None
     prefs = SimpleNamespace(locations=list(locations), work_modes=list(modes), employment_types=list(types))
-    return feed.UserSide(skills, {k: k.title() for k in skills}, goals, prefs, affinity or {})
+    return feed.UserSide(skills, {k: k.title() for k in skills}, goals, prefs, affinity or {}, years)
 
 
 def test_skill_hits_whole_words_and_lookalikes():
@@ -145,6 +161,52 @@ def test_hard_preferences_filter_but_unknowns_pass():
     remote_only = side(modes=["Remote"]).prefs
     assert not feed.passes(job(remote=False), remote_only) and feed.passes(job(remote=True), remote_only)
     assert feed.passes(job(location="Mars"), None)
+
+
+def test_roles_above_the_users_level_rank_lower_and_far_above_leave_the_feed():
+    s = side(skills={"python": 1.0, "sql": 1.0}, roles=["Software Engineer"], years=1.5)
+    entry, senior, staff = (feed.score(job(title=t, description="Python and Kafka."), s, NOW)
+                            for t in ("Software Engineer", "Senior Software Engineer", "Staff Software Engineer"))
+    assert entry["_rank"] > senior["_rank"] > staff["_rank"] and not (senior["_hide"] or staff["_hide"])
+    asks = "Requirements\n- {}+ years of software engineering experience.\n- Python."
+    assert not feed.score(job(title="Software Engineer", description=asks.format(2)), s, NOW)["_hide"]
+    assert feed.score(job(title="Software Engineer", description=asks.format(8)), s, NOW)["_hide"]  # 3x+ beyond
+    unknown = side(skills={"python": 1.0}, roles=["Software Engineer"])  # no dated roles, no seniority goal
+    assert (feed.score(job(title="Senior Software Engineer", description="Python."), unknown, NOW)["_rank"]
+            == feed.score(job(title="Software Engineer", description="Python."), unknown, NOW)["_rank"])
+    assert (feed.level("Entry level"), feed.level("Sr. Staff Engineer"), feed.level("Software Engineer")) == (0, 8, None)
+    assert feed.years_required("Founded 20 years ago.\n3-5 years of experience with Go.\n5+ years experience") == 3
+
+
+def test_common_tools_and_ai_assistants_weigh_little_and_near_duplicates_count_once():
+    skills = {"claude": 1.0, "codex": 1.0, "cursor": 1.0, "git": 1.0, "sql": 1.0, "rest": 1.0, "rest apis": 1.0,
+              "python": 1.0}
+    assert sorted(feed.skill_hits("REST APIs in Python", skills)) == ["python", "rest apis"]
+    s = side(skills=skills, roles=["Software Engineer"])
+    tools = feed.score(job(title="Software Engineer", description="We use Claude, Codex, Cursor, Git and SQL."), s, NOW)
+    assert tools["fit"] == "little"
+    real = feed.score(job(title="Software Engineer", description="Git, Claude and Python."), s, NOW)
+    assert real["skills"][0] == "Python" and real["_rank"] > tools["_rank"]
+
+
+def test_unrelated_roles_leave_the_feed_and_other_role_families_rank_low():
+    s = side(skills={"python": 1.0, "claude": 1.0}, roles=["Software Engineer", "Data Engineer"])
+    for title in ("Procurement Specialist", "Principal Product Manager"):  # nothing but an AI tool in common
+        assert feed.score(job(title=title, description="Vendors, budgets and Claude."), s, NOW)["_hide"], title
+    sales = feed.score(job(title="Sales Engineer", description="Python demos for customers."), s, NOW)
+    eng = feed.score(job(title="Backend Engineer", description="Python services."), s, NOW)
+    assert (sales["_goal"], sales["goal"], sales["_hide"]) == ("not_aligned", None, False)
+    assert sales["_rank"] < eng["_rank"] - 2
+    no_goals = side(skills={"python": 1.0})
+    assert not feed.score(job(title="Procurement Specialist", description="Vendors."), no_goals, NOW)["_hide"]
+
+
+def test_remote_jobs_restricted_to_another_country_fail_a_location_preference():
+    prefs = side(locations=["India"], modes=["Remote", "Hybrid", "On-site"]).prefs
+    for loc in ("US - Remote", "Remote - California", "Connecticut; Remote - New York", "Indiana; Remote - Ohio"):
+        assert not feed.passes(job(location=loc, remote=True), prefs), loc
+    for loc in ("Remote", "Remote - India", "Remote, APAC", "Bengaluru, India", "Anywhere"):
+        assert feed.passes(job(location=loc, remote=True), prefs), loc
 
 
 def test_feedback_reorders_within_bounds_and_reasons_narrow_it():

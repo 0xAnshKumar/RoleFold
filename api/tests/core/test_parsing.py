@@ -19,7 +19,7 @@ def pdf(body: str) -> bytes:
 
 def test_subprocess_extracts_pdf_and_docx():
     out = parsing.extract(pdf("Led the checkout migration"), "pdf", 10)
-    assert out == {"text": "Led the checkout migration", "pages": 1, "extractor": "pypdf"}
+    assert out == {"text": "Led the checkout migration", "pages": 1, "extractor": "pdfium"}
     d, buf = docx.Document(), io.BytesIO()
     d.add_paragraph("Frontend Engineer")
     d.save(buf)
@@ -40,14 +40,16 @@ def test_damaged_file_is_no_text_and_failures_raise(monkeypatch):
         parsing.extract(pdf("hi"), "pdf", 10)
 
 
-def test_garbled_pypdf_text_falls_back_to_pdfium(monkeypatch):
+def test_pdfium_first_and_garbled_text_falls_back_to_pypdf(monkeypatch):
+    # PDFium keeps word spacing that pypdf loses on kerned fonts ("Engineered TracX", not "EngineeredT racX").
     data = pdf("Built a date picker used by 3 teams")
-    assert parsing.parse(data, "pdf", 10)["extractor"] == "pypdf"
-    monkeypatch.setattr(pypdf.PageObject, "extract_text", lambda self, *a, **k: "\x01\x02 ab")
-    out = parsing.parse(data, "pdf", 10)
-    assert out["extractor"] == "pdfium" and "date picker used by 3 teams" in out["text"]
-    monkeypatch.setattr(pypdf.PageObject, "extract_text", lambda self, *a, **k: "")
     assert parsing.parse(data, "pdf", 10)["extractor"] == "pdfium"
+    monkeypatch.setattr(parsing, "_pdfium", lambda d, m: (1, "\x01\x02 ab"))
+    out = parsing.parse(data, "pdf", 10)
+    assert out["extractor"] == "pypdf" and "date picker used by 3 teams" in out["text"]
+    monkeypatch.setattr(parsing, "_pdfium", lambda d, m: (1, ""))
+    assert parsing.parse(data, "pdf", 10)["extractor"] == "pypdf"
+    assert pypdf.PdfReader  # still the fallback library
 
 
 def test_good_chars():
@@ -88,3 +90,9 @@ def test_child_cannot_open_sockets_on_linux():
     out = subprocess.run([sys.executable, "-I", "-c", code, str(Path(parsing.__file__).parent)],
                          capture_output=True, text=True, check=True)
     assert out.stdout.split() == ["blocked"] * 3
+
+
+def test_pdf_spacing_tilde_becomes_ascii(monkeypatch):
+    # Live test: "~300 PDFs/day" came out as "˜300" and reached facts and resumes that way.
+    monkeypatch.setattr(parsing, "_pdfium", lambda d, m: (1, "saving ˜4 hours, ˜300 PDFs/day"))
+    assert parsing.parse(b"%PDF", "pdf", 10)["text"] == "saving ~4 hours, ~300 PDFs/day"

@@ -686,7 +686,7 @@ def _open_question(db: Session, question_id: uuid.UUID) -> EnrichmentQuestion:
     if q is None:
         raise ApiError(404, "NOT_FOUND", "Not found.")
     if q.state != "open":
-        raise ApiError(409, "QUESTION_CLOSED", "This question was already answered or skipped.")
+        raise ApiError(409, "VERSION_CONFLICT", "This question was already answered or skipped.", {"reason": "question_closed"})
     return q
 
 

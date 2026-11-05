@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Resume, ResumeDraft, ResumeVersion
+from app.routes.resumes import snapshot
 from app.tasks.queue import Claimed, TaskError
 from app.tasks.tailor import tailor_resume
 
@@ -19,11 +20,15 @@ from app.tasks.tailor import tailor_resume
 def regenerate_resume(db: Session, task: Claimed) -> dict:
     p = task.payload
     rid, scratch = uuid.UUID(p["resume_id"]), uuid.UUID(p["scratch_id"])
+    if db.scalar(select(ResumeDraft.resume_id).where(ResumeDraft.resume_id == rid)) is None:
+        raise TaskError("NOT_FOUND", "This resume no longer exists.", retry=False)
+    # Model calls first, without a lock, so line edits and exports on this resume don't wait minutes.
+    result = tailor_resume(db, replace(task, payload={**p, "resume_id": str(scratch)}))
+    new = db.scalars(select(ResumeVersion).where(ResumeVersion.resume_id == scratch)).one()
     draft = db.scalars(select(ResumeDraft).where(ResumeDraft.resume_id == rid).with_for_update()).first()
     if draft is None:
         raise TaskError("NOT_FOUND", "This resume no longer exists.", retry=False)
-    result = tailor_resume(db, replace(task, payload={**p, "resume_id": str(scratch)}))
-    new = db.scalars(select(ResumeVersion).where(ResumeVersion.resume_id == scratch)).one()
+    snapshot(db, draft)  # keep the user's unexported line edits as their own version before replacing them
     latest = db.scalar(select(func.max(ResumeVersion.version)).where(ResumeVersion.resume_id == rid))
     db.add(ResumeVersion(
         resume_id=rid, user_id=new.user_id, version=latest + 1, profile_version=new.profile_version,

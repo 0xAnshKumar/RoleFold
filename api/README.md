@@ -83,6 +83,7 @@ uv run python -m app.tasks.worker                       # all types
 uv run python -m app.tasks.worker --types import,match  # an "interactive" pool
 uv run python -m app.tasks.worker --types render        # exports
 uv run python -m app.tasks.worker --types delete_user,regenerate,tailor
+uv run python -m app.tasks.worker --types catalog_ingest,alert_digest   # job feed + alerts (if enabled)
 ```
 
 Pools share the one Postgres queue (SKIP LOCKED); run as many processes per pool as you like. Every pool requeues

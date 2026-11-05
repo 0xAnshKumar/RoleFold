@@ -140,8 +140,12 @@ def restore(value, mapping: dict[str, str]):
     return value
 
 
+_UUID_RE = re.compile(r"\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b", re.IGNORECASE)
+
+
 def find_pii(text: str) -> list[str]:
     """Contact details still present in text. The gateway refuses to send text where this is non-empty."""
     found = EMAIL_RE.findall(text) + URL_RE.findall(text)
+    text = _UUID_RE.sub(" ", text)  # record ids are not phone numbers
     found += [m.group(0) for m in _PHONE_CANDIDATE_RE.finditer(text) if _is_phone(m.group(0))]
     return found
