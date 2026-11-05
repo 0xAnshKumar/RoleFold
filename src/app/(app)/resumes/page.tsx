@@ -33,7 +33,11 @@ export default async function ResumesPage() {
     <>
       <PageHeader
         title="Your resumes"
-        sub="One master resume for each direction you’re heading. Tailored copies for specific jobs sit underneath, made from the same confirmed facts."
+        sub={
+          usage.tailored
+            ? "One master resume for each direction you’re heading. Tailored copies for specific jobs sit underneath, made from the same confirmed facts."
+            : "One master resume for each direction you’re heading, made from the facts you confirmed."
+        }
       >
         <NewResume demo={demo} />
       </PageHeader>
@@ -109,24 +113,26 @@ export default async function ResumesPage() {
         </div>
 
         <aside className={s.side}>
-          <div className={a.card}>
-            <div className={a.meter}>
-              <div className={a.meterTop}>
-                <span>Tailored resumes this month</span>
-                <span>
-                  {usage.tailored.used} of {usage.tailored.limit}
-                </span>
+          {usage.tailored && (
+            <div className={a.card}>
+              <div className={a.meter}>
+                <div className={a.meterTop}>
+                  <span>Tailored resumes this month</span>
+                  <span>
+                    {usage.tailored.used} of {usage.tailored.limit}
+                  </span>
+                </div>
+                <div className={a.meterTrack}>
+                  <span className={a.meterFill} style={{ width: `${(usage.tailored.used / usage.tailored.limit) * 100}%` }} />
+                </div>
+                <p className={a.note}>
+                  {usage.tailored.used >= usage.tailored.limit
+                    ? `You’ve made all your tailored resumes for this month; more on ${usage.resetsOn}. Every resume here can still be opened and downloaded.`
+                    : "Master resumes and downloads are always free and unlimited."}
+                </p>
               </div>
-              <div className={a.meterTrack}>
-                <span className={a.meterFill} style={{ width: `${(usage.tailored.used / usage.tailored.limit) * 100}%` }} />
-              </div>
-              <p className={a.note}>
-                {usage.tailored.used >= usage.tailored.limit
-                  ? `You’ve made all your tailored resumes for this month; more on ${usage.resetsOn}. Every resume here can still be opened and downloaded.`
-                  : "Master resumes and downloads are always free and unlimited."}
-              </p>
             </div>
-          </div>
+          )}
           <div className={`${a.card} ${s.tip}`}>
             <p className="margin-note">Switching fields? Make a second master resume for the new direction.</p>
           </div>

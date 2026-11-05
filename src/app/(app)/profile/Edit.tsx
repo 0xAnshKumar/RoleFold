@@ -404,6 +404,57 @@ function FactForm({
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
+type RoleDraft = { title: string; org: string; location: string; from: string; to: string };
+const monthLabel = (v: string) => (v ? new Date(`${v}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }) : "Present");
+
+/** A role you add yourself (no resume to import, or one it missed). Facts are then added under it. */
+function RoleForm({ busy, error, onSubmit, onCancel }: { busy: boolean; error: string | null; onSubmit: (v: RoleDraft) => void; onCancel: () => void }) {
+  const [v, setV] = useState<RoleDraft>({ title: "", org: "", location: "", from: "", to: "" });
+  const ready = v.title.trim() && v.org.trim() && v.from;
+  return (
+    <form
+      className={a.form}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (ready) onSubmit(v);
+      }}
+    >
+      <label className={a.field}>
+        <span>Job title</span>
+        <input required maxLength={200} value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder="e.g. Frontend Engineer" />
+      </label>
+      <label className={a.field}>
+        <span>Employer</span>
+        <input required maxLength={200} value={v.org} onChange={(e) => setV({ ...v, org: e.target.value })} placeholder="e.g. Northwind Commerce" />
+      </label>
+      <label className={a.field}>
+        <span>Location (optional)</span>
+        <input maxLength={200} value={v.location} onChange={(e) => setV({ ...v, location: e.target.value })} placeholder="e.g. Bengaluru" />
+      </label>
+      <div className={s.monthPair}>
+        <label className={a.field}>
+          <span>From</span>
+          <input type="month" required value={v.from} max={v.to || undefined} onChange={(e) => setV({ ...v, from: e.target.value })} />
+        </label>
+        <label className={a.field}>
+          <span>To</span>
+          <input type="month" value={v.to} min={v.from || undefined} onChange={(e) => setV({ ...v, to: e.target.value })} />
+          <span className={a.hint}>Leave empty if you still work here.</span>
+        </label>
+      </div>
+      <Problem error={error} />
+      <div className={a.formActions}>
+        <button className="btn btn-primary btn-small" type="submit" disabled={busy || !ready}>
+          {busy ? "Saving…" : "Save role"}
+        </button>
+        <button className="btn btn-secondary btn-small" type="button" disabled={busy} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function Experience({
   roles: liveRoles,
   projects = [],
@@ -425,6 +476,7 @@ export function Experience({
   const isProject = (id: string) => projectRows.some((p) => p.id === id);
   const { roles, facts } = demo ? local : { roles: [...liveRoles, ...projectRows], facts: liveFacts };
   const [adding, setAdding] = useState(false);
+  const [addingRole, setAddingRole] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const { busy, error, setError, run } = useAction();
   const findFact = (id: string) => facts.find((f) => f.id === id);
@@ -435,6 +487,33 @@ export function Experience({
       return new Error("This fact changed somewhere else since you opened the page. We’ve reloaded it; check it and try again.");
     }
     return err;
+  };
+
+  // POST /v1/experiences, then confirm it: a role you type yourself is yours, like a fact you write.
+  const addRole = (v: RoleDraft) =>
+    run("role", async () => {
+      const [title, org, location] = [v.title.trim(), v.org.trim(), v.location.trim()];
+      if (demo) {
+        const role: Role = { id: `exp-local-${Date.now()}`, title, org: [org, location].filter(Boolean).join(", "), dates: `${monthLabel(v.from)} – ${monthLabel(v.to)}`, factIds: [] };
+        setLocal({ ...local, roles: [role, ...local.roles] });
+      } else {
+        const e = await api<{ id: string; version: number }>("/experiences", {
+          method: "POST",
+          body: { title, employer: org, location: location || null, start_month: `${v.from}-01`, end_month: v.to ? `${v.to}-01` : null },
+        });
+        try {
+          await api(`/experiences/${e.id}/confirm`, { method: "POST", body: { version: e.version } });
+        } finally {
+          router.refresh();
+        }
+      }
+      setAddingRole(false);
+    });
+  const openForm = (role: boolean) => {
+    setError(null);
+    setEditing(null);
+    setAdding(!role);
+    setAddingRole(role);
   };
 
   // A fact you write yourself is confirmed as you save it: the button says so.
@@ -486,21 +565,24 @@ export function Experience({
         </h2>
         <div className={s.sectionActions}>
           <p className={a.note}>{demo ? facts.length + (confirmed - liveFacts.length) : confirmed} confirmed facts</p>
+          {roles.length > 0 && !addingRole && (
+            <button type="button" className="btn btn-secondary btn-small" onClick={() => openForm(true)}>
+              Add a role
+            </button>
+          )}
           {roles.length > 0 && !adding && (
-            <button
-              type="button"
-              className="btn btn-primary btn-small"
-              onClick={() => {
-                setError(null);
-                setEditing(null);
-                setAdding(true);
-              }}
-            >
+            <button type="button" className="btn btn-primary btn-small" onClick={() => openForm(false)}>
               Add a fact
             </button>
           )}
         </div>
       </div>
+      {addingRole && (
+        <div className={`${a.card} ${s.factForm}`}>
+          <h3 className={s.sideTitle}>Add a role</h3>
+          <RoleForm busy={busy === "role"} error={error} onSubmit={addRole} onCancel={() => setAddingRole(false)} />
+        </div>
+      )}
       {adding && (
         <div className={`${a.card} ${s.factForm}`}>
           <h3 className={s.sideTitle}>Add a fact</h3>
@@ -515,13 +597,18 @@ export function Experience({
           />
         </div>
       )}
-      {roles.length === 0 && (
+      {roles.length === 0 && !addingRole && (
         <div className={a.empty}>
           <p className="margin-note">Nothing confirmed yet.</p>
-          <p className={a.note}>Import the resume you have and confirm what we read. Only confirmed facts are used.</p>
-          <Link href="/onboarding" className="btn btn-primary btn-small">
-            Import my resume
-          </Link>
+          <p className={a.note}>Import the resume you have and confirm what we read, or add a role and write its facts yourself. Only confirmed facts are used.</p>
+          <div className={a.formActions}>
+            <Link href="/onboarding" className="btn btn-primary btn-small">
+              Import my resume
+            </Link>
+            <button type="button" className="btn btn-secondary btn-small" onClick={() => openForm(true)}>
+              Add a role
+            </button>
+          </div>
         </div>
       )}
       {roles.map((r) => (

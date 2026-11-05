@@ -12,7 +12,7 @@ const optionalQuestions = () => getQuestions().catch((e) => (e instanceof ApiErr
 export default async function OnboardingPage({ searchParams }: PageProps<"/onboarding">) {
   const { step } = await searchParams;
   const demo = await isDemo();
-  const [{ drafts, profile }, questions] = await Promise.all([getProfile(), optionalQuestions()]);
+  const [{ drafts, profile, facts }, questions] = await Promise.all([getProfile(), optionalQuestions()]);
   return (
     <Onboarding
       groups={drafts}
@@ -22,6 +22,7 @@ export default async function OnboardingPage({ searchParams }: PageProps<"/onboa
       goals={profile.goals}
       prefs={profile.prefs}
       questions={questions}
+      experience={{ roles: profile.roles, projects: profile.projects, facts, confirmed: profile.confirmed }}
       initialStep={step === "confirm" ? 1 : 0}
     />
   );

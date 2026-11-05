@@ -144,3 +144,12 @@ export const safeNext = (next: string | null) => {
   const u = new URL(next, "http://x");
   return u.origin === "http://x" ? u.pathname + u.search + u.hash : "/jobs";
 };
+
+/** Headers for a browser /v1 call: the session as a bearer, and X-Dev-User only from this server's own env (a client-sent one is dropped). */
+export function apiHeaders(incoming: Headers, token: string | undefined, devUser = process.env.NEXT_PUBLIC_DEV_USER) {
+  const headers = new Headers(incoming);
+  headers.delete("X-Dev-User");
+  if (devUser) headers.set("X-Dev-User", devUser);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return headers;
+}

@@ -120,8 +120,23 @@ def test_dev_header_refused_in_production_but_bearer_works(idp, monkeypatch):
     assert auth.resolve_subject(f"Bearer {token()}", "alice") == f"{ISS}|user-1"
 
 
-def test_dev_header_outside_production():
-    assert auth.resolve_subject(None, "alice") == "dev|alice"
+def test_dev_header_in_development_and_test_with_dev_auth(monkeypatch):
+    for env in ("development", "test"):
+        monkeypatch.setattr(get_settings(), "env", env)
+        assert auth.resolve_subject(None, "alice") == "dev|alice"
+
+
+@pytest.mark.parametrize("env", ["staging", "production"])
+def test_dev_header_refused_in_staging_and_production(monkeypatch, env):
+    monkeypatch.setattr(get_settings(), "env", env)
+    with pytest.raises(ApiError):
+        auth.resolve_subject(None, "alice")
+
+
+def test_dev_header_refused_without_dev_auth(monkeypatch):
+    monkeypatch.setattr(get_settings(), "dev_auth", False)
+    with pytest.raises(ApiError):
+        auth.resolve_subject(None, "alice")
 
 
 def test_admin_by_subject_list_or_verified_role_claim(idp, monkeypatch):

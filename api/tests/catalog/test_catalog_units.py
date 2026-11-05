@@ -49,6 +49,46 @@ def test_greenhouse_and_lever_adapters_read_the_public_apis(monkeypatch):
                      "https://api.lever.co/v0/postings/northwind?mode=json"]
 
 
+# trimmed from live responses (2026-11-06)
+ASHBY = {"apiVersion": "1", "jobs": [{
+    "id": "c0406fe0-c8c0", "title": "Software Engineer", "department": "Engineering", "team": "Platform",
+    "employmentType": "FullTime", "location": "Bengaluru", "isListed": True, "isRemote": False,
+    "workplaceType": "Hybrid", "publishedAt": "2026-10-26T09:57:21.274+00:00",
+    "secondaryLocations": [{"location": "Mumbai", "address": {"postalAddress": {"addressCountry": "India"}}}],
+    "address": {"postalAddress": {"addressCountry": "India", "addressLocality": "Bengaluru"}},
+    "jobUrl": "https://jobs.ashbyhq.com/acme/c0406fe0-c8c0",
+    "applyUrl": "https://jobs.ashbyhq.com/acme/c0406fe0-c8c0/application",
+    "descriptionHtml": "<p>Build APIs in Go.</p>", "descriptionPlain": "Build APIs in Go.",
+}, {"id": "hidden-1", "title": "Unlisted", "isListed": False, "descriptionHtml": "<p>x</p>"}]}
+WORKABLE = {"name": "Northwind", "description": "About us", "jobs": [{
+    "title": "Data Engineer", "shortcode": "81B46579FE", "code": "", "employment_type": "Full-time",
+    "telecommuting": False, "department": "Data", "url": "https://apply.workable.com/j/81B46579FE",
+    "shortlink": "https://apply.workable.com/j/81B46579FE",
+    "application_url": "https://apply.workable.com/j/81B46579FE/apply", "published_on": "2026-10-29",
+    "created_at": "2026-10-28", "country": "India", "city": "Pune", "state": "Maharashtra",
+    "locations": [{"country": "India", "countryCode": "IN", "city": "Pune", "region": "Maharashtra", "hidden": False}],
+    "description": "<p>Spark and Airflow pipelines.</p>",
+}]}
+
+
+def test_ashby_and_workable_adapters_read_the_public_apis(monkeypatch):
+    calls = []
+
+    def get_json(url):
+        calls.append(url)
+        return ASHBY if "ashby" in url else WORKABLE
+
+    monkeypatch.setattr(sources, "get_json", get_json)
+    [ab] = sources.AshbySource("acme", "Acme").fetch()  # the unlisted posting is skipped
+    assert (ab.external_id, ab.company, ab.location, ab.remote) == ("c0406fe0-c8c0", "Acme", "Bengaluru / Mumbai", False)
+    assert ab.apply_url.endswith("c0406fe0-c8c0") and ab.posted_at.month == 10 and "<p>" in ab.description
+    [wk] = sources.WorkableSource("northwind").fetch()
+    assert (wk.external_id, wk.company, wk.location, wk.remote) == ("81B46579FE", "Northwind", "Pune, India", None)
+    assert wk.posted_at == datetime(2026, 10, 29, tzinfo=UTC) and wk.employment_type == "Full-time"
+    assert calls == ["https://api.ashbyhq.com/posting-api/job-board/acme?includeCompensation=false",
+                     "https://apply.workable.com/api/v1/widget/accounts/northwind?details=true"]
+
+
 def test_manual_source_reads_json_and_csv(tmp_path):
     j = tmp_path / "jobs.json"
     j.write_text(json.dumps([{"title": "QA", "company": "X", "description": "d" * 10, "remote": "true"},
@@ -63,8 +103,10 @@ def test_manual_source_reads_json_and_csv(tmp_path):
 
 def test_no_source_is_enabled_by_default_and_bad_entries_fail():
     assert sources.parse_sources("") == []
-    got = sources.parse_sources("greenhouse:acme, lever:northwind=Northwind Commerce, manual:/tmp/jobs.csv")
-    assert [s.key for s in got] == ["greenhouse:acme", "lever:northwind", "manual:jobs.csv"]
+    got = sources.parse_sources("greenhouse:acme, lever:northwind=Northwind Commerce, manual:/tmp/jobs.csv,"
+                                "ashby:acme, workable:northwind")
+    assert [s.key for s in got] == ["greenhouse:acme", "lever:northwind", "manual:jobs.csv", "ashby:acme",
+                                    "workable:northwind"]
     assert got[1].name == "Northwind Commerce" and got[2].full_listing is False
     for bad in ("workday:acme", "greenhouse:../../etc", "lever:"):
         with pytest.raises(ValueError):

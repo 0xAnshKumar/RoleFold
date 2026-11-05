@@ -36,10 +36,10 @@ const items = <T,>(r: T[] | { items: T[] }) => (Array.isArray(r) ? r : r.items);
 
 export const getUsage = cache(() =>
   load(mock.usage, async () => {
-    const r = await api<{ period: string; metrics: Record<"tailored_resume" | "deep_match", { used: number; reserved: number; limit: number }> }>("/usage");
+    const r = await api<{ tailoring?: boolean; period: string; metrics: Record<"tailored_resume" | "deep_match", { used: number; reserved: number; limit: number }> }>("/usage");
     const [y, m] = r.period.split("-").map(Number);
     const n = (k: "tailored_resume" | "deep_match") => ({ used: r.metrics[k].used + r.metrics[k].reserved, limit: r.metrics[k].limit });
-    return { tailored: n("tailored_resume"), matches: n("deep_match"), resetsOn: day(new Date(Date.UTC(y, m, 1))) } satisfies Usage;
+    return { tailored: r.tailoring ? n("tailored_resume") : null, matches: n("deep_match"), resetsOn: day(new Date(Date.UTC(y, m, 1))) } satisfies Usage;
   }),
 );
 

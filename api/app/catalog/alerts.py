@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import logging
 import smtplib
+import ssl
 import uuid
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
@@ -89,7 +90,7 @@ def send(msg: EmailMessage) -> bool:
         return False
     with smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=20) as smtp:
         if s.smtp_port != 25:
-            smtp.starttls()
+            smtp.starttls(context=ssl.create_default_context())  # verifies the server certificate and host name
         if s.smtp_user:
             smtp.login(s.smtp_user, s.smtp_password or "")
         smtp.send_message(msg)

@@ -5,7 +5,7 @@ the client id the frontend signs in with). Signature is checked against the prov
 is the one with auth_subject '{iss}|{sub}'.
 
 DEV-ONLY: header `X-Dev-User: <name>` maps to the users row with auth_subject 'dev|<name>'.
-It is refused when ENV=production.
+Accepted only when DEV_AUTH=1 and ENV is development or test; refused otherwise.
 
 Admins (app/routes/admin.py): subjects listed in ADMIN_SUBJECTS, or an ID token whose top-level
 ADMIN_ROLE_CLAIM claim (a string or a list) contains ADMIN_ROLE.
@@ -74,7 +74,8 @@ def verify_claims(token: str) -> dict:
 
 def resolve_identity(authorization: str | None, x_dev_user: str | None) -> tuple[str, dict]:
     """(auth subject, verified ID token claims); dev users have no claims."""
-    if x_dev_user is not None and get_settings().env != "production":
+    s = get_settings()
+    if x_dev_user is not None and s.dev_auth and s.env in ("development", "test"):
         if not _DEV_USER_RE.fullmatch(x_dev_user):
             raise ApiError(401, "UNAUTHORIZED", "Invalid X-Dev-User.")
         return f"dev|{x_dev_user}", {}
@@ -83,7 +84,7 @@ def resolve_identity(authorization: str | None, x_dev_user: str | None) -> tuple
         if scheme.lower() != "bearer" or not token.strip():
             raise ApiError(401, "UNAUTHORIZED", "Expected 'Authorization: Bearer <token>'.")
         claims = verify_claims(token.strip())
-        return f"{get_settings().oidc_issuer}|{claims['sub']}", claims
+        return f"{s.oidc_issuer}|{claims['sub']}", claims
     raise ApiError(401, "UNAUTHORIZED", "Missing credentials.")
 
 

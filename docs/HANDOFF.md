@@ -14,7 +14,12 @@ fetched). The job feed, alerts and skills-insight view are deferred (see `docs/r
 
 ## 2. Owner's standing rules (always honour)
 
-- No scroll-driven animation. **Never change the cursor** (no `cursor:` rules anywhere in `src/`).
+- No scroll-linked, pinned or scrubbed animation and no scroll-jacking (owner, 2026-11-06: polish comes from layout,
+  real-DOM product visuals, hover/press, state and page transitions; craft.do is the quality bar). Honor
+  prefers-reduced-motion. **Never change the cursor** (no `cursor:` rules anywhere in `src/`).
+- Scope (2026-11-06): two modules only, resume creation and job hunting; tailoring is off. Plan: `docs/PRODUCT-PLAN.md`.
+  Switch: `TAILORING_ENABLED` in `api/.env` (default off): POST `/v1/jobs/{id}/tailored-resume` answers 404
+  `{"reason":"tailoring_off"}`, `/v1/usage` drops the tailored meter (`tailoring:false`), and the UI hides the panel.
 - Example persona is a frontend engineer (sample user "Rohan Iyer").
 - Two volumes: loud expressive landing page, calm app. No eyebrow/kicker labels above headings, SVG icons
   not text glyphs, yellow highlighter only marks proof in the app, verdict seal not gauges/percentages.
@@ -79,7 +84,7 @@ RUN_LIVE_LLM=1 uv run pytest tests/live -s     # opt-in real Gemini smoke test (
 **Live mode** (real API + DB): Postgres → run `api/alembic/bootstrap.sql` → set passwords in `api/.env` →
 `alembic upgrade head` as hunt_owner → `uvicorn app.main:app --port 8000` → worker (`python -m app.tasks.worker`,
 from `api/`) → frontend `.env.local` with `API_URL=http://127.0.0.1:8000` and
-`NEXT_PUBLIC_DEV_USER=<any id>`. Demo mode turns on when both `NEXT_PUBLIC_DEV_USER` and `OIDC_ISSUER` are unset,
+`NEXT_PUBLIC_DEV_USER=<any id>` (the API needs `DEV_AUTH=1` in `api/.env` to accept it). Demo mode turns on when both `NEXT_PUBLIC_DEV_USER` and `OIDC_ISSUER` are unset,
 `HUNT_DEMO=1`, or `/readyz` fails.
 
 **Real login (OIDC, any provider):** frontend `.env.local`: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
@@ -167,7 +172,7 @@ Everything in PRD/TRD launch scope plus the formerly deferred features is built,
 
 ## 9. Decisions made by agents (owner may still override)
 
-Dev auth header only in non-production; 402 `PLAN_LIMIT_REACHED` for limits; 50k-char paste cap and
+Dev auth header (`X-Dev-User`) only with `DEV_AUTH=1` and `ENV` development/test (the proxy strips client-sent ones); 402 `PLAN_LIMIT_REACHED` for limits; 50k-char paste cap and
 200-char minimum (`PASTE_TOO_SHORT`); verifier is a different Gemini model (not a different family, as TRD
 wanted) because only a Gemini key exists; DOCX uses Times New Roman / Calibri / Arial / Cambria (PDF uses
 vendored Tinos / Carlito / Arimo / Libertinus); master resumes are free, tailored resumes count; achievements/languages/career breaks are removed and

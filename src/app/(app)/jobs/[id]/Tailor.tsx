@@ -4,18 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, api, waitFor, type Operation } from "@/lib/api";
-import type { Usage } from "@/lib/mock";
 import a from "@/components/app/app.module.css";
 import s from "./match.module.css";
 
 /** POST /v1/jobs/{id}/tailored-resume (202) -> poll -> open the new resume. Limit is explained before any work starts. */
-export default function Tailor({ jobId, demo, usage }: { jobId: string; demo: boolean; usage: Usage }) {
+export default function Tailor({ jobId, demo, tailored, resetsOn }: { jobId: string; demo: boolean; tailored: { used: number; limit: number }; resetsOn: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { used, limit } = usage.tailored;
+  const { used, limit } = tailored;
   const left = Math.max(0, limit - used);
-  const limitMsg = `You’ve made all ${limit} tailored resumes for this month. They reset on ${usage.resetsOn}. Every resume you’ve already made can still be opened and downloaded.`;
+  const limitMsg = `You’ve made all ${limit} tailored resumes for this month. They reset on ${resetsOn}. Every resume you’ve already made can still be opened and downloaded.`;
 
   async function tailor() {
     if (busy) return;

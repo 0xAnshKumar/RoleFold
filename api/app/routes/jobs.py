@@ -210,6 +210,8 @@ class TailorIn(BaseModel):
 
 @router.post("/jobs/{job_id}/tailored-resume", status_code=202)
 def tailor_for_job(job_id: uuid.UUID, ctx: WriteCtxDep, body: TailorIn | None = None):
+    if not get_settings().tailoring_enabled:  # checked first: nothing is reserved or enqueued
+        raise ApiError(404, "NOT_FOUND", "Tailoring resumes for a job is turned off.", {"reason": "tailoring_off"})
     body = body or TailorIn()  # the match page posts no body: default template
     if body.template not in TEMPLATE_IDS:
         raise ApiError(422, "VALIDATION_ERROR", "Unknown template.", {"templates": sorted(TEMPLATE_IDS)})

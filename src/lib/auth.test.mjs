@@ -1,7 +1,7 @@
 // node --test src/lib/auth.test.mjs (Node 22.18+ runs auth.ts directly by stripping its types).
 import assert from "node:assert/strict";
 import test from "node:test";
-import { live, safeNext, seal, unseal, usable } from "./auth.ts";
+import { apiHeaders, live, safeNext, seal, unseal, usable } from "./auth.ts";
 
 const SECRET = "x".repeat(32);
 
@@ -33,4 +33,15 @@ test("safeNext keeps post-login redirects on this site", () => {
   for (const n of ["//evil.example", "/\\evil.example", "/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "https://evil.example", null])
     assert.equal(new URL(safeNext(n), "https://app.example").origin, "https://app.example", JSON.stringify(n));
   assert.equal(safeNext("/jobs?x=1#top"), "/jobs?x=1#top");
+});
+
+test("/v1 headers: a client-sent X-Dev-User is dropped; only the server's own dev user is sent", () => {
+  const sent = new Headers({ "X-Dev-User": "victim", Accept: "application/json" });
+  const off = apiHeaders(sent, undefined, undefined);
+  assert.equal(off.get("X-Dev-User"), null);
+  assert.equal(off.get("Accept"), "application/json");
+  assert.equal(off.get("Authorization"), null);
+  const on = apiHeaders(sent, "tok", "rohan");
+  assert.equal(on.get("X-Dev-User"), "rohan");
+  assert.equal(on.get("Authorization"), "Bearer tok");
 });

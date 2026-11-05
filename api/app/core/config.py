@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     env: Literal["development", "test", "staging", "production"] = "development"
+    # X-Dev-User sign-in (app/core/auth.py): needs DEV_AUTH=1 AND env development/test. Never set it on a public host.
+    dev_auth: bool = False
+    # Job-targeted resume tailoring (POST /v1/jobs/{id}/tailored-resume). Off at launch (owner, 2026-11-06).
+    tailoring_enabled: bool = False
     # API connects as hunt_app; worker as hunt_worker; migrations as hunt_owner (alembic/bootstrap.sql).
     database_url: str
     worker_database_url: str | None = None
@@ -67,7 +71,9 @@ class Settings(BaseSettings):
     catalog_ingest_hours: int = 12
     job_expire_grace_days: int = 3  # TRD §8.3
     job_max_age_days: int = 60
-    feed_max_age_days: int = 30  # TRD §9.1
+    # Jobs are re-checked on every ingest, so an old posting date alone does not mean closed; big boards keep
+    # roles open for months. Freshness still ranks newer jobs higher (TRD §9.1 said 30; widened 2026-11-06).
+    feed_max_age_days: int = 90
     feed_size: int = 50
     retrieve_k: int = 300
     # Email alerts: log-only until SMTP_HOST is set. APP_URL builds the links inside emails.

@@ -5,6 +5,8 @@ kill switch: remove an entry and its next run never happens.
 
   greenhouse:<board token>[=Display name]   Greenhouse Job Board API (JSON)
   lever:<site>[=Display name]               Lever Postings API (JSON)
+  ashby:<job board name>[=Display name]     Ashby Posting API (JSON)
+  workable:<account subdomain>[=Display name]   Workable widget API (JSON)
   manual:<path to .json or .csv>            an admin-supplied file (see ManualSource)
 
 Terms: we only call the JSON APIs that these applicant-tracking systems publish so companies can show their
@@ -44,7 +46,8 @@ class Record:
 def get_json(url: str):
     """The only network call in the catalog. Tests replace it."""
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=20) as r:
+    # 60 s per socket read: some boards (lever:zeta, ~1 MB) stream slowly and stalled past 20 s
+    with urllib.request.urlopen(req, timeout=60) as r:
         body = r.read(MAX_BYTES + 1)
     if len(body) > MAX_BYTES:
         raise ValueError("listing larger than 20 MB")
@@ -55,9 +58,10 @@ def _ts(value) -> datetime | None:
     if isinstance(value, int | float):  # Lever: epoch milliseconds
         return datetime.fromtimestamp(value / 1000, UTC)
     try:
-        return datetime.fromisoformat(str(value)) if value else None  # 3.11+ reads a trailing Z
+        t = datetime.fromisoformat(str(value)) if value else None  # 3.11+ reads a trailing Z
     except ValueError:
         return None
+    return t.replace(tzinfo=UTC) if t and t.tzinfo is None else t  # Workable sends bare dates
 
 
 class Source:
@@ -112,6 +116,59 @@ class LeverSource(Source):
         return out
 
 
+class AshbySource(Source):
+    """GET api.ashbyhq.com/posting-api/job-board/{board}?includeCompensation=false (public, no key; Ashby's
+    documented Job Postings API for showing a company's jobs elsewhere). Unlisted postings are skipped."""
+
+    def __init__(self, board: str, name: str | None = None):
+        self.key, self.board, self.name = f"ashby:{board}", board, name
+
+    def fetch(self) -> list[Record]:
+        data = get_json(f"https://api.ashbyhq.com/posting-api/job-board/{self.board}?includeCompensation=false")
+        out = []
+        for j in data.get("jobs", []):
+            if j.get("isListed") is False:
+                continue
+            places = [j.get("location")] + [s.get("location") for s in j.get("secondaryLocations") or []]
+            mode = j.get("workplaceType")
+            out.append(Record(
+                external_id=str(j["id"]), title=j.get("title"), company=self.name or self.board,
+                description=j.get("descriptionHtml") or j.get("descriptionPlain") or "",
+                apply_url=j.get("jobUrl") or j.get("applyUrl"), location=" / ".join(filter(None, places)) or None,
+                employment_type=j.get("employmentType"),  # "FullTime": the feed compares letters only
+                remote=True if j.get("isRemote") or mode == "Remote" else False if mode in ("OnSite", "Hybrid") else None,
+                posted_at=_ts(j.get("publishedAt")),
+            ))
+        return out
+
+
+class WorkableSource(Source):
+    """GET apply.workable.com/api/v1/widget/accounts/{account}?details=true (public, no key; the endpoint behind
+    Workable's embeddable jobs widget). One call returns every published job with its description."""
+
+    def __init__(self, account: str, name: str | None = None):
+        self.key, self.account, self.name = f"workable:{account}", account, name
+
+    def fetch(self) -> list[Record]:
+        data = get_json(f"https://apply.workable.com/api/v1/widget/accounts/{self.account}?details=true")
+        out = []
+        for j in data.get("jobs", []):
+            places = [", ".join(filter(None, (p.get("city"), p.get("country")))) for p in j.get("locations") or []
+                      if not p.get("hidden")] or [", ".join(filter(None, (j.get("city"), j.get("country"))))]
+            out.append(Record(
+                external_id=str(j["shortcode"]), title=j.get("title"),
+                company=self.name or data.get("name") or self.account, description=j.get("description") or "",
+                apply_url=j.get("url") or j.get("shortlink"), location=" / ".join(filter(None, places)) or None,
+                employment_type=j.get("employment_type") or None,
+                remote=True if j.get("telecommuting") else None,  # False can still mean hybrid
+                posted_at=_ts(j.get("published_on") or j.get("created_at")),
+            ))
+        return out
+
+
+ADAPTERS = {"greenhouse": GreenhouseSource, "lever": LeverSource, "ashby": AshbySource, "workable": WorkableSource}
+
+
 class ManualSource(Source):
     """An admin import file. JSON: a list of objects; CSV: a header row. Fields: id (optional), title, company,
     description, apply_url, location, employment_type, remote (true/false), posted_at (ISO date).
@@ -153,7 +210,8 @@ def parse_sources(spec: str) -> list[Source]:
             out.append(ManualSource(rest))
             continue
         token, _, name = rest.partition("=")
-        if kind not in ("greenhouse", "lever") or not _TOKEN.fullmatch(token):
-            raise ValueError(f"CATALOG_SOURCES: can't read {entry!r} (greenhouse:<board>, lever:<site>, manual:<file>)")
-        out.append((GreenhouseSource if kind == "greenhouse" else LeverSource)(token, name.strip() or None))
+        if kind not in ADAPTERS or not _TOKEN.fullmatch(token):
+            raise ValueError(f"CATALOG_SOURCES: can't read {entry!r} "
+                             "(greenhouse:<board>, lever:<site>, ashby:<board>, workable:<account>, manual:<file>)")
+        out.append(ADAPTERS[kind](token, name.strip() or None))
     return out

@@ -8,9 +8,9 @@ import a from "@/components/app/app.module.css";
 import { StatusIcon } from "@/components/ui";
 import { ApiError, api, waitFor, type Operation } from "@/lib/api";
 import { naturalName } from "@/lib/names";
-import { LEVELS, type Draft, type DraftGroup, type Education, type Fact, type Goals, type Prefs, type Question } from "@/lib/mock";
+import { LEVELS, type Draft, type DraftGroup, type Education, type Fact, type Goals, type Prefs, type Profile, type Question } from "@/lib/mock";
 import { useAction } from "@/lib/useAction";
-import { AboutForm, EducationRow, useEducation, type About } from "../profile/Edit";
+import { AboutForm, EducationRow, Experience, useEducation, type About } from "../profile/Edit";
 import s from "./onboarding.module.css";
 
 const STEPS = [
@@ -68,6 +68,7 @@ export default function Onboarding({
   goals,
   prefs,
   questions,
+  experience,
   initialStep = 0,
 }: {
   groups: DraftGroup[];
@@ -78,6 +79,8 @@ export default function Onboarding({
   prefs: Prefs;
   /** Guided enrichment (GET /v1/enrichment-questions): each answer becomes a draft fact. */
   questions: Question[];
+  /** Roles and confirmed facts: with nothing to confirm (started from scratch), step 1 is where they're written. */
+  experience: { roles: Profile["roles"]; projects: Profile["projects"]; facts: Fact[]; confirmed: number };
   /** 1 opens the confirm queue (links that say "to confirm" use ?step=confirm). */
   initialStep?: number;
 }) {
@@ -336,25 +339,32 @@ export default function Onboarding({
           {step === 1 && (
             <>
               <div className={s.head}>
-                <h1 className={s.h1}>Check what we read.</h1>
-                <p className={s.sub}>
-                  Only confirmed entries go into your resume. Check the <strong className={s.num}>numbers</strong> and how
-                  much of each one was yours.
-                </p>
-                <div className={s.progress} aria-label={`${done} of ${total} confirmed`}>
-                  <span style={{ width: `${total ? (done / total) * 100 : 0}%` }} />
-                </div>
-                <p className={s.fine}>
-                  {done} of {total} confirmed
-                </p>
+                {total === 0 ? (
+                  <>
+                    <h1 className={s.h1}>Add your experience.</h1>
+                    <p className={s.sub}>
+                      Add each role, then write what you did there with real <strong className={s.num}>numbers</strong>. Your resume is
+                      made only from what you write here.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h1 className={s.h1}>Check what we read.</h1>
+                    <p className={s.sub}>
+                      Only confirmed entries go into your resume. Check the <strong className={s.num}>numbers</strong> and how
+                      much of each one was yours.
+                    </p>
+                    <div className={s.progress} aria-label={`${done} of ${total} confirmed`}>
+                      <span style={{ width: `${(done / total) * 100}%` }} />
+                    </div>
+                    <p className={s.fine}>
+                      {done} of {total} confirmed
+                    </p>
+                  </>
+                )}
               </div>
 
-              {total === 0 && (
-                <div className={a.empty}>
-                  <p className="margin-note">Nothing waiting for you.</p>
-                  <p className={a.note}>Every entry is confirmed, or none have been read yet. You can add facts from your profile.</p>
-                </div>
-              )}
+              {total === 0 && <Experience roles={experience.roles} projects={experience.projects} facts={experience.facts} confirmed={experience.confirmed} demo={demo} />}
               {groups.map((g) => (
                 <div key={g.drafts[0]?.id ?? g.role} className={s.group}>
                   <div className={s.groupHead}>
@@ -508,9 +518,9 @@ export default function Onboarding({
               )}
               <div className={s.actions}>
                 <button className="btn btn-primary" type="button" disabled={!done && total > 0} onClick={() => setStep(2)}>
-                  Continue with {done} confirmed
+                  {total === 0 ? "Continue" : `Continue with ${done} confirmed`}
                 </button>
-                <span className={s.fine}>You can confirm the rest later from your profile.</span>
+                <span className={s.fine}>{total === 0 ? "You can add more later from your profile." : "You can confirm the rest later from your profile."}</span>
               </div>
             </>
           )}

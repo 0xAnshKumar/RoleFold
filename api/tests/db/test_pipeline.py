@@ -6,6 +6,7 @@ FakeLLM only. Response key sets are checked against src/lib/mock.ts.
 import pytest
 from sqlalchemy import text
 
+from app.core.config import get_settings
 from app.llm.gateway import FakeLLM, Gateway, ProviderResponse
 from app.tasks import llm
 from app.tasks.worker import run_once
@@ -378,6 +379,18 @@ def test_tailor_limit_hit_is_402_and_enqueues_nothing(pg, alice):
     assert count(pg, "SELECT count(*) FROM tasks WHERE type = 'tailor'") == 0
 
 
+def test_tailoring_off_is_404_and_enqueues_nothing(pg, alice, monkeypatch):
+    job_id, _, _ = tailor_setup(pg, alice)
+    monkeypatch.setattr(get_settings(), "tailoring_enabled", False)
+    r = alice.write("POST", f"/v1/jobs/{job_id}/tailored-resume", {"template": "classic"})
+    assert r.status_code == 404 and r.json()["error"]["details"] == {"reason": "tailoring_off"}
+    assert count(pg, "SELECT count(*) FROM tasks WHERE type = 'tailor'") == 0
+    assert count(pg, "SELECT count(*) FROM usage_reservations WHERE metric = 'tailored_resume'") == 0
+    u = alice.get("/v1/usage").json()
+    assert u["tailoring"] is False and "tailored" not in u and "tailored_resume" not in u["metrics"]
+    assert u["matches"]["limit"] == 30
+
+
 def test_tailor_failure_leaves_nothing_and_releases(pg, alice, monkeypatch):
     job_id, _, _ = tailor_setup(pg, alice)
     fake(monkeypatch, [ProviderResponse(text="", refused=True)])
@@ -394,7 +407,7 @@ def test_master_resume_needs_confirmed_facts_and_templates_list(alice):
     ids = [t["id"] for t in alice.get("/v1/templates").json()["items"]]
     assert ids == ["classic", "tech", "modern", "campus", "combination", "academic"]
     u = alice.get("/v1/usage").json()
-    assert u["tailored"] == {"used": 0, "limit": 10} and u["matches"] == {"used": 0, "limit": 30} and u["resetsOn"]
+    assert u["tailoring"] is True and u["tailored"] == {"used": 0, "limit": 10} and u["matches"] == {"used": 0, "limit": 30} and u["resetsOn"]
 
 
 def test_users_name_never_reaches_the_model_in_match_or_tailor(pg, alice, monkeypatch):

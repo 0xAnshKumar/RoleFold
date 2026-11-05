@@ -26,11 +26,14 @@
 **What:** `api/app/catalog/alerts.py:92` calls `smtp.starttls()` with no context; pass `ssl.create_default_context()`.
 **Why:** Without it the certificate is not verified, so alert email (user emails, job lists) can be intercepted.
 **Priority:** P1 (security)
+**Status:** Done 2026-11-06 (`tests/catalog/test_alerts_smtp.py`).
 
 ### Refuse the dev-login header outside dev
 **What:** Refuse `X-Dev-User` in the Docker image and every non-dev environment, and strip it at the proxy.
 **Why:** If dev auth is ever on by mistake, that header logs anyone in as any user.
 **Priority:** P1 (security)
+**Status:** Done 2026-11-06. The API accepts it only with `DEV_AUTH=1` (default off) AND `ENV` development/test;
+`src/proxy.ts` drops any client-sent header on /v1 and adds only the server's own `NEXT_PUBLIC_DEV_USER`.
 
 ### Admin action to clear or confirm scam-flagged jobs
 **What:** An admin console action (audited, with a reason) to clear a false scam flag or confirm it.

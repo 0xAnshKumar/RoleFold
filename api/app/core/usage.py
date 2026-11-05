@@ -131,9 +131,13 @@ def summary(db: Session, user_id: uuid.UUID) -> dict:
     }
     y, mo = map(int, period.split("-"))
     resets = date(y + mo // 12, mo % 12 + 1, 1)
+    tailoring = get_settings().tailoring_enabled
+    if not tailoring:  # no tailored-resume meter while tailoring is off
+        del metrics["tailored_resume"]
     # src/lib/mock.ts `usage` shape first; `period` and `metrics` add reserved counts.
     return {
-        "tailored": {k: metrics["tailored_resume"][k] for k in ("used", "limit")},
+        "tailoring": tailoring,
+        **({"tailored": {k: metrics["tailored_resume"][k] for k in ("used", "limit")}} if tailoring else {}),
         "matches": {k: metrics["deep_match"][k] for k in ("used", "limit")},
         "resetsOn": f"{resets.day} {resets.strftime('%b %Y')}",
         "period": period,

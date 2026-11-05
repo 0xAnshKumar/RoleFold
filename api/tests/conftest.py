@@ -1,4 +1,10 @@
+import os
+
 import pytest
+
+# Tests sign in with X-Dev-User and keep exercising tailoring, which are both off by default.
+os.environ["DEV_AUTH"] = "1"
+os.environ["TAILORING_ENABLED"] = "1"
 
 from app.llm.gateway import FakeLLM, Gateway, Tier
 

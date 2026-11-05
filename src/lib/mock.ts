@@ -198,7 +198,7 @@ export const resumes: Resume[] = [
   {
     id: "frontend-engineer",
     name: "Rohan Iyer",
-    target: "Tailored for Senior Frontend Engineer · Kestrel Pay",
+    target: "Master resume · Senior frontend roles, product companies",
     template: "Compact Tech",
     templateId: "tech",
     sections: [
@@ -240,7 +240,6 @@ export type ResumeListItem = {
 
 export const resumeList: ResumeListItem[] = [
   { id: "frontend-master", kind: "master", name: "Frontend Engineer", target: "Senior frontend roles, product companies", template: "Compact Tech", updated: "8 Oct 2026", freshness: "outdated", outdatedReason: "1 fact changed since this version (LCP 2.3s → 2.1s)" },
-  { id: "frontend-engineer", kind: "tailored", name: "Kestrel Pay · Senior Frontend Engineer", target: "Tailored for a pasted job", template: "Compact Tech", updated: "8 Oct 2026", freshness: "current", parent: "frontend-master" },
   { id: "fullstack-master", kind: "master", name: "Full-stack Engineer", target: "Exploring: Node + React roles", template: "Modern", updated: "2 Oct 2026", freshness: "current" },
 ];
 
@@ -304,10 +303,11 @@ export const profile = {
   prefs: { locations: ["Bengaluru"], modes: ["Hybrid", "Remote"], type: "Full-time", visa: "Not needed", notice: "60 days" } as Prefs,
 };
 
-export type Usage = { tailored: { used: number; limit: number }; matches: { used: number; limit: number }; resetsOn: string };
+/** `tailored` is null while job tailoring is off (API TAILORING_ENABLED, default off; demo shows it off too). */
+export type Usage = { tailored: { used: number; limit: number } | null; matches: { used: number; limit: number }; resetsOn: string };
 
 export const usage: Usage = {
-  tailored: { used: 3, limit: 10 },
+  tailored: null,
   matches: { used: 7, limit: 30 },
   resetsOn: "1 Nov 2026",
 };

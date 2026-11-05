@@ -101,6 +101,19 @@ Beta runs on one Postgres primary, these worker pools, and Postgres-backed rate 
 | Feed launch (catalog, per-user feeds) | Redis cache for feeds, job cards and taxonomy lookups; embedding service, GPU only when CPU throughput is the limit |
 | `tasks` table or catalog grows past what vacuum keeps up with | Partition (tasks by created month, catalog by source/time) |
 
+## Job catalog sources
+
+`CATALOG_SOURCES` (empty = feed off) lists boards as `kind:token[=Company name]`, comma-separated. Kinds:
+`greenhouse:<board>`, `lever:<site>`, `ashby:<job board name>`, `workable:<account subdomain>` (each the public JSON
+job-board API the ATS publishes for showing jobs elsewhere; one GET per board per run, no HTML pages) and
+`manual:<file.json|csv>`. `api/.env.example` has a probed list of India boards with entry-to-mid engineering roles;
+each still needs its terms decision (TRD T-OQ-2) before production. Try one board now:
+
+```bash
+uv run python -m app.catalog.cli sources                 # what CATALOG_SOURCES enables
+uv run python -m app.catalog.cli ingest ashby:sarvam     # fetch one now; prints new/updated/rejected counts
+```
+
 ## Docker
 
 `api/Dockerfile` builds one image for the API, the workers and migrations. Build from the repo root (the renderer reads

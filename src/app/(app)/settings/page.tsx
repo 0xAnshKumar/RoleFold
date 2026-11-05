@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function SettingsPage() {
   const [usage, demo] = await Promise.all([getUsage(), isDemo()]);
   const METERS = [
-    { label: "Tailored resumes", ...usage.tailored },
+    ...(usage.tailored ? [{ label: "Tailored resumes", ...usage.tailored }] : []),
     { label: "Detailed job checks", ...usage.matches },
   ];
   return (

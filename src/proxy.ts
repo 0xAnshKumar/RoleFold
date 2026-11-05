@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { REFRESH_COOKIE, SESSION_COOKIE, clearSession, live, oidc, refresh, setSession } from "@/lib/auth";
+import { REFRESH_COOKIE, SESSION_COOKIE, apiHeaders, clearSession, live, oidc, refresh, setSession } from "@/lib/auth";
 
 export async function proxy(req: NextRequest) {
   let token = req.cookies.get(SESSION_COOKIE)?.value;
@@ -20,12 +20,7 @@ export async function proxy(req: NextRequest) {
   };
 
   // Browser API calls (/v1 is rewritten to API_URL in next.config.ts): attach the httpOnly session as a bearer token.
-  if (pathname.startsWith("/v1/")) {
-    if (!token) return;
-    const headers = new Headers(req.headers);
-    headers.set("Authorization", `Bearer ${token}`);
-    return next(headers);
-  }
+  if (pathname.startsWith("/v1/")) return next(apiHeaders(req.headers, token));
 
   // App pages need a live session once OIDC is configured (dev users and forced demo mode skip it).
   // Admin pages need one too; whether the user is an admin is checked by the API on every call.
