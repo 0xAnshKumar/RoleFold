@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { api } from "@/lib/api";
 import { getProfile, isDemo } from "@/lib/data";
 import { questions as sampleQuestions, type Question } from "@/lib/mock";
 import Onboarding from "./Onboarding";
+
+export const metadata: Metadata = { title: "Set up your profile" };
 
 // Guided questions are optional: if they can't load, onboarding goes on without them.
 const getQuestions = async (demo: boolean) =>

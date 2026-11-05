@@ -8,7 +8,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", prelo
 const hand = Kalam({ subsets: ["latin"], weight: "400", variable: "--font-hand", preload: false });
 
 export const metadata: Metadata = {
-  title: "Hunt — a resume where every line is true",
+  title: { default: "Hunt — a resume where every line is true", template: "%s — Hunt" },
   description:
     "Build a free, ATS-safe resume from facts you confirm, and see honestly how any job fits you. No fake scores.",
 };

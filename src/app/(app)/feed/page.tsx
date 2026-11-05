@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
@@ -5,6 +6,8 @@ import { getFeed, getUsage, isDemo } from "@/lib/data";
 import { AlertSettings, Learned } from "./Side";
 import FeedCard from "./FeedCard";
 import s from "./feed.module.css";
+
+export const metadata: Metadata = { title: "Job feed" };
 
 const DAYS = [
   { value: "", label: "Any time" },

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SEAL_COLOR, Stamp } from "@/components/ui";
@@ -8,6 +9,8 @@ import DraftFact from "./DraftFact";
 import Feedback from "./Feedback";
 import Tailor from "./Tailor";
 import s from "./match.module.css";
+
+export const metadata: Metadata = { title: "Job match" };
 
 const GOAL: Record<Match["goalFit"]["status"], Status> = { aligned: "supported", partly: "partial", not_aligned: "conflict", unknown: "unknown" };
 

@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
 import { StatusIcon } from "@/components/ui";
 import { getSkillsInsight } from "@/lib/data";
 import type { InsightGap } from "@/lib/mock";
+
+export const metadata: Metadata = { title: "What to learn next" };
 
 // PRD §6.4: gaps that recur across your analysed jobs, as counts out of your jobs. Never a percentage or a score.
 function Gaps({ items, jobs, kind }: { items: InsightGap[]; jobs: number; kind: "gap" | "no_evidence" }) {

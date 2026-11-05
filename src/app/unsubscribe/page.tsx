@@ -5,7 +5,7 @@ import a from "@/components/app/app.module.css";
 import s from "../signin/signin.module.css";
 import Confirm from "./Confirm";
 
-export const metadata: Metadata = { title: "Stop job alerts — Hunt" };
+export const metadata: Metadata = { title: "Stop job alerts" };
 
 // Public: the signed token from the alert email is the only credential, and it can only turn alerts off.
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };

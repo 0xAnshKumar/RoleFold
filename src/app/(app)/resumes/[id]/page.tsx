@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PageHeader from "@/components/app/PageHeader";
 import { getProfile, getResume, getShare, isDemo } from "@/lib/data";
 import Editor from "./Editor";
 import Share from "./Share";
+
+export const metadata: Metadata = { title: "Resume editor" };
 
 export default async function ResumePage({ params }: PageProps<"/resumes/[id]">) {
   const { id } = await params;

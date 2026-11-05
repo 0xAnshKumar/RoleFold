@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
@@ -6,6 +7,8 @@ import { SEAL_COLOR, sealShort } from "@/components/ui";
 import type { JobStatus } from "@/lib/mock";
 import PasteJob from "./PasteJob";
 import s from "./jobs.module.css";
+
+export const metadata: Metadata = { title: "Jobs" };
 
 const STATUS: Record<JobStatus, string> = { saved: "Saved", applied: "Marked applied", not_interested: "Not interested", dismissed: "Dismissed" };
 

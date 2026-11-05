@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
 import { getResumes, getUsage, isDemo } from "@/lib/data";
 import { Downloads, NewResume, UpdateResume } from "./Actions";
 import s from "./resumes.module.css";
+
+export const metadata: Metadata = { title: "Resumes" };
 
 export default async function ResumesPage() {
   const [resumeList, usage, demo] = await Promise.all([getResumes(), getUsage(), isDemo()]);

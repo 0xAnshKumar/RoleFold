@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
 import { getUsage, isDemo } from "@/lib/data";
 import DeleteAccount from "./DeleteAccount";
 import ExportData from "./ExportData";
 import s from "./settings.module.css";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const [usage, demo] = await Promise.all([getUsage(), isDemo()]);

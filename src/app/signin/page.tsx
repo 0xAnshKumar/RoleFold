@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import a from "@/components/app/app.module.css";
 import s from "./signin.module.css";
 
-export const metadata: Metadata = { title: "Sign in — Hunt" };
+export const metadata: Metadata = { title: "Sign in" };
 
 // ?error= codes set by src/app/auth/callback and login.
 const ERRORS: Record<string, string> = {

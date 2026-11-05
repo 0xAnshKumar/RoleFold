@@ -5,7 +5,7 @@ import a from "@/components/app/app.module.css";
 import { isDemo } from "@/lib/data";
 import AdminNav from "./AdminNav";
 
-export const metadata: Metadata = { title: "Admin · Hunt", robots: { index: false } };
+export const metadata: Metadata = { title: { default: "Admin", template: "%s · Admin — Hunt" }, robots: { index: false } };
 
 async function LiveOnly({ children }: { children: React.ReactNode }) {
   if (!(await isDemo())) return children;
