@@ -1,116 +1,254 @@
-.top {
-  display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-  margin-bottom: clamp(40px, 5vw, 64px);
+/* /jobs (DESIGN.md 4.5): a --w-feed column, quota said once, compact job cards. */
+
+.page {
+  max-width: var(--w-feed);
+  margin: 0 auto;
 }
-.paste {
+.tabs {
+  margin-top: -8px;
+}
+.quota {
+  margin-top: 12px;
+  font: var(--type-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 20px;
+}
+.muted {
+  color: var(--text-muted);
+}
+.start {
+  align-self: flex-start;
+}
+
+/* filters: search + one chip row */
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.search {
+  max-width: 420px;
+}
+.clear {
+  align-self: center;
+  flex: none;
+  padding: 0 6px;
+  font: var(--type-label);
+  color: var(--text);
+  text-decoration: underline 1.5px var(--accent);
+  text-underline-offset: 0.2em;
+  white-space: nowrap;
+}
+
+/* job cards */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: clamp(20px, 2.6vw, 32px);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  border: 1px solid var(--rule);
 }
-.pasteLabel {
-  font: 800 1.25rem/1.1 var(--font-display), sans-serif;
-  font-stretch: 106%;
+.list > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 156px;
 }
-.pasteArea {
-  min-height: 280px;
-  padding: 18px 20px;
-  border: 2px dashed var(--border-strong);
-  border-radius: var(--r-lg);
-  background: var(--paper);
-  font-size: 1rem;
-  line-height: 1.6;
-  transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out);
-}
-.pasteArea:focus {
-  outline: none;
-  border-style: solid;
-  border-color: var(--text);
-  background: #fff;
-}
-.pasteArea[aria-invalid="true"] {
-  border-color: var(--conflict);
-}
-.help {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-.count {
-  font-family: var(--font-mono), monospace;
-  margin-left: 6px;
-}
-.error {
-  padding: 12px 14px;
-  border-radius: 10px;
-  background: #fde8e6;
-  color: #8a1c12;
-  font-weight: 600;
-  line-height: 1.45;
-}
-.pasteActions {
+.card {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 4px;
+  flex-direction: column;
+  gap: 4px;
 }
-.side {
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cardText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cardTitle {
+  font: var(--type-title);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-wrap: pretty;
+}
+.cardTitle a {
+  color: inherit;
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .cardTitle a:hover {
+    text-decoration: underline 1.5px var(--accent);
+    text-underline-offset: 0.2em;
+  }
+}
+.save {
+  margin: -6px -8px 0 0;
+}
+.save[aria-pressed="true"] {
+  color: var(--accent);
+}
+.save[aria-pressed="true"] path {
+  fill: currentColor;
+}
+.where {
+  font: var(--type-sm);
+  color: var(--text);
+}
+.meta {
+  font: var(--type-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+  font: var(--type-sm);
+}
+.fitIcon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  height: 1.5em;
+}
+.fitIcon svg {
+  width: 14px;
+  height: 14px;
+}
+.cardFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.footLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+}
+.textBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: var(--type-label);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+@media (hover: hover) {
+  .textBtn:hover {
+    color: var(--text);
+    text-decoration: underline 1.5px var(--accent);
+    text-underline-offset: 0.2em;
+  }
+}
+.textBtn:disabled {
+  opacity: 0.45;
+}
+.hiddenCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+}
+.footNote {
+  font: var(--type-sm);
+  color: var(--text-muted);
+  max-width: var(--w-prose);
+}
+
+/* saved & pasted */
+.status {
+  flex: none;
+  width: 11.5rem;
+}
+.savedFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+
+/* paste dialog */
+.paste {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-.tips {
+.count {
+  font-family: var(--ff-mono);
+  font-variant-numeric: tabular-nums;
+}
+.pasteActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  font: var(--type-sm);
+}
+
+/* report dialog */
+.reasons {
+  border: 0;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+/* feed settings drawer */
+.drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 8px;
+}
+.drawerSection {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.tipsHead {
-  font: 800 1rem/1.2 var(--font-display), sans-serif;
-  font-stretch: 104%;
+.drawerTitle {
+  font: var(--type-title);
 }
-.tips ul {
+.learned {
   margin: 0;
   padding-left: 1.1em;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  line-height: 1.45;
-  font-size: 0.9375rem;
-}
-.saved,
-.applied {
-  flex: none;
-  padding: 5px 10px;
-  border-radius: var(--r-sm);
-  font-weight: 600;
-  font-size: 0.8125rem;
-}
-.saved {
-  background: rgb(23 58 42 / 0.07);
-}
-/* not highlighter: yellow only marks proof */
-.applied {
-  background: var(--supported-bg);
-  color: var(--supported);
-}
-.pending {
-  color: var(--no-evidence);
-  border-style: dashed;
-  border-width: 2px;
-  rotate: 0deg;
+  gap: 4px;
+  font: var(--type-sm);
 }
 
-@media (max-width: 899px) {
-  .top {
-    grid-template-columns: 1fr;
-  }
-  .pasteArea {
-    min-height: 220px;
+@media (max-width: 599px) {
+  .status {
+    width: 9.5rem;
   }
 }

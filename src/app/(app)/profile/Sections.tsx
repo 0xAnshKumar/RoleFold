@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import a from "@/components/app/app.module.css";
 import { StatusIcon } from "@/components/ui";
+import { EmptyState } from "@/components/ui/State";
 import { ApiError, api } from "@/lib/api";
 import type { Achievement, CareerBreak, Language } from "@/lib/mock";
 import { useAction } from "@/lib/useAction";
@@ -117,13 +118,19 @@ export function CareerBreaks({ initial, demo }: { initial: CareerBreak[]; demo: 
 
   if (list.length === 0 && !adding)
     return (
-      <div className={s.empty}>
-        <p className="margin-note">No breaks recorded.</p>
-        <p className={a.note}>Took time off? Add it your way and choose whether it shows on your resume. The reason is never used to judge job fit.</p>
-        <button type="button" className="btn btn-secondary btn-small" onClick={() => setAdding(true)}>
-          Add a career break
-        </button>
-      </div>
+      <EmptyState
+        level={3}
+        icon="doc"
+        title="No breaks recorded"
+        className={s.emptyCard}
+        action={
+          <button type="button" className="btn btn-secondary btn-small" onClick={() => setAdding(true)}>
+            Add a career break
+          </button>
+        }
+      >
+        Took time off? Add it your way and choose whether it shows on your resume. The reason is never used to judge job fit.
+      </EmptyState>
     );
   return (
     <>

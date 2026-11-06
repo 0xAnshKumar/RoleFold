@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import a from "@/components/app/app.module.css";
+import { Button } from "@/components/ui/Button";
+import { Input, Select, Textarea } from "@/components/ui/Field";
 import { api } from "@/lib/api";
 import type { Profile } from "@/lib/mock";
 import { useAction } from "@/lib/useAction";
@@ -11,9 +13,8 @@ import s from "./match.module.css";
 
 const NEW_PROJECT = "new-project";
 
-/** "Close the gap": the answer becomes an unconfirmed draft fact (POST /v1/facts) under a role or project you pick,
- * or a new project (POST /v1/projects first). It counts nowhere until you confirm it in the queue.
- * Demo: a local note, nothing sent. */
+/** The answer becomes an unconfirmed draft fact (POST /v1/facts) under a role or project you pick, or a new project
+ * (POST /v1/projects first). It counts nowhere until you confirm it in the queue. Demo: a local note, nothing sent. */
 export default function DraftFact({ question, roles, projects, demo }: { question: string; roles: Profile["roles"]; projects: Profile["projects"]; demo: boolean }) {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -42,60 +43,50 @@ export default function DraftFact({ question, roles, projects, demo }: { questio
     });
 
   return (
-    <div className={s.sideCard}>
-      <h2 className={s.sideTitle}>Close the gap</h2>
-      {question && <p className="margin-note">{question}</p>}
-      <label className={s.answer}>
-        <span>Your answer becomes a draft fact you confirm</span>
-        <textarea
-          rows={3}
-          maxLength={2000}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            setSaved(false);
-          }}
-          placeholder="e.g. Built an internal dashboard with Apollo Client and GraphQL"
-        />
-      </label>
-      <label className={s.answer}>
-        <span>Where did you do this?</span>
-        <select value={owner} onChange={(e) => setOwner(e.target.value)}>
-          {roles.length > 0 && (
-            <optgroup label="Roles">
-              {roles.map((r) => (
-                <option key={r.id} value={`experience:${r.id}`}>
-                  {[r.title, r.org].filter(Boolean).join(", ")}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          <optgroup label="Projects">
-            {projects.map((p) => (
-              <option key={p.id} value={`project:${p.id}`}>
-                {p.name}
+    <div className={s.gapAsk}>
+      <p className={s.label}>If you’ve done it, add it as a fact</p>
+      {question && <p>{question}</p>}
+      <Textarea
+        label="Your answer becomes a draft fact you confirm"
+        rows={3}
+        maxLength={2000}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setSaved(false);
+        }}
+        placeholder="e.g. Built an internal dashboard with Apollo Client and GraphQL"
+      />
+      <Select label="Where did you do this?" value={owner} onChange={(e) => setOwner(e.target.value)}>
+        {roles.length > 0 && (
+          <optgroup label="Roles">
+            {roles.map((r) => (
+              <option key={r.id} value={`experience:${r.id}`}>
+                {[r.title, r.org].filter(Boolean).join(", ")}
               </option>
             ))}
-            <option value={NEW_PROJECT}>A new project…</option>
           </optgroup>
-        </select>
-      </label>
-      {owner === NEW_PROJECT && (
-        <label className={s.answer}>
-          <span>Project name</span>
-          <input value={projectName} maxLength={200} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. Ledgerly, a side project" />
-        </label>
-      )}
-      <button className="btn btn-secondary" type="button" disabled={!ready || !!busy} onClick={save}>
-        {busy ? "Saving…" : "Save as draft fact"}
-      </button>
+        )}
+        <optgroup label="Projects">
+          {projects.map((p) => (
+            <option key={p.id} value={`project:${p.id}`}>
+              {p.name}
+            </option>
+          ))}
+          <option value={NEW_PROJECT}>A new project…</option>
+        </optgroup>
+      </Select>
+      {owner === NEW_PROJECT && <Input label="Project name" value={projectName} maxLength={200} onChange={(e) => setProjectName(e.target.value)} placeholder="e.g. Ledgerly, a side project" />}
+      <Button className={s.start} disabled={!ready} loading={busy === "save"} onClick={save}>
+        Save as draft fact
+      </Button>
       {saved && (
-        <p role="status" className={s.left}>
+        <p role="status" className={a.note}>
           {demo ? (
             "Sample data: nothing was sent. In your account this is saved as a draft for you to confirm."
           ) : (
             <>
-              Saved as a draft — <Link href="/onboarding?step=confirm">confirm it in your profile</Link>. Nothing counts until you do.
+              Saved as a draft. <Link href="/onboarding?step=confirm">Confirm it</Link>; nothing counts until you do.
             </>
           )}
         </p>

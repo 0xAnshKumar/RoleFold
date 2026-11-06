@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import a from "@/components/app/app.module.css";
+import { Button } from "@/components/ui/Button";
+import { ChipRow, FilterChip } from "@/components/ui/Chip";
 import { api } from "@/lib/api";
 import type { JobFeedback } from "@/lib/mock";
 import s from "./match.module.css";
 
 const REASONS = ["Verdict too high", "Verdict too low", "Wrong requirement", "Missed my experience"];
 
-/** "Was this assessment right?" (CEO D26): the relevance signal while there's no job feed. */
+/** "Was this assessment right?" (CEO D26): a relevance signal for the verdict and the feed ranking. */
 export default function Feedback({ jobId, demo }: { jobId: string; demo: boolean }) {
   const [vote, setVote] = useState<JobFeedback["vote"] | null>(null);
   const [reason, setReason] = useState<string | null>(null);
@@ -36,40 +39,36 @@ export default function Feedback({ jobId, demo }: { jobId: string; demo: boolean
   }
 
   return (
-    <div className={s.sideCard}>
-      <h2 className={s.sideTitle}>Was this assessment right?</h2>
-      <div className={s.thumbs} role="group" aria-label="Rate this assessment">
+    <div className={s.feedback}>
+      <div className={s.feedbackRow} role="group" aria-labelledby="fb-title">
+        <span id="fb-title" className={s.feedbackTitle}>
+          Was this assessment right?
+        </span>
         {(["up", "down"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            className={s.thumb}
-            aria-pressed={vote === v}
-            disabled={busy}
-            onClick={() => send({ vote: v, reason: null })}
-          >
-            <svg viewBox="0 0 20 20" aria-hidden style={{ rotate: v === "down" ? "180deg" : "0deg" }}>
-              <path d="M6 9v8H3V9zM6 9l4-6c1.5 0 2 1 2 2l-1 3h5c1 0 1.7 1 1.4 2l-1.6 6c-.2.7-.8 1-1.4 1H6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-            </svg>
+          <Button key={v} size="sm" aria-pressed={vote === v} disabled={busy} onClick={() => send({ vote: v, reason: null })} className={s.vote}>
             {v === "up" ? "Yes" : "No"}
-          </button>
+          </Button>
         ))}
       </div>
       {vote === "down" && (
-        <div className={s.reasonChips}>
+        <ChipRow label="What was off?">
           {REASONS.map((r) => (
-            <button key={r} type="button" className={s.chip} aria-pressed={reason === r} disabled={busy} onClick={() => send({ vote: "down", reason: r })}>
+            <FilterChip key={r} pressed={reason === r} disabled={busy} onClick={() => send({ vote: "down", reason: r })}>
               {r}
-            </button>
+            </FilterChip>
           ))}
-        </div>
+        </ChipRow>
       )}
       {failed && (
-        <p role="alert" className={s.left}>
+        <p role="alert" className={a.problem}>
           That didn’t save. Try again.
         </p>
       )}
-      {vote && !failed && <p className={s.left}>{vote === "up" ? "Thanks. This helps us keep verdicts honest." : reason ? "Thanks. We’ll look at this one." : "What was off?"}</p>}
+      {vote && !failed && (
+        <p className={a.note} role="status">
+          {vote === "up" ? "Thanks. This helps us keep verdicts honest." : reason ? "Thanks. We’ll look at this one." : "What was off?"}
+        </p>
+      )}
     </div>
   );
 }

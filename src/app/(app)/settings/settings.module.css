@@ -1,84 +1,116 @@
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  align-items: start;
-}
-.block {
+/* Settings (DESIGN.md 4.8): --w-narrow single column; each group is a card of rows (56 min height). */
+
+.page {
+  max-width: var(--w-narrow);
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 32px;
 }
-.blockHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
+.page > header {
+  margin-bottom: -8px;
 }
-.always {
-  margin: 0;
-  padding: 14px 0 0;
-  list-style: none;
-  border-top: 1px dashed var(--border-strong);
+.group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 0.9375rem;
+  gap: 10px;
 }
-.always li {
-  padding-left: 26px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.4 5 9 9.6 3' fill='none' stroke='%231E6B3A' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 0 0.25em / 14px no-repeat;
+.groupTitle {
+  font: var(--type-h);
 }
-.toggle {
+.card {
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.row {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--rule);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  min-height: 56px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line);
 }
-.toggle:last-child {
+.row:last-child {
   border-bottom: 0;
 }
-.toggle input {
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
-  flex: none;
+.row > fieldset,
+.row > label {
+  flex: 1;
 }
-.toggle > span {
+.key {
+  font: var(--type-label);
+  min-width: 7rem;
+}
+.value {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+.text {
+  flex: 1 1 18rem;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.danger {
-  padding: clamp(18px, 2.4vw, 28px);
-  border-radius: var(--r-lg);
-  border: 1.5px solid #f1c4bf;
-  background: #fff7f6;
-  line-height: 1.55;
+.muted {
+  font: var(--type-sm);
+  color: var(--text-muted);
 }
-.deleteBtn {
-  align-self: flex-start;
+.edit {
+  margin-left: auto;
   min-height: 44px;
-  padding: 0 18px;
-  border-radius: 6px;
-  border: 1.5px solid var(--conflict);
-  background: #fff;
-  color: var(--conflict);
-  font: 700 0.9375rem/1 var(--font-body), sans-serif;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: var(--type-label);
+  color: var(--text);
+  text-decoration: underline 1.5px var(--accent);
+  text-underline-offset: 0.2em;
 }
-.deleteBtn:hover:not(:disabled) {
-  background: var(--conflict);
-  color: #fff;
+@media (hover: hover) {
+  .edit:hover {
+    color: var(--accent);
+  }
 }
-.deleteBtn:disabled {
-  opacity: 0.5;
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+.always {
+  margin: 0;
+  padding: 16px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: var(--type-sm);
+}
+
+.deleteForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.deleteActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
 }
 .deleted {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+  flex-basis: 100%;
 }
 .dates {
   display: grid;
@@ -89,11 +121,18 @@
   color: var(--text-muted);
 }
 .dates dd {
-  font: 600 0.9375rem/1.4 var(--font-mono), monospace;
+  margin: 0;
+  font: var(--type-id);
 }
 
-@media (max-width: 799px) {
-  .grid {
-    grid-template-columns: 1fr;
+@media (max-width: 599px) {
+  .row {
+    padding-inline: 16px;
+  }
+  .deleteActions {
+    flex-direction: column-reverse;
+  }
+  .deleteActions > * {
+    width: 100%;
   }
 }

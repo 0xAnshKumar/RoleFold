@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import PageHeader from "@/components/app/PageHeader";
 import a from "@/components/app/app.module.css";
-import { FactId, StatusIcon } from "@/components/ui";
+import { StatusIcon } from "@/components/ui";
+import { SignatureLine } from "@/components/ui/Proof";
+import { EmptyState } from "@/components/ui/State";
 import { ApiError, api } from "@/lib/api";
 import { LEVELS, type Education, type Fact, type Goals, type Prefs, type Profile } from "@/lib/mock";
 import { useAction } from "@/lib/useAction";
@@ -598,18 +600,22 @@ export function Experience({
         </div>
       )}
       {roles.length === 0 && !addingRole && (
-        <div className={a.empty}>
-          <p className="margin-note">Nothing confirmed yet.</p>
-          <p className={a.note}>Import the resume you have and confirm what we read, or add a role and write its facts yourself. Only confirmed facts are used.</p>
-          <div className={a.formActions}>
+        <EmptyState
+          level={3}
+          title="Nothing confirmed yet"
+          action={
             <Link href="/onboarding" className="btn btn-primary btn-small">
               Import my resume
             </Link>
+          }
+          secondary={
             <button type="button" className="btn btn-secondary btn-small" onClick={() => openForm(true)}>
               Add a role
             </button>
-          </div>
-        </div>
+          }
+        >
+          Import the resume you have and confirm what we read, or add a role and write its facts yourself. Only confirmed facts are used.
+        </EmptyState>
       )}
       {roles.map((r) => (
         <article key={r.id ?? `${r.title}-${r.org}-${r.dates}`} className={s.role}>
@@ -628,11 +634,11 @@ export function Experience({
               return (
                 <li key={id} className={s.fact}>
                   <div className={s.factMeta}>
-                    <FactId id={f.id} className={s.factId} />
-                    <span className={s.level}>{f.responsibility}</span>
-                    <span className={s.confirmed}>
-                      <StatusIcon name="check" /> Confirmed {f.confirmedOn}
+                    <span className="tag" title={f.id}>
+                      {f.id.length > 8 ? f.id.slice(0, 6) : f.id}
                     </span>
+                    <span className={s.level}>{f.responsibility}</span>
+                    <SignatureLine date={f.confirmedOn} />
                   </div>
                   {editing === f.id ? (
                     <FactForm

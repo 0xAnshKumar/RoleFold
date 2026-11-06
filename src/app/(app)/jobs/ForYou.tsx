@@ -1,111 +1,60 @@
-import Link from "next/link";
-import a from "@/components/app/app.module.css";
-import { getFeed, getUsage, isDemo } from "@/lib/data";
-import { AlertSettings, Learned } from "./Side";
+import { ButtonLink } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/State";
+import type { Feed } from "@/lib/mock";
 import FeedCard from "./FeedCard";
-import s from "./feed.module.css";
+import Filters from "./Filters";
+import s from "./jobs.module.css";
 
-const DAYS = [
-  { value: "", label: "Any time" },
-  { value: "3", label: "Last 3 days" },
-  { value: "7", label: "Last week" },
-  { value: "14", label: "Last 2 weeks" },
-];
+type SP = Record<string, string | string[] | undefined>;
+export type FeedQuery = { q: string; remote: boolean; days?: number; saved: boolean };
 
-/** "For you" tab of /jobs (was /feed). Screen redesign: DESIGN.md 4.5, build step 5. */
-export default async function ForYou({ sp }: { sp: Record<string, string | string[] | undefined> }) {
+/** Filters live in the URL (DESIGN.md 3.5) so they survive reload and Back. */
+export function feedQuery(sp: SP): FeedQuery {
   const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : "");
-  const query = { q: one("q").slice(0, 100), remote: one("remote") === "1", days: Number(one("days")) || undefined, saved: one("saved") === "1" };
+  return { q: one("q").slice(0, 100), remote: one("remote") === "1", days: Number(one("days")) || undefined, saved: one("saved") === "1" };
+}
+
+/** "For you" tab of /jobs: filters, compact job cards, one footer note. Feed settings live in a drawer (JobsActions). */
+export default function ForYou({ query, feed, demo, checksLeft, checksLimit }: { query: FeedQuery; feed: Feed; demo: boolean; checksLeft: number; checksLimit: number }) {
   const filtered = !!(query.q || query.remote || query.days || query.saved);
-  const [feed, usage, demo] = await Promise.all([getFeed(query), getUsage(), isDemo()]);
-  const left = Math.max(0, usage.matches.limit - usage.matches.used);
-
   return (
-    <>
-      <p className={a.sub}>Open jobs from company job boards, ordered by how many of your confirmed skills they mention. That’s an early read, not a verdict: open the full check to see every requirement against your facts.</p>
+    <section aria-labelledby="feed-title" className={s.feed}>
+      <h2 id="feed-title" className="sr-only">
+        Jobs for you
+      </h2>
+      {feed.catalogSize > 0 && <Filters query={query} />}
 
-      <div className={s.layout}>
-        <section aria-labelledby="feed-title" className={s.main}>
-          <h2 id="feed-title" className="sr-only">
-            Feed
-          </h2>
-          <form className={s.filters} role="search" action="/jobs">
-            <label className={s.search}>
-              <span className="sr-only">Search jobs</span>
-              <input type="search" name="q" defaultValue={query.q} placeholder="Search title, company or place" maxLength={100} />
-            </label>
-            <label className={s.check}>
-              <input type="checkbox" name="remote" value="1" defaultChecked={query.remote} />
-              Remote only
-            </label>
-            <label className={s.check}>
-              <input type="checkbox" name="saved" value="1" defaultChecked={query.saved} />
-              Saved
-            </label>
-            <label className={s.days}>
-              <span className="sr-only">Posted within</span>
-              <select name="days" defaultValue={query.days ? String(query.days) : ""}>
-                {DAYS.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit" className="btn btn-secondary">
-              Show jobs
-            </button>
-            {filtered && (
-              <Link href="/jobs" className={s.reset}>
-                Clear filters
-              </Link>
-            )}
-          </form>
+      {feed.catalogSize === 0 ? (
+        <EmptyState
+          title="No jobs in your feed yet"
+          action={
+            <ButtonLink href="/jobs?paste=1" scroll={false}>
+              Paste a job
+            </ButtonLink>
+          }
+        >
+          We add job boards only after checking that their terms allow it. Until then, paste any job you’re eyeing and we’ll check it the same way.
+        </EmptyState>
+      ) : feed.items.length === 0 ? (
+        <EmptyState
+          title={filtered ? "Nothing matches these filters" : "No good matches today"}
+          action={<ButtonLink href={filtered ? "/jobs" : "/profile#goals"}>{filtered ? "Clear filters" : "Review your must-haves"}</ButtonLink>}
+        >
+          {filtered
+            ? "Try fewer filters, or a different word."
+            : "New jobs arrive every hour. Jobs that clash with your location, work mode or job type are left out; widening those finds more."}
+        </EmptyState>
+      ) : (
+        <ul className={s.list}>
+          {feed.items.map((item) => (
+            <FeedCard key={item.id} item={item} demo={demo} checksLeft={checksLeft} checksLimit={checksLimit} />
+          ))}
+        </ul>
+      )}
 
-          {feed.catalogSize === 0 ? (
-            <div className={a.empty}>
-              <p className="margin-note">No jobs in your feed yet.</p>
-              <p className={a.note}>
-                We add job boards only after checking that their terms allow it. Until then, paste any job you’re eyeing and we’ll check it
-                the same way.
-              </p>
-              <Link href="/jobs?tab=saved#paste" className="btn btn-primary btn-small">
-                Paste a job
-              </Link>
-            </div>
-          ) : feed.items.length === 0 ? (
-            <div className={a.empty}>
-              <p className="margin-note">{filtered ? "Nothing matches these filters." : "Nothing fits your preferences right now."}</p>
-              <p className={a.note}>
-                {filtered
-                  ? "Try fewer filters, or a different word."
-                  : "Jobs that clash with your location, work mode or job type are left out. You can change those on your profile."}
-              </p>
-              <Link href={filtered ? "/jobs" : "/profile"} className="btn btn-secondary btn-small">
-                {filtered ? "Clear filters" : "Review your preferences"}
-              </Link>
-            </div>
-          ) : (
-            <ul className={s.list}>
-              {feed.items.map((item) => (
-                <FeedCard key={item.id} item={item} demo={demo} checksLeft={left} checksLimit={usage.matches.limit} />
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <aside id="feed-settings" className={s.side} aria-label="Feed settings: alerts and what the feed learned">
-          <AlertSettings initial={feed.alerts} demo={demo} />
-          <Learned initial={feed.learned} demo={demo} />
-          <div className={`${a.card} ${s.sideCard}`}>
-            <h2 className={s.sideTitle}>Where these come from</h2>
-            <p className={a.note}>
-              Public job boards that companies publish for sharing their openings. We never scrape sites, and you always apply on the
-              company’s own page. Jobs that ask for fees or ID documents are left out.
-            </p>
-          </div>
-        </aside>
-      </div>
-    </>
+      <p className={s.footNote}>
+        Jobs come from company career sites and their public job boards; you always apply on the company’s own page. No genuine employer asks for money.
+      </p>
+    </section>
   );
 }

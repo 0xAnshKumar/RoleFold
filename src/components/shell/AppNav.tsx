@@ -194,11 +194,11 @@ export function AppNav({ demo = false, queue = 0, signOut = false, user = null, 
                     </Link>
                   </div>
                   <div className={s.links}>
-                    <Link href="/jobs?tab=saved#paste" className={s.row} onClick={() => show(null)}>
+                    <Link href="/jobs?tab=saved&paste=1" className={s.row} onClick={() => show(null)}>
                       Paste a job
                       <Icon name="arrowRight" size={16} />
                     </Link>
-                    <Link href="/jobs#feed-settings" className={s.row} onClick={() => show(null)}>
+                    <Link href="/jobs?settings=1" className={s.row} onClick={() => show(null)}>
                       Feed settings
                       <Icon name="arrowRight" size={16} />
                     </Link>

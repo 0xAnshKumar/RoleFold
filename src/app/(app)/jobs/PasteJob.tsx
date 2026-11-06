@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Field";
 import { ApiError, api, waitFor, type Operation } from "@/lib/api";
 import type { Usage } from "@/lib/mock";
 import s from "./jobs.module.css";
@@ -11,6 +13,7 @@ const URL_ONLY = /^\s*(https?:\/\/|www\.)\S+\s*$/i;
 const MIN_CHARS = 200;
 const URL_MSG = "That’s a link. We don’t open job sites for you. Open the job, select all of its text, and paste it here. This didn’t use any of your monthly checks.";
 
+/** The paste form, shown in the "Paste a job" dialog. POST /v1/jobs/paste → poll → open the check. */
 export default function PasteJob({ demo, usage }: { demo: boolean; usage: Usage }) {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -45,42 +48,33 @@ export default function PasteJob({ demo, usage }: { demo: boolean; usage: Usage 
 
   return (
     <form onSubmit={submit} className={s.paste} noValidate>
-      <label htmlFor="job-text" className={s.pasteLabel}>
-        Paste the job description
-      </label>
-      <textarea
-        id="job-text"
-        className={s.pasteArea}
-        rows={12}
+      <Textarea
+        label="Job description"
+        rows={10}
         value={text}
         readOnly={busy}
         onChange={(e) => {
           setText(e.target.value);
           setError(null);
         }}
-        aria-invalid={!!error}
-        aria-describedby={error ? "paste-error" : "paste-help"}
+        error={error}
+        helper={
+          out ? (
+            limitMsg
+          ) : (
+            <>
+              Hidden text and instructions inside postings are ignored.{chars > 0 && <span className={s.count}> {chars} characters</span>}
+            </>
+          )
+        }
         placeholder={"Senior Frontend Engineer · Kestrel Pay · Bengaluru (hybrid)\n\nWhat you’ll do…\nWhat we’re looking for…"}
       />
-      {error ? (
-        <p id="paste-error" role="alert" className={s.error}>
-          {error}
-        </p>
-      ) : out ? (
-        <p id="paste-help" className={s.help}>
-          {limitMsg}
-        </p>
-      ) : (
-        <p id="paste-help" className={s.help}>
-          Hidden text and instructions inside postings are ignored. {chars > 0 && <span className={s.count}>{chars} characters</span>}
-        </p>
-      )}
       <div className={s.pasteActions}>
-        <button className="btn btn-primary" type="submit" disabled={busy || out}>
-          {busy ? "Reading the job…" : "Check how this job fits me"}
-        </button>
-        <span className={s.help} role="status">
-          {busy ? "Checking each requirement against your confirmed facts. This can take a minute." : `Uses 1 job check · ${Math.max(0, limit - used)} of ${limit} left`}
+        <Button variant="primary" type="submit" loading={busy} disabled={out}>
+          Check this job
+        </Button>
+        <span className={s.muted} role="status">
+          {busy ? "Checking each requirement against your confirmed facts. This can take a minute." : `Uses 1 of your ${Math.max(0, limit - used)} job checks left`}
         </span>
       </div>
     </form>

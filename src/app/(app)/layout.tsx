@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { Providers } from "@/app/providers";
 import s from "@/components/app/app.module.css";
 import { ActiveNav, AppNav } from "@/components/shell/AppNav";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -14,18 +13,16 @@ async function LiveNav() {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Providers>
-      <ToastProvider>
-        <a href="#main" className="skip-link">
-          Skip to content
-        </a>
-        <Suspense fallback={<AppNav path="" />}>
-          <LiveNav />
-        </Suspense>
-        <main id="main" tabIndex={-1} className={s.page}>
-          {children}
-        </main>
-      </ToastProvider>
-    </Providers>
+    <ToastProvider>
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+      <Suspense fallback={<AppNav path="" />}>
+        <LiveNav />
+      </Suspense>
+      <main id="main" tabIndex={-1} className={s.page}>
+        {children}
+      </main>
+    </ToastProvider>
   );
 }

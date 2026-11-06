@@ -17,7 +17,7 @@ export default function Confirm({ token }: { token: string }) {
   if (done)
     return (
       <p role="status">
-        Done. No more alert emails. You can turn them back on from your <Link href="/jobs#feed-settings">job feed settings</Link>.
+        Done. No more alert emails. You can turn them back on from your <Link href="/jobs?settings=1">job feed settings</Link>.
       </p>
     );
   return (

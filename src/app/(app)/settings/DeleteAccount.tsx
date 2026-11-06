@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import a from "@/components/app/app.module.css";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Field";
 import { api } from "@/lib/api";
 import { useAction } from "@/lib/useAction";
 import s from "./settings.module.css";
@@ -12,10 +14,22 @@ const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en
 
 /** POST /v1/me/delete behind a typed confirmation; then the two dates the API returns. Demo: disabled. */
 export default function DeleteAccount({ demo }: { demo: boolean }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [done, setDone] = useState<Deleted | null>(null);
   const { busy, error, setError, run } = useAction();
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (typed !== "DELETE") return;
+    run("delete", async () => {
+      const r = await api<Deleted>("/me/delete", { method: "POST" });
+      // Clear the session cookie so the deleted account isn't left signed in (the 303 to the provider isn't followed).
+      await fetch("/auth/logout", { method: "POST", redirect: "manual" }).catch(() => {});
+      setDone(r);
+      setOpen(false);
+    });
+  };
 
   if (done)
     return (
@@ -29,68 +43,55 @@ export default function DeleteAccount({ demo }: { demo: boolean }) {
           <dt>Purged from backups by</dt>
           <dd>{day(done.backups_purged_by)}</dd>
         </dl>
-        <Link href="/" className="btn btn-secondary btn-small">
+        <ButtonLink href="/" size="sm">
           Go to the home page
-        </Link>
+        </ButtonLink>
       </div>
     );
 
   return (
     <>
-      <button
-        type="button"
-        className={s.deleteBtn}
+      <Button
+        variant="danger"
+        size="sm"
         disabled={demo}
+        aria-describedby={demo ? "delete-demo" : undefined}
         onClick={() => {
           setTyped("");
           setError(null);
-          dialog.current?.showModal();
+          setOpen(true);
         }}
       >
-        Delete my account…
-      </button>
-      {demo && <p className={a.note}>This is sample data, so there’s no account to delete.</p>}
-      <dialog ref={dialog} className={a.dialog} aria-labelledby="delete-title" onCancel={(e) => busy && e.preventDefault()}>
-        <form
-          className={a.form}
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (typed !== "DELETE") return;
-            run("delete", async () => {
-              const r = await api<Deleted>("/me/delete", { method: "POST" });
-              // Clear the session cookie so the deleted account isn't left signed in (the 303 to the provider isn't followed).
-              await fetch("/auth/logout", { method: "POST", redirect: "manual" }).catch(() => {});
-              setDone(r);
-              dialog.current?.close();
-            });
-          }}
-        >
-          <h2 id="delete-title" className={a.dialogTitle}>
-            Delete your account?
-          </h2>
-          <p className={a.note}>
-            Your profile, every fact, your resumes, uploads and job checks are deleted. You’re signed out straight away and
-            this can’t be undone. Export your data first if you want a copy.
-          </p>
-          <label className={a.field}>
-            <span>Type DELETE to confirm</span>
-            <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
-          </label>
+        Delete…
+      </Button>
+      {demo && (
+        <span id="delete-demo" className="sr-only">
+          This is sample data, so there’s no account to delete.
+        </span>
+      )}
+      <Dialog
+        open={open}
+        onClose={() => !busy && setOpen(false)}
+        title="Delete your account?"
+        description="Your profile, every fact, your resumes, uploads and job checks are deleted. You’re signed out straight away and this can’t be undone. Download your data first if you want a copy."
+      >
+        <form className={s.deleteForm} onSubmit={submit}>
+          <Input label="Type DELETE to confirm" value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
           {error && (
             <p role="alert" className={a.problem}>
               {error}
             </p>
           )}
-          <div className={a.formActions}>
-            <button className={s.deleteBtn} type="submit" disabled={typed !== "DELETE" || !!busy}>
-              {busy ? "Deleting…" : "Delete my account"}
-            </button>
-            <button className="btn btn-secondary" type="button" disabled={!!busy} onClick={() => dialog.current?.close()}>
+          <div className={s.deleteActions}>
+            <Button disabled={!!busy} onClick={() => setOpen(false)}>
               Keep my account
-            </button>
+            </Button>
+            <Button type="submit" variant="dangerFilled" disabled={typed !== "DELETE"} loading={busy === "delete"}>
+              Delete my account
+            </Button>
           </div>
         </form>
-      </dialog>
+      </Dialog>
     </>
   );
 }

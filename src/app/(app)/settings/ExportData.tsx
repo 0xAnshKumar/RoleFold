@@ -1,6 +1,7 @@
 "use client";
 
 import a from "@/components/app/app.module.css";
+import { Button } from "@/components/ui/Button";
 import { download } from "@/lib/api";
 import { useAction } from "@/lib/useAction";
 
@@ -10,15 +11,20 @@ export default function ExportData({ demo }: { demo: boolean }) {
   const { busy, error, run } = useAction();
   return (
     <>
-      <button
-        type="button"
-        className="btn btn-secondary"
-        disabled={demo || !!busy}
-        title={demo ? "Sample data can’t be exported" : undefined}
+      <Button
+        size="sm"
+        disabled={demo}
+        loading={!!busy}
+        aria-describedby={demo ? "export-demo" : undefined}
         onClick={() => run("export", () => download("/me/export", "hunt-export.zip"))}
       >
-        {busy ? "Preparing…" : "Export all my data"}
-      </button>
+        Download
+      </Button>
+      {demo && (
+        <span id="export-demo" className="sr-only">
+          Sample data can’t be exported
+        </span>
+      )}
       {error && (
         <p role="alert" className={a.problem}>
           {error}
