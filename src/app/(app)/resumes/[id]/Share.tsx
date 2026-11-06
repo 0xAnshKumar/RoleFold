@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import a from "@/components/app/app.module.css";
-import { StatusIcon } from "@/components/ui";
+import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Choice";
+import { Dialog } from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Field";
 import { api } from "@/lib/api";
 import type { ShareState } from "@/lib/mock";
 import { useAction } from "@/lib/useAction";
+import { Problem } from "../Actions";
 import s from "./editor.module.css";
 
 const FIELDS = [
@@ -15,8 +18,10 @@ const FIELDS = [
 ] as const;
 type Field = (typeof FIELDS)[number][0];
 
-/** Create, copy and turn off the resume's read-only link (api/app/routes/share.py). The link is shown once: only its fingerprint is kept. */
+/** Create, copy and turn off the resume's read-only link (api/app/routes/share.py), in a drawer opened from the editor's
+ * page bar. The link is shown once: only its fingerprint is kept. */
 export default function Share({ resumeId, initial, contact, demo }: { resumeId: string; initial: ShareState; contact: Record<Field, string>; demo: boolean }) {
+  const [open, setOpen] = useState(false);
   const [state, setState] = useState(initial);
   const [making, setMaking] = useState(false);
   const [chosen, setChosen] = useState<Field[]>([]);
@@ -56,96 +61,82 @@ export default function Share({ resumeId, initial, contact, demo }: { resumeId: 
   };
 
   return (
-    <section className={`${a.card} ${s.share}`} aria-labelledby="share">
-      <h2 id="share" className={a.h2}>
-        Share a read-only link
-      </h2>
-      {state.link && !making ? (
-        <>
-          {url ? (
+    <>
+      <Button onClick={() => setOpen(true)}>
+        {state.link ? "Shared" : "Share"}
+      </Button>
+      <Dialog open={open} onClose={() => setOpen(false)} variant="drawer" title="Share a read-only link">
+        <div className={s.share}>
+          {state.link && !making ? (
             <>
-              <p className={a.note}>Your link is ready. Copy it now: we keep only a fingerprint of it, so it can’t be shown again.</p>
-              <div className={s.shareUrl}>
-                <label className="sr-only" htmlFor="share-url">
-                  Your resume link
-                </label>
-                <input id="share-url" readOnly value={url} onFocus={(e) => e.target.select()} className="mono" />
-                <button type="button" className="btn btn-primary btn-small" onClick={copy}>
-                  Copy link
-                </button>
+              {url ? (
+                <>
+                  <p className={s.body}>Your link is ready. Copy it now: we keep only a fingerprint of it, so it can’t be shown again.</p>
+                  <div className={s.shareUrl}>
+                    <Input label="Your resume link" hideLabel readOnly value={url} onFocus={(e) => e.target.select()} className={s.urlField} />
+                    <Button variant="primary" onClick={copy}>
+                      Copy link
+                    </Button>
+                  </div>
+                  <p role="status" className={s.note}>
+                    {copied && "Copied"}
+                  </p>
+                </>
+              ) : (
+                <p className={s.body}>A link has been on since {state.link.created}. For your privacy it can’t be shown again; make a new one if you need to send it.</p>
+              )}
+              <p className={s.body}>It shows {shows.join(", ")}. Contact details you didn’t tick stay off it.</p>
+              <div className={s.shareActions}>
+                <Button variant="danger" loading={act.busy === "revoke"} disabled={!!act.busy} onClick={revoke}>
+                  Turn off the link
+                </Button>
+                <Button disabled={!!act.busy} onClick={() => setMaking(true)}>
+                  Make a new link
+                </Button>
               </div>
-              <p role="status" className={a.quiet}>
-                {copied && (
-                  <>
-                    <StatusIcon name="check" /> Copied
-                  </>
-                )}
-              </p>
+              {demo && <p className={s.note}>Sample data: the link opens the sample resume, and nothing is saved.</p>}
             </>
           ) : (
-            <p className={a.note}>
-              A link has been on since {state.link.created}. For your privacy it can’t be shown again; make a new one if you need to send it.
-            </p>
+            <form
+              className={s.share}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (consent) create();
+              }}
+            >
+              <p className={s.body}>A web page of this resume that anyone with the link can read, without signing in. Search engines are asked not to list it.</p>
+              {available.length ? (
+                <fieldset className={s.fieldset}>
+                  <legend>Contact details to show</legend>
+                  {available.map(([k, label]) => (
+                    <Checkbox
+                      key={k}
+                      label={`${label}: ${contact[k]}`}
+                      checked={chosen.includes(k)}
+                      onChange={(e) => setChosen(e.target.checked ? [...chosen, k] : chosen.filter((x) => x !== k))}
+                    />
+                  ))}
+                </fieldset>
+              ) : (
+                <p className={s.note}>Your profile has no contact details, so the page shows your name only.</p>
+              )}
+              <Checkbox label={state.consentText} checked={consent} onChange={(e) => setConsent(e.target.checked)} required />
+              {making && <p className={s.note}>Your current link stops working when the new one is made.</p>}
+              <div className={s.shareActions}>
+                {making && (
+                  <Button variant="ghost" onClick={() => setMaking(false)}>
+                    Cancel
+                  </Button>
+                )}
+                <Button type="submit" variant="primary" loading={act.busy === "create"} disabled={!consent}>
+                  Create the link
+                </Button>
+              </div>
+            </form>
           )}
-          <p>It shows {shows.join(", ")}. Contact details you didn’t tick stay off it.</p>
-          <div className={a.formActions}>
-            <button type="button" className="btn btn-secondary btn-small" disabled={!!act.busy} onClick={revoke}>
-              {act.busy === "revoke" ? "Turning off…" : "Turn off the link"}
-            </button>
-            <button type="button" className="btn btn-secondary btn-small" disabled={!!act.busy} onClick={() => setMaking(true)}>
-              Make a new link
-            </button>
-          </div>
-          {demo && <p className={a.quiet}>Sample data: the link opens the sample resume, and nothing is saved.</p>}
-        </>
-      ) : (
-        <form
-          className={a.form}
-          onSubmit={(e) => {
-            e.preventDefault();
-            create();
-          }}
-        >
-          <p className={a.note}>A web page of this resume that anyone with the link can read, without signing in. Search engines are asked not to list it.</p>
-          {available.length ? (
-            <fieldset className={a.field}>
-              <legend>Contact details to show</legend>
-              {available.map(([k, label]) => (
-                <label key={k} className={s.shareCheck}>
-                  <input
-                    type="checkbox"
-                    checked={chosen.includes(k)}
-                    onChange={(e) => setChosen(e.target.checked ? [...chosen, k] : chosen.filter((x) => x !== k))}
-                  />
-                  {label}: {contact[k]}
-                </label>
-              ))}
-            </fieldset>
-          ) : (
-            <p className={a.quiet}>Your profile has no contact details, so the page shows your name only.</p>
-          )}
-          <label className={s.shareCheck}>
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required />
-            {state.consentText}
-          </label>
-          {making && <p className={a.quiet}>Your current link stops working when the new one is made.</p>}
-          <div className={a.formActions}>
-            <button type="submit" className="btn btn-primary btn-small" disabled={!consent || !!act.busy}>
-              {act.busy === "create" ? "Making the link…" : "Create the link"}
-            </button>
-            {making && (
-              <button type="button" className="btn btn-secondary btn-small" onClick={() => setMaking(false)}>
-                Cancel
-              </button>
-            )}
-          </div>
-        </form>
-      )}
-      {act.error && (
-        <p role="alert" className={a.problem}>
-          {act.error}
-        </p>
-      )}
-    </section>
+          <Problem error={act.error} />
+        </div>
+      </Dialog>
+    </>
   );
 }

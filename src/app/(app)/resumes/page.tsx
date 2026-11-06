@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/app/PageHeader";
-import a from "@/components/app/app.module.css";
+import { StatusIcon } from "@/components/ui";
+import { ButtonLink } from "@/components/ui/Button";
+import { Card, cardLink, cardRaised } from "@/components/ui/Card";
+import { ProgressBar } from "@/components/ui/Progress";
+import { EmptyState } from "@/components/ui/State";
+import { Badge } from "@/components/ui/Status";
 import { getResumes, getUsage, isDemo } from "@/lib/data";
 import { Downloads, NewResume, UpdateResume } from "./Actions";
 import s from "./resumes.module.css";
@@ -17,16 +22,10 @@ export default async function ResumesPage() {
   const loose = resumeList.filter((r) => r.kind !== "master" && !masters.some((m) => m.id === r.parent));
   const tailoredRow = (c: (typeof resumeList)[number]) => (
     <li key={c.id}>
-      <span className={s.branch} aria-hidden />
-      <div className={a.rowMain}>
-        <Link href={href(c.id)} className={a.rowTitle}>
-          {c.name}
-        </Link>
-        <p className={a.mono}>Tailored · updated {c.updated}</p>
-      </div>
-      <Link href={href(c.id)} className="btn btn-secondary btn-small">
-        Open
+      <Link href={href(c.id)} className={s.childLink}>
+        {c.name}
       </Link>
+      <span className={s.meta}>Tailored · updated {c.updated}</span>
     </li>
   );
   return (
@@ -44,98 +43,92 @@ export default async function ResumesPage() {
 
       <div className={s.layout}>
         <div className={s.list}>
-          {demo && masters.length > 0 && <p className={a.quiet}>These are sample resumes, so they can be opened but not downloaded.</p>}
+          {demo && masters.length > 0 && <p id="sample-note" className={s.note}>These are sample resumes, so they can be opened but not downloaded.</p>}
           {resumeList.length === 0 && (
-            <div className={a.empty}>
-              <p className="margin-note">No resumes yet.</p>
-              <p className={a.note}>Your first master resume is built from the facts you confirm. Start with the resume you already have.</p>
-              <Link href="/onboarding" className="btn btn-primary btn-small">
-                Import my resume
-              </Link>
-            </div>
+            <Card>
+              <EmptyState
+                icon="resume"
+                title="No resume yet"
+                action={
+                  <ButtonLink href="/onboarding" variant="primary">
+                    Create my resume
+                  </ButtonLink>
+                }
+              >
+                Your master resume is written from your confirmed facts. Start with the resume you already have.
+              </EmptyState>
+            </Card>
           )}
           {masters.map((m) => {
             const children = resumeList.filter((r) => r.parent === m.id);
             return (
-              <article key={m.id} className={s.master}>
+              <Card as="article" interactive key={m.id} className={s.master}>
                 <div className={s.thumb} aria-hidden>
                   <span className={s.tName} />
                   <span className={s.tRule} />
-                  {Array.from({ length: 7 }, (_, i) => (
-                    <span key={i} className={s.tLine} style={{ width: `${[92, 84, 88, 60, 90, 78, 52][i]}%` }} />
+                  {[92, 84, 88, 60, 90, 78, 52].map((w, i) => (
+                    <span key={i} className={s.tLine} style={{ width: `${w}%` }} />
                   ))}
                 </div>
-                <div className={s.masterBody}>
+                <div className={s.body}>
                   <div className={s.titleRow}>
-                    <h2 className={s.name}>{m.name}</h2>
-                    <span className={`stamp ${s.kind}`}>Master</span>
+                    <h2 className={s.name}>
+                      <Link href={href(m.id)} className={cardLink}>
+                        {m.name}
+                      </Link>
+                    </h2>
+                    <Badge>Master</Badge>
                   </div>
-                  <p className={a.note}>{m.target}</p>
-                  <p className={a.mono}>
+                  <p className={s.target}>{m.target}</p>
+                  <p className={s.meta}>
                     {m.template} template · updated {m.updated}
                   </p>
                   {m.freshness === "outdated" ? (
-                    <p className={s.outdated}>
-                      <span className={s.dot} aria-hidden />
+                    <p className={`${s.fresh} ${s.outdated}`}>
+                      <StatusIcon name="half" />
                       {m.outdatedReason ?? "Your facts changed since this version"}
                     </p>
                   ) : (
-                    <p className={s.current}>Up to date with your profile</p>
+                    <p className={`${s.fresh} ${s.current}`}>
+                      <StatusIcon name="check" />
+                      Up to date with your profile
+                    </p>
                   )}
-                  <div className={s.actions}>
-                    <Link href={href(m.id)} className="btn btn-secondary btn-small">
-                      Open
-                    </Link>
-                    <Downloads resumeId={m.id} template={m.template} demo={demo} />
+                  <div className={`${s.actions} ${cardRaised}`}>
                     {m.freshness === "outdated" && <UpdateResume resumeId={m.id} demo={demo} />}
+                    <Downloads resumeId={m.id} template={m.template} demo={demo} />
                   </div>
-
-                  {children.length > 0 && (
-                    <ul className={s.children}>
-                      {children.map(tailoredRow)}
-                    </ul>
-                  )}
+                  {children.length > 0 && <ul className={`${s.children} ${cardRaised}`}>{children.map(tailoredRow)}</ul>}
                 </div>
-              </article>
+              </Card>
             );
           })}
           {loose.length > 0 && (
-            <section className={`${s.master} ${s.loose}`} aria-labelledby="loose-h">
-              <div className={s.masterBody}>
-                <h2 id="loose-h" className={s.name}>
-                  Tailored for jobs
-                </h2>
-                <p className={a.note}>Made from a job page, without a master resume behind them.</p>
-                <ul className={s.children}>{loose.map(tailoredRow)}</ul>
-              </div>
-            </section>
+            <Card as="section" aria-labelledby="loose-h">
+              <h2 id="loose-h" className={s.name}>
+                Tailored for jobs
+              </h2>
+              <p className={s.target}>Made from a job page, without a master resume behind them.</p>
+              <ul className={s.children}>{loose.map(tailoredRow)}</ul>
+            </Card>
           )}
         </div>
 
         <aside className={s.side}>
           {usage.tailored && (
-            <div className={a.card}>
-              <div className={a.meter}>
-                <div className={a.meterTop}>
-                  <span>Tailored resumes this month</span>
-                  <span>
-                    {usage.tailored.used} of {usage.tailored.limit}
-                  </span>
-                </div>
-                <div className={a.meterTrack}>
-                  <span className={a.meterFill} style={{ width: `${(usage.tailored.used / usage.tailored.limit) * 100}%` }} />
-                </div>
-                <p className={a.note}>
-                  {usage.tailored.used >= usage.tailored.limit
-                    ? `You’ve made all your tailored resumes for this month; more on ${usage.resetsOn}. Every resume here can still be opened and downloaded.`
-                    : "Master resumes and downloads are always free and unlimited."}
-                </p>
-              </div>
-            </div>
+            <Card className={s.sideCard}>
+              <ProgressBar value={usage.tailored.used} max={usage.tailored.limit} label={`Tailored resumes this month: ${usage.tailored.used} of ${usage.tailored.limit}`} />
+              <p className={s.note}>
+                {usage.tailored.used >= usage.tailored.limit
+                  ? `You’ve made all your tailored resumes for this month; more on ${usage.resetsOn}. Every resume here can still be opened and downloaded.`
+                  : "Master resumes and downloads are always free and unlimited."}
+              </p>
+            </Card>
           )}
-          <div className={`${a.card} ${s.tip}`}>
-            <p className="margin-note">Switching fields? Make a second master resume for the new direction.</p>
-          </div>
+          <Card className={s.sideCard}>
+            <h2 className={s.sideTitle}>Switching fields?</h2>
+            <p className={s.note}>Make a second master resume for the new direction. Both are written from the same confirmed facts, and both are free.</p>
+          </Card>
         </aside>
       </div>
     </>

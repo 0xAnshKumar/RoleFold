@@ -1,17 +1,31 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
-import a from "@/components/app/app.module.css";
+import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
+import { Input, Select } from "@/components/ui/Field";
+import { Icon } from "@/components/ui/Icon";
 import { api, exportResume, waitFor, type Operation } from "@/lib/api";
 import { TEMPLATES } from "@/lib/templates";
 import { useAction } from "@/lib/useAction";
 import s from "./resumes.module.css";
 
+export function Problem({ error, className }: { error: string | null; className?: string }) {
+  return (
+    error && (
+      <p role="alert" className={`${s.problem} ${className ?? ""}`}>
+        <Icon name="alert" size={18} />
+        {error}
+      </p>
+    )
+  );
+}
+
 /** POST /v1/resumes {template, target} -> wait -> open it. Demo: opens the sample resume (as tailoring does). */
 export function NewResume({ demo }: { demo: boolean }) {
   const router = useRouter();
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
   const [target, setTarget] = useState("");
   const [template, setTemplate] = useState("classic");
   const { busy, error, setError, run } = useAction();
@@ -19,21 +33,38 @@ export function NewResume({ demo }: { demo: boolean }) {
 
   return (
     <>
-      <button
-        type="button"
-        className="btn btn-primary"
+      <Button
+        variant="primary"
+        icon={<Icon name="plus" size={18} />}
         onClick={() => {
           setError(null);
-          dialog.current?.showModal();
+          setOpen(true);
         }}
       >
         New master resume
-      </button>
-      <dialog ref={dialog} className={a.dialog} aria-labelledby="new-resume-title" onCancel={(e) => busy && e.preventDefault()}>
+      </Button>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title="New master resume"
+        description="Built from your confirmed facts for one direction you’re heading. Free and unlimited."
+        footer={
+          <>
+            <Button variant="ghost" disabled={!!busy} onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" form="new-resume" loading={!!busy} disabled={!target.trim()}>
+              {busy ? "Building your resume…" : "Build this resume"}
+            </Button>
+          </>
+        }
+      >
         <form
-          className={a.form}
+          id="new-resume"
+          className={s.dialogForm}
           onSubmit={(e) => {
             e.preventDefault();
+            if (!target.trim()) return;
             run("create", async () => {
               if (demo) return router.push("/resumes/frontend-engineer");
               const r = await api<{ resume_id: string; operation: Operation }>("/resumes", { method: "POST", body: { template, target: target.trim() } });
@@ -42,45 +73,25 @@ export function NewResume({ demo }: { demo: boolean }) {
             });
           }}
         >
-          <h2 id="new-resume-title" className={a.dialogTitle}>
-            New master resume
-          </h2>
-          <p className={a.note}>Built from your confirmed facts for one direction you’re heading. Free and unlimited.</p>
-          <label className={a.field}>
-            <span>Target role</span>
-            <input required maxLength={200} value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. Senior Frontend Engineer" autoFocus />
-          </label>
-          <label className={a.field}>
-            <span>Template</span>
-            <select value={template} onChange={(e) => setTemplate(e.target.value)}>
-              {TEMPLATES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <span className={a.hint}>
-              Best for: {chosen.bestFor.toLowerCase()}. You can switch templates any time in the editor.
-            </span>
-          </label>
-          {error && (
-            <p role="alert" className={a.problem}>
-              {error}
-            </p>
-          )}
-          <p className={a.quiet} role="status">
+          <Input label="Target role" required maxLength={200} value={target} onChange={(e) => setTarget(e.target.value)} placeholder="e.g. Senior Frontend Engineer" autoFocus />
+          <Select
+            label="Template"
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+            helper={`Best for: ${chosen.bestFor.toLowerCase()}. You can switch templates any time in the editor.`}
+          >
+            {TEMPLATES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+          <Problem error={error} />
+          <p className={s.note} role="status">
             {busy ? "Choosing and wording your confirmed facts, then checking every line. This can take a minute." : demo ? "With sample data, this opens the example resume." : ""}
           </p>
-          <div className={a.formActions}>
-            <button className="btn btn-primary" type="submit" disabled={!!busy || !target.trim()}>
-              {busy ? "Building your resume…" : "Build this resume"}
-            </button>
-            <button className="btn btn-secondary" type="button" disabled={!!busy} onClick={() => dialog.current?.close()}>
-              Cancel
-            </button>
-          </div>
         </form>
-      </dialog>
+      </Dialog>
     </>
   );
 }
@@ -92,22 +103,18 @@ export function Downloads({ resumeId, template, demo }: { resumeId: string; temp
   return (
     <>
       {(["pdf", "docx"] as const).map((fmt) => (
-        <button
+        <Button
           key={fmt}
-          type="button"
-          className="btn btn-secondary btn-small"
+          size="sm"
+          loading={busy === fmt}
           disabled={demo || !!busy}
-          title={demo ? "Sample data can’t be downloaded" : undefined}
+          aria-describedby={demo ? "sample-note" : undefined}
           onClick={() => run(fmt, () => exportResume(resumeId, fmt, templateId))}
         >
-          {busy === fmt ? "Preparing…" : fmt === "pdf" ? "Download PDF" : "Download Word"}
-        </button>
+          {fmt === "pdf" ? "Download PDF" : "Download Word"}
+        </Button>
       ))}
-      {error && (
-        <p role="alert" className={`${a.problem} ${s.full}`}>
-          {error}
-        </p>
-      )}
+      <Problem error={error} className={s.full} />
     </>
   );
 }
@@ -120,10 +127,10 @@ export function UpdateResume({ resumeId, demo }: { resumeId: string; demo: boole
   const { busy, error, run } = useAction();
   return (
     <>
-      <button
-        type="button"
-        className="btn btn-primary btn-small"
-        disabled={!!busy}
+      <Button
+        size="sm"
+        icon={<Icon name="refresh" size={16} />}
+        loading={!!busy}
         onClick={() =>
           run("update", async () => {
             if (demo) return setNote("Sample data: nothing was rebuilt. In your account this rewrites the resume from your current facts.");
@@ -134,17 +141,13 @@ export function UpdateResume({ resumeId, demo }: { resumeId: string; demo: boole
         }
       >
         {busy ? "Updating…" : "Update with new facts"}
-      </button>
+      </Button>
       {(busy || note) && (
-        <p className={`${a.quiet} ${s.full}`} role="status">
+        <p className={`${s.note} ${s.full}`} role="status">
           {busy ? "Rewording your current confirmed facts and checking every line. This can take a minute." : note}
         </p>
       )}
-      {error && (
-        <p role="alert" className={`${a.problem} ${s.full}`}>
-          {error}
-        </p>
-      )}
+      <Problem error={error} className={s.full} />
     </>
   );
 }
