@@ -1,422 +1,306 @@
-import { Stamp, StatusIcon } from "@/components/ui";
-import s from "./sections.module.css";
+import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
+// Button.tsx is a client module, so server markup that only needs the look takes the classes directly.
+import b from "@/components/ui/Button.module.css";
+import { Card, CardSet } from "@/components/ui/Card";
+import { Disclosure } from "@/components/ui/Disclosure";
+import { Icon, type IconName } from "@/components/ui/Icon";
+import { StatusIcon } from "@/components/ui/index";
+import { SignatureLine } from "@/components/ui/Proof";
+import { facts, resumes } from "@/lib/mock";
+import s from "./landing.module.css";
 
-/* ---------- 1. What we do: the two products ---------- */
-export function WhatWeDo() {
+/** Owner sets this once the paid plan is priced (DESIGN.md 4.1); until then the card says it's coming. */
+const PAID_PRICE: string | null = null;
+
+const tagDate = (d: string) => d.split(" ").slice(0, 2).join(" ");
+
+/* ---------- Two things Hunt does ---------- */
+export function Modules() {
+  const role = resumes[0].sections[0];
   return (
-    <section id="what" className={s.what} aria-labelledby="what-title">
-      <div className={s.wrap}>
-        <header className={s.head}>
-          <h2 id="what-title" className={s.h2}>
-            Two things, done honestly.
-          </h2>
-          <p className={s.lede}>
-            A free resume builder that only writes what you can prove, and a job checker that tells you plainly whether a
-            role fits you, and why.
-          </p>
-        </header>
-
-        <div className={s.whatGrid}>
-          <article className={s.whatResume}>
-            <div className={s.whatCopy}>
-              <h3 className={s.h3}>A resume that gets read.</h3>
-              <p>
-                Single-column, ATS-safe templates. Every line comes from a fact you confirmed. Before you download, we read
-                the file back the way screening software does, and tell you exactly what it found.
+    <section id="modules" className={s.block} aria-labelledby="modules-title">
+      <h2 id="modules-title" className={`t-d1 ${s.h2}`}>
+        Two things Hunt does, and does honestly.
+      </h2>
+      <div className={s.modules}>
+        <Card className={s.module}>
+          <div className={s.moduleText}>
+            <h3 className="t-d2">Build a resume you can prove</h3>
+            <p className={s.body}>
+              Upload the resume you have, or start from scratch. Confirm each fact Hunt reads, then edit and download your
+              resume as PDF or Word. Every line keeps a tag back to the fact it came from.
+            </p>
+            <Link href="/onboarding" className={s.textLink}>
+              Build my resume <Icon name="arrowRight" size={18} />
+            </Link>
+          </div>
+          <div className={s.bleed} aria-hidden>
+            <div className={s.bleedSheet}>
+              <p className={s.sheetRole}>
+                {role.title} · {role.org}
               </p>
-              <ul className={s.ticks}>
-                <li>PDF, Word and plain text, free</li>
-                <li>No fake “ATS score”, no hidden keywords</li>
-                <li>Every line shows the fact it came from</li>
-              </ul>
-            </div>
-            <div className={s.checkCard} aria-label="Example readability check">
-              <p className={s.mono}>Readability check · Rohan_Iyer_Resume.pdf</p>
-              {[
-                "Name, email and phone read back",
-                "Sections: Experience, Skills, Education",
-                "2 employers, 2 job titles, 2 date ranges",
-                "14 skills recognised",
-                "Word file reads back the same",
-              ].map((r) => (
-                <p key={r} className={s.checkRow}>
-                  <span className={s.checkIcon}>
-                    <StatusIcon name="check" />
-                  </span>
-                  {r}
+              {role.lines.map((l) => (
+                <p key={l.id} className={s.editRow}>
+                  <span>{l.text}</span>
+                  <span className="tag">{l.factId}</span>
                 </p>
               ))}
-              <p className={s.checkFoot}>Read back by two independent text extractors.</p>
+              <SignatureLine date="3 Oct 2026" />
             </div>
-          </article>
-
-          <article className={s.whatJobs}>
-            <div className={s.whatCopy}>
-              <h3 className={s.h3}>Jobs, explained.</h3>
-              <p>
-                Paste any job, from anywhere. We check the must-haves first, then every requirement against your confirmed
-                facts. One plain verdict, never a percentage.
-              </p>
-            </div>
-            <div className={s.miniJob} aria-label="Example job check">
-              <p className={s.mono}>Senior Frontend Engineer · Kestrel Pay</p>
-              <p className={s.miniRow}>
-                <span>Bengaluru, hybrid</span>
-                <Stamp status="match" />
-              </p>
-              <p className={s.miniRow}>
-                <span>React + TypeScript</span>
-                <Stamp status="supported" />
-              </p>
-              <p className={s.miniRow}>
-                <span>Core Web Vitals</span>
-                <Stamp status="partial" />
-              </p>
-              <p className={s.miniRow}>
-                <span>GraphQL</span>
-                <Stamp status="no_evidence" />
-              </p>
-              <p className={s.verdict}>Good fit with gaps</p>
-            </div>
-          </article>
-        </div>
+          </div>
+        </Card>
+        <Card className={s.module}>
+          <div className={s.moduleText}>
+            <h3 className="t-d2">Hunt jobs that fit you</h3>
+            <p className={s.body}>
+              See open roles ranked by the skills you confirmed. Check any job to see the posting’s own words, requirement
+              by requirement, and a verdict in words. Then apply on the company’s own site.
+            </p>
+            <Link href="/jobs" className={s.textLink}>
+              See jobs for my resume <Icon name="arrowRight" size={18} />
+            </Link>
+          </div>
+          <div className={s.bleed} aria-hidden>
+            <JobCard
+              title="Senior Frontend Engineer"
+              place="Tidepool Finance · Bengaluru · Hybrid"
+              meta="3-6 yrs · Salary not shown · 4 days ago · via Greenhouse"
+              fit="check"
+              reason="Uses React, TypeScript and Jest, which you confirmed."
+            />
+            <JobCard
+              title="UI Engineer, Design Systems"
+              place="Saffron Retail · Bengaluru · On-site"
+              meta="2-5 yrs · Salary not shown · 1 week ago · via company site"
+              fit="half"
+              reason="Uses React, which you confirmed. Storybook isn’t in your facts yet."
+            />
+          </div>
+        </Card>
       </div>
     </section>
   );
 }
 
-/* ---------- 2. The problem, red-penned ---------- */
-export function Problem() {
+function JobCard({ title, place, meta, fit, reason }: { title: string; place: string; meta: string; fit: "check" | "half"; reason: string }) {
   return (
-    <section className={s.problem} aria-labelledby="problem-title">
-      <div className={`${s.wrap} ${s.problemGrid}`}>
-        <div className={s.problemCopy}>
-          <h2 id="problem-title" className={s.h2}>
-            Why most resumes quietly fail.
-          </h2>
-          <p className={s.lede}>
-            AI tools make resumes sound impressive by inventing things. Fancy templates look good to people and break the
-            software that reads them first. And none of it survives the interview question: “tell me more about that.”
-          </p>
-          <ul className={s.problemList}>
-            <li>
-              <b>Invented numbers and titles</b> you can’t defend in an interview.
-            </li>
-            <li>
-              <b>Two-column designs</b> that screening software reads in the wrong order.
-            </li>
-            <li>
-              <b>Keyword stuffing</b> that recruiters spot in seconds.
-            </li>
-            <li>
-              <b>“92% match” scores</b> that don’t say what’s actually missing.
-            </li>
-          </ul>
-        </div>
-
-        <figure className={s.redPen} aria-label="A typical AI-written resume, marked up in red pen">
-          <p className={s.rpName}>Rohan Iyer</p>
-          <p className={s.rpTag}>Results-driven visionary frontend ninja</p>
-          <div className={s.rpCols}>
-            <div className={s.rpSide}>
-              <span />
-              <span />
-              <span />
-            </div>
-            <ul className={s.rpList}>
-              <li>
-                Spearheaded a <mark className={s.rpBad}>40%</mark> revenue increase through React
-                <span className={`${s.note} ${s.n1}`}>invented number</span>
-              </li>
-              <li>
-                <mark className={s.rpBad}>Led</mark> company-wide performance strategy
-                <span className={`${s.note} ${s.n2}`}>you contributed, not led</span>
-              </li>
-              <li>
-                React, React.js, ReactJS, <mark className={s.rpBad}>React Native</mark>, Redux, Kubernetes, AI
-                <span className={`${s.note} ${s.n3}`}>keyword stuffing</span>
-              </li>
-            </ul>
-          </div>
-          <span className={`${s.note} ${s.n4}`}>two columns: ATS reads this out of order</span>
-          <svg className={s.circle} viewBox="0 0 200 80" aria-hidden>
-            <path d="M12 44 C10 12 178 4 190 34 C200 66 40 82 16 58" fill="none" stroke="#c0352b" strokeWidth="2.4" strokeLinecap="round" />
-          </svg>
-        </figure>
-      </div>
-    </section>
+    <div className={s.job}>
+      <p className={s.jobTitle}>{title}</p>
+      <p className={s.jobPlace}>{place}</p>
+      <p className={s.jobMeta}>{meta}</p>
+      <p className={s.jobReason} data-fit={fit}>
+        <StatusIcon name={fit} />
+        {reason}
+      </p>
+      <span className={`${b.btn} ${b.secondary} ${b.sm} ${s.fakeBtn}`}>Check this job</span>
+    </div>
   );
 }
 
-/* ---------- 3. Features in detail (alternating rows) ---------- */
-export function Features() {
-  return (
-    <section id="features" className={s.features} aria-labelledby="features-title">
-      <div className={s.wrap}>
-        <header className={s.head}>
-          <h2 id="features-title" className={s.h2}>
-            Everything it does for you.
-          </h2>
-        </header>
-
-        <div className={s.rows}>
-          <div className={s.row}>
-            <div className={s.rowCopy}>
-              <h3 className={s.h3}>Bring the resume you already have.</h3>
-              <p>
-                Upload a PDF or Word file, paste text, or import your LinkedIn data export. We turn it into separate facts
-                you review. Anything we can’t read stays empty; we never guess a date or a number.
-              </p>
-            </div>
-            <div className={s.rowArt}>
-              <div className={s.files}>
-                {[
-                  ["PDF", "resume_2024.pdf"],
-                  ["DOCX", "Rohan Iyer CV.docx"],
-                  ["CSV", "LinkedIn export"],
-                ].map(([k, n], i) => (
-                  <div key={n} className={s.file} style={{ rotate: `${(i - 1) * 4}deg` }}>
-                    <span className={s.fileKind}>{k}</span>
-                    <span className={s.fileLines} aria-hidden>
-                      <span />
-                      <span />
-                      <span />
-                      <span />
-                      <span />
-                    </span>
-                    <span className={s.fileName}>{n}</span>
-                  </div>
-                ))}
-                <p className={s.fileArrow}>→ 11 draft facts to review</p>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${s.row} ${s.rowFlip}`}>
-            <div className={s.rowCopy}>
-              <h3 className={s.h3}>Questions that find your real impact.</h3>
-              <p>
-                Most of what makes you good never reaches your resume. We ask a few short, specific questions, like a
-                mentor reading over your shoulder, and turn your answers into facts you confirm.
-              </p>
-            </div>
-            <div className={s.rowArt}>
-              <div className={s.qa}>
-                <p className={s.margin}>You moved checkout to React. Did anything get faster, or did more people complete checkout?</p>
-                <div className={s.answer}>
-                  <p className={s.mono}>Your answer</p>
-                  <p>Bundle went from 1.8 MB to 640 KB. Checkout drop-off fell, but I don’t have the exact number.</p>
-                </div>
-                <div className={s.draftFact}>
-                  <p className={s.mono}>New draft fact · F-16</p>
-                  <p>Cut the checkout bundle from 1.8 MB to 640 KB</p>
-                  <span className={s.confirmBtn}>Confirm</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className={s.row}>
-            <div className={s.rowCopy}>
-              <h3 className={s.h3}>Tailor for any job in one click.</h3>
-              <p>
-                Keep one master resume per direction. For a specific job, we reorder and reword the same confirmed facts
-                for that role and show what changed. Nothing new is invented.
-              </p>
-            </div>
-            <div className={s.rowArt}>
-              <div className={s.tailor}>
-                <div className={s.tPage}>
-                  <p className={s.mono}>Master · Frontend Engineer</p>
-                  <span className={s.tLine} />
-                  <span className={s.tLine} />
-                  <span className={`${s.tLine} ${s.tShort}`} />
-                </div>
-                <span className={s.tArrow}>→</span>
-                <div className={`${s.tPage} ${s.tTailored}`}>
-                  <p className={s.mono}>Tailored · Kestrel Pay</p>
-                  <span className={`${s.tLine} ${s.tHi}`} />
-                  <span className={s.tLine} />
-                  <span className={`${s.tLine} ${s.tShort} ${s.tHi}`} />
-                  <p className={s.tNote}>2 lines moved up · 1 skill added from your facts</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${s.row} ${s.rowFlip}`}>
-            <div className={s.rowCopy}>
-              <h3 className={s.h3}>Know exactly what’s missing, and what to do.</h3>
-              <p>
-                Not every gap is the same. Some are on your resume, some are in your profile, and some are real skills to
-                learn. We tell you which is which.
-              </p>
-            </div>
-            <div className={s.rowArt}>
-              <ul className={s.gaps}>
-                <li>
-                  <p className={s.gapKind}>Presentation gap</p>
-                  <p>You have the evidence; your resume doesn’t show it.</p>
-                  <p className={s.gapDo}>Add it to the tailored resume</p>
-                </li>
-                <li>
-                  <p className={s.gapKind}>Evidence gap</p>
-                  <p>You may have done it; nothing’s recorded yet.</p>
-                  <p className={s.gapDo}>Answer one question</p>
-                </li>
-                <li>
-                  <p className={s.gapKind}>Learning gap</p>
-                  <p>You’ve said you don’t have it yet.</p>
-                  <p className={s.gapDo}>See how many of your best-fit jobs ask for it</p>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- 4. Honest comparison (categories, not brands) ---------- */
-const COMPARE: { row: string; us: string; chat: string; builders: string; boards: string }[] = [
-  { row: "Every line traced to a fact you confirmed", us: "yes", chat: "no", builders: "no", boards: "—" },
-  { row: "Blocks invented numbers and inflated titles", us: "yes", chat: "no", builders: "no", boards: "—" },
-  { row: "Reads your file back like screening software", us: "yes", chat: "no", builders: "some", boards: "—" },
-  { row: "Explains job fit requirement by requirement", us: "yes", chat: "some", builders: "no", boards: "no" },
-  { row: "No match percentage pretending to be a prediction", us: "yes", chat: "—", builders: "no", boards: "no" },
-  { row: "Free to build and download", us: "yes", chat: "yes", builders: "some", boards: "—" },
+/* ---------- The proof standard ---------- */
+const PROMISES: [IconName, string, string][] = [
+  ["resume", "Every line traces to a fact you confirmed", "Code checks every number and each claim of responsibility against your facts. A line that claims more is rewritten once, then held back."],
+  ["check", "Verdicts in words, never scores", "No match percentages, rings or stars. A job check says Proven, Partly or Missing for each requirement, and quotes the posting."],
+  ["external", "Real jobs, on the company’s own site", "Hunt never applies for you and never guesses your chances. You decide, and you apply where the job is posted."],
+  ["lock", "Your details stay yours", "Your name and contact details are removed before any AI model sees your text. Export or delete everything whenever you like."],
 ];
 
-function Cell({ v }: { v: string }) {
-  if (v === "yes")
-    return (
-      <span className={s.cYes}>
-        <StatusIcon name="check" />
-        <span className="sr-only">Yes</span>
-      </span>
-    );
-  if (v === "no")
-    return (
-      <span className={s.cNo}>
-        <StatusIcon name="cross" />
-        <span className="sr-only">No</span>
-      </span>
-    );
-  if (v === "some") return <span className={s.cSome}>Some</span>;
-  return <span className={s.cNa}>n/a</span>;
+export function ProofStandard() {
+  return (
+    <section id="promise" className={s.block} aria-labelledby="promise-title">
+      <h2 id="promise-title" className={`t-d1 ${s.h2}`}>
+        The proof standard.
+      </h2>
+      <ul className={s.ledger}>
+        {PROMISES.map(([icon, title, body]) => (
+          <li key={title} className={s.promise}>
+            <Icon name={icon} size={24} />
+            <h3 className="t-h">{title}</h3>
+            <p className={s.small}>{body}</p>
+          </li>
+        ))}
+      </ul>
+      <p className={`microtext ${s.micro}`} aria-hidden>
+        {"EVERY LINE TRACES TO A FACT YOU CONFIRMED · ".repeat(12)}
+      </p>
+    </section>
+  );
 }
 
-export function Compare() {
+/* ---------- Who it's for ---------- */
+const PEOPLE = [
+  {
+    who: "Students and freshers",
+    body: "Projects, internships and coursework count. Hunt turns them into lines you can explain in an interview.",
+    id: "F-03",
+    fact: "Built a library seat-booking app in Flutter with three classmates for our final-year project",
+    date: "2 Nov",
+  },
+  {
+    who: "Early in your career",
+    body: "Get credit for what you did, in words that match how much of it was yours: contributed, owned, led or managed.",
+    id: facts[2].id,
+    fact: facts[2].text,
+    date: tagDate(facts[2].confirmedOn),
+  },
+  {
+    who: "Switching or returning",
+    body: "A career break is part of your story, not something to hide. Say it plainly and lead with the skills that carry over.",
+    id: "F-40",
+    fact: "Career break, Mar 2022 – Jan 2024: full-time care for a parent",
+    date: "28 Oct",
+  },
+];
+
+export function WhoFor() {
   return (
-    <section className={s.compare} aria-labelledby="compare-title">
-      <div className={s.wrap}>
-        <header className={s.head}>
-          <h2 id="compare-title" className={s.h2}>
-            How it’s different.
-          </h2>
-          <p className={s.lede}>Compared with the tools people usually reach for.</p>
-        </header>
-        <div className={s.tableWrap}>
-          <table className={s.table}>
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="sr-only">What it does</span>
-                </th>
-                <th scope="col" className={s.usCol}>
-                  Hunt
-                </th>
-                <th scope="col">AI chatbots</th>
-                <th scope="col">Typical resume builders</th>
-                <th scope="col">Job boards</th>
-              </tr>
-            </thead>
-            <tbody>
-              {COMPARE.map((r) => (
-                <tr key={r.row}>
-                  <th scope="row">{r.row}</th>
-                  <td className={s.usCol}>
-                    <Cell v={r.us} />
-                  </td>
-                  <td>
-                    <Cell v={r.chat} />
-                  </td>
-                  <td>
-                    <Cell v={r.builders} />
-                  </td>
-                  <td>
-                    <Cell v={r.boards} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <section id="who" className={s.block} aria-labelledby="who-title">
+      <h2 id="who-title" className={`t-d1 ${s.h2}`}>
+        Wherever you are in your career.
+      </h2>
+      <CardSet as="ul" className={s.people}>
+        {PEOPLE.map((p) => (
+          <Card as="li" key={p.who} className={s.person}>
+            <h3 className="t-d3">{p.who}</h3>
+            <p className={s.small}>{p.body}</p>
+            <div className={s.personFact}>
+              <span className="tag">
+                {p.id} · {p.date}
+              </span>
+              <p>{p.fact}</p>
+              <span className="sr-only">(example fact)</span>
+            </div>
+          </Card>
+        ))}
+      </CardSet>
+    </section>
+  );
+}
+
+/* ---------- Pricing promise ---------- */
+const FREE = ["Upload a resume, or start from scratch", "Confirm your facts", "Your master resume, with edits", "PDF and Word downloads", "Jobs feed and 30 job checks a month"];
+
+export function Pricing() {
+  return (
+    <section id="pricing" className={s.block} aria-labelledby="pricing-title">
+      <h2 id="pricing-title" className={`t-d1 ${s.h2}`}>
+        Free export. A fair price for the rest.
+      </h2>
+      <div className={s.plans}>
+        <Card className={`${s.plan} grain`}>
+          <h3 className="t-d2">Free, always</h3>
+          <ul className={s.planList}>
+            {FREE.map((f) => (
+              <li key={f}>
+                <Icon name="check" size={18} />
+                {f}
+              </li>
+            ))}
+          </ul>
+          <ButtonLink href="/onboarding" variant="primary">
+            Build my resume
+          </ButtonLink>
+        </Card>
+        <Card className={s.plan}>
+          <h3 className="t-d2">More job checks</h3>
+          <p className={s.price}>
+            {PAID_PRICE ? (
+              <>
+                {PAID_PRICE}
+                <span className={s.small}> / month</span>
+              </>
+            ) : (
+              "Coming later"
+            )}
+          </p>
+          <p className={s.body}>
+            {PAID_PRICE ? "Cancel any time. The price is shown before you pay." : "The price will be on this page before you can pay anything."}
+          </p>
+          <p className={s.small}>Downloads stay free. A resume you’ve made never moves behind a paywall.</p>
+        </Card>
       </div>
     </section>
   );
 }
 
-/* ---------- 5. Promises, signed ---------- */
-export function Promises() {
-  return (
-    <section id="trust" className={s.promises} aria-labelledby="promises-title">
-      <div className={`${s.wrap} ${s.promisesGrid}`}>
-        <div>
-          <h2 id="promises-title" className={s.h2}>
-            Your career history is yours.
-          </h2>
-          <p className={s.lede}>You’re trusting us with your work life. These aren’t settings; they’re how it’s built.</p>
-        </div>
-        <div className={s.letter}>
-          <p className={s.letterHead}>Our promises to you</p>
-          <ol className={s.letterList}>
-            <li>We never sell your data, and never show it to employers.</li>
-            <li>Your name and contact details are never sent to an AI model.</li>
-            <li>Nothing you upload is used to train anyone’s AI.</li>
-            <li>Export everything, or delete everything, whenever you like.</li>
-            <li>We never apply to jobs for you, and never pretend to know your chances.</li>
-          </ol>
-          <p className={s.signature}>— the Hunt team</p>
-          <span className={s.letterStamp}>
-            <StatusIcon name="check" /> Signed
-          </span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- 6. FAQ (native details, no JS) ---------- */
-const FAQ = [
-  ["Is it really free?", "Yes. Building your profile, master resumes, PDF and Word downloads and the readability check are free. The free plan includes 10 tailored resumes and 30 detailed job checks a month, and you’ll always see your count before you reach it. A resume you’ve already made can always be downloaded."],
-  ["Will my resume pass every ATS?", "Nobody can honestly promise that, so we don’t. Our templates are single-column and built to be read by machines, and before every download we read the file back with two independent text extractors and show you what they found."],
-  ["Will you apply to jobs for me?", "No. We help you decide which jobs are worth it and give you a resume you can defend. Applying stays your decision, on the employer’s own site."],
-  ["Where do the jobs come from?", "Right now, from you: paste any job description from Naukri, LinkedIn, a company site or an email. We read only the text you paste and never scrape sites that don’t allow it."],
-  ["Does it work for my profession?", "It works for every profession, from engineers and accountants to nurses and electricians. Some fields are labelled beta while we measure quality for them, and we say so plainly."],
-  ["What can the AI change on my resume?", "Only wording and order. Numbers, dates, employers, titles, tools and how much you were responsible for are checked against your confirmed facts by code. If a line claims more than a fact supports, it’s blocked and you see why."],
+/* ---------- FAQ ---------- */
+const FAQ: [string, string][] = [
+  [
+    "Is it really free?",
+    "Yes. Building, editing and downloading your resume as PDF or Word is free, and stays free. The free plan also includes 30 job checks a month, and you always see your count before you reach it.",
+  ],
+  [
+    "Can Hunt add things I didn’t do?",
+    "No. Every line is written from facts you confirmed. Code checks every number and how much responsibility a line claims; a second model checks the meaning. A line that claims more than its facts is rewritten once, then held back, and you see why.",
+  ],
+  [
+    "Will my resume pass every ATS?",
+    "Nobody can honestly promise that, so we don’t. Hunt’s six templates are single column, use real text rather than images, and are checked before you download.",
+  ],
+  [
+    "Will Hunt tailor my resume to each job?",
+    "Not yet. Rewriting a resume for one posting is where an overclaim is most likely to slip in, so it stays off until every changed line can be checked well enough. Today you get one honest master resume that you can edit.",
+  ],
+  [
+    "Where do the jobs come from?",
+    "From companies’ own public job boards, and from any job description you paste in. Hunt never applies for you; you apply on the company’s site.",
+  ],
+  [
+    "What happens to my data?",
+    "We don’t sell it or show it to employers. Your name and contact details are removed before any AI model sees your text. You can export everything or delete your account at any time.",
+  ],
 ];
 
 export function Faq() {
   return (
-    <section id="faq" className={s.faq} aria-labelledby="faq-title">
-      <div className={`${s.wrap} ${s.faqGrid}`}>
-        <h2 id="faq-title" className={s.h2}>
-          Questions, answered straight.
-        </h2>
-        <div className={s.faqList}>
-          {FAQ.map(([q, a]) => (
-            <details key={q} className={s.qItem}>
-              <summary>
-                <span>{q}</span>
-                <span className={s.qPlus} aria-hidden />
-              </summary>
-              <p>{a}</p>
-            </details>
-          ))}
-        </div>
+    <section id="faq" className={`${s.block} ${s.faq}`} aria-labelledby="faq-title">
+      <h2 id="faq-title" className={`t-d1 ${s.h2}`}>
+        Questions
+      </h2>
+      <div className={s.faqList}>
+        {FAQ.map(([q, a]) => (
+          <Disclosure key={q} summary={<span className="t-title">{q}</span>} className={s.faqItem}>
+            <p className={s.body}>{a}</p>
+          </Disclosure>
+        ))}
       </div>
     </section>
+  );
+}
+
+/* ---------- Closing band + footer ---------- */
+export function Footer() {
+  return (
+    <footer className={`${s.footer} grain`}>
+      <span className={`guilloche-wave ${s.wave}`} aria-hidden />
+      <div className={s.closing}>
+        <p className={`t-d1 ${s.closingLine}`}>
+          Your next resume,{" "}
+          <span className="proof">
+            <span className="italic-accent">signed</span>
+          </span>{" "}
+          by you.
+        </p>
+        <ButtonLink href="/onboarding" variant="primary" size="lg" className={s.onPanel}>
+          Build my resume
+        </ButtonLink>
+      </div>
+      <div className={s.footRow}>
+        <Link href="/" className={s.footMark}>
+          Hunt
+        </Link>
+        <nav aria-label="Footer" className={s.footLinks}>
+          <a href="#modules">What it does</a>
+          <a href="#how">How it works</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+          <Link href="/signin">Sign in</Link>
+        </nav>
+      </div>
+      <p className={s.footNote}>
+        Made in India. No hiring probabilities, no fake scores.
+      </p>
+    </footer>
   );
 }
