@@ -3,6 +3,7 @@
 # API:     docker run --env-file api/.env -p 8000:8000 hunt-api
 # Worker:  docker run --env-file api/.env hunt-api python -m app.tasks.worker [--types import,match]
 # Migrate: docker run --env-file api/.env hunt-api alembic upgrade head
+# Both:    docker run --env-file api/.env -p 8000:8000 hunt-api sh scripts/start-all.sh   (single-service hosts)
 # Upload parsing runs with no network under Docker's default seccomp profile (app/core/parsing.py installs its
 # own filter in the parser child), so no extra flags. Build for the host's native arch: under emulation the
 # filter can't be installed and parsing fails closed.
@@ -18,6 +19,7 @@ COPY api/app ./app
 COPY api/fonts ./fonts
 COPY api/alembic ./alembic
 COPY api/alembic.ini ./
+COPY api/scripts ./scripts
 # STORAGE_DIR / TOMBSTONE_DIR default under /srv/api/var: mount volumes there (tombstones on a WORM bucket).
 RUN useradd --system --uid 10001 hunt && mkdir -p var && chown hunt var
 USER hunt

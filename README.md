@@ -14,9 +14,9 @@ RoleFold turns your real experience into evidence-backed, ATS-friendly resumes, 
 job, including the skill gaps. What makes it different: a **writer / verifier LLM pipeline plus deterministic code checks**
 that withhold any claim not backed by a fact *you* confirmed. If a line can't cite its evidence, it doesn't ship.
 
-**🔗 Web app:** [rolefold-green.vercel.app](https://rolefold-green.vercel.app). The hosted backend (Northflank) is being set up; until it is live, app screens show a "couldn't load" state.
+**🔗 Web app:** [rolefold-green.vercel.app](https://rolefold-green.vercel.app). The hosted backend (Render + Neon) is being set up; until it is live, app screens show a "couldn't load" state.
 
-> Status: a working pre-launch codebase. The full stack (FastAPI, Postgres, worker, Gemini) runs locally; hosting steps are in `docs/DEPLOY-NORTHFLANK.md`. There are no users or metrics to report yet.
+> Status: a working pre-launch codebase. The full stack (FastAPI, Postgres, worker, Gemini) runs locally; hosting steps are in `docs/DEPLOY-FREE.md`. There are no users or metrics to report yet.
 
 ## Why it exists
 

@@ -185,8 +185,9 @@ a rejected key fails once with a "fix it in Settings" message. Claude/OpenAI mod
 Monthly free limits still apply to own-key users. Not yet run: migration on a real DB, a live call with a real
 Claude or OpenAI key (unit tests use fakes); OpenAI model ids came from OpenAI's models page on 2026-11-21.
 
-**Hosting plan (2026-11-21):** web on Vercel; API + worker + Postgres on Northflank's free Sandbox plan (always on,
-no card). Step-by-step: `docs/DEPLOY-NORTHFLANK.md`. Not deployed yet.
+**Hosting plan (2026-11-21, no card anywhere):** web on Vercel; API + worker in one Render free web service
+(`render.yaml`, `api/scripts/start-all.sh`); Postgres on Neon free (project `rolefold`, already bootstrapped and
+migrated to 0010). Northflank was dropped (needs a card). Status and steps: `docs/DEPLOY-FREE.md`.
 
 ## 8. Open items (owner)
 
