@@ -294,7 +294,7 @@ def diversify(items: list[dict], top: int = TOP, per_company: int = MAX_PER_COMP
 # ---------------------------------------------------------------- build
 
 
-SOURCE_NAMES = {"greenhouse": "Greenhouse job board", "lever": "Lever job board", "manual": "Hunt catalog"}
+SOURCE_NAMES = {"greenhouse": "Greenhouse job board", "lever": "Lever job board", "manual": "RoleFold catalog"}
 
 
 def card(job: CatalogJob, scored: dict, saved: bool) -> dict:

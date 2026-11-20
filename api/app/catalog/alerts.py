@@ -67,7 +67,7 @@ def compose(user: User, items: list[dict]) -> EmailMessage:
             lines.append(f"  {it['goal']}")
         lines.append("")
     lines += [
-        "This is an early read from the posting text, not a verdict. Open a job in Hunt to check every requirement",
+        "This is an early read from the posting text, not a verdict. Open a job in RoleFold to check every requirement",
         f"against your confirmed facts: {app}/feed",
         "",
         f"Stop these emails: {unsub}",

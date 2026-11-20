@@ -35,11 +35,27 @@
   gap: 12px;
 }
 .stage {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   font: var(--type-body);
   color: var(--text-muted);
+}
+/* chain-of-thought connector between markers */
+.stage:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 7.25px;
+  top: calc(50% + 11px);
+  height: calc(100% - 10px);
+  width: 1.5px;
+  border-radius: 1px;
+  background: var(--line);
+}
+.stage[data-state="done"]:not(:last-child)::before {
+  background: var(--supported);
+  opacity: 0.45;
 }
 .stage[data-state="current"],
 .stage[data-state="done"] {
@@ -55,8 +71,45 @@
   border: 1.5px solid var(--line-strong);
 }
 .stage[data-state="current"] .marker {
-  border: 0;
-  background: radial-gradient(circle, var(--accent) 4px, transparent 4.5px);
+  border-color: var(--line);
+  border-top-color: var(--accent);
+  animation: spin 700ms linear infinite;
+}
+.stage[data-state="current"] .text {
+  background: linear-gradient(90deg, var(--text-muted) 0%, var(--text) 45%, var(--text-muted) 90%) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage[data-state="current"] .marker,
+  .stage[data-state="current"] .text {
+    animation: none;
+  }
+  .stage[data-state="current"] .text {
+    background: none;
+    color: var(--text);
+  }
+}
+@media (forced-colors: active) {
+  .stage[data-state="current"] .text {
+    background: none;
+    color: CanvasText;
+  }
 }
 .stage[data-state="done"] .marker {
   border: 0;
@@ -65,9 +118,4 @@
 .marker svg {
   width: 14px;
   height: 14px;
-}
-.dots {
-  width: 18px;
-  height: 4px;
-  background: radial-gradient(circle, currentColor 1.6px, transparent 2px) 0 50% / 6px 4px repeat-x;
 }

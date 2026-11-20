@@ -1,5 +1,5 @@
 /* App shell (DESIGN.md 3.1). Desktop ≥1024: header strip + floating bar with a morphing plate.
-   Below 1024: compact top bar (not sticky) + bottom tab bar. Opaque surfaces only: no backdrop-filter in the app. */
+   Below 1024: compact top bar (not sticky) + bottom tab bar. Bar and tab bar are glass like the landing nav (DESIGN.md 3.1), solid when a panel is open or blur is unsupported. */
 
 .wordmark {
   font: 500 1.375rem/1 var(--ff-display);
@@ -76,7 +76,10 @@
     z-index: var(--z-header);
     height: 72px;
     padding: 8px var(--gutter);
-    background: var(--bg);
+    pointer-events: none; /* content scrolls under the transparent strip; only the bar takes clicks */
+  }
+  .strip .bar {
+    pointer-events: auto;
   }
   .top,
   .tabbar {
@@ -95,14 +98,16 @@
   left: 0;
   right: 0;
   border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
+  box-shadow: var(--shadow-3);
   transition:
     height 180ms var(--ease-in),
     box-shadow var(--dur-fast) var(--ease-standard);
 }
 .bar[data-open] .plate {
-  box-shadow: var(--shadow-3);
+  background: var(--surface);
   transition:
     height var(--dur-spring) var(--ease-spring),
     box-shadow var(--dur-fast) var(--ease-standard);
@@ -342,8 +347,22 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   padding-bottom: env(safe-area-inset-bottom);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
   border-top: 1px solid var(--line);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .plate,
+  .tabbar {
+    background: var(--surface);
+  }
+}
+:global(.save-data) .plate,
+:global(.save-data) .tabbar {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 /* task screens swap the tab bar for their bottom action bar */
 :global(body):has([data-action-bar]) .tabbar {

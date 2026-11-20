@@ -48,6 +48,7 @@ class ErrorClass(StrEnum):
     VALIDATION = "validation"
     MODEL_REFUSED = "model_refused"
     PII_BLOCKED = "pii_blocked"
+    KEY_REJECTED = "key_rejected"
 
 
 @dataclass(frozen=True)
@@ -149,6 +150,14 @@ class TransientError(Exception):
         self.error_class = error_class
 
 
+class KeyRejected(Exception):
+    """The provider refused the API key (invalid, revoked, or no access to the model). Not retryable."""
+
+
+def _rejects_key(e) -> bool:
+    return e.code in (401, 403) or (e.code == 400 and "api key" in str(e).lower())
+
+
 class Provider(Protocol):
     def generate(self, req: ProviderRequest) -> ProviderResponse: ...
 
@@ -181,6 +190,8 @@ class GeminiProvider:
                 raise TransientError(ErrorClass.RATE_LIMITED, str(e)) from e
             if e.code and e.code >= 500:
                 raise TransientError(ErrorClass.PROVIDER, str(e)) from e
+            if _rejects_key(e):
+                raise KeyRejected(str(e)) from e
             raise  # 4xx other than 429 is a bug or config error: not retryable
         except httpx.TimeoutException as e:
             raise TransientError(ErrorClass.TIMEOUT, str(e)) from e
@@ -196,6 +207,76 @@ class GeminiProvider:
             tokens_out=((usage.candidates_token_count or 0) + (usage.thoughts_token_count or 0)) if usage else 0,
             refused=refused,
         )
+
+
+class AnthropicProvider:
+    """Claude via the official SDK, only for a user's own key. SDK retries are off: Gateway retries."""
+
+    def __init__(self, api_key: str):
+        import anthropic
+
+        self._client = anthropic.Anthropic(api_key=api_key, max_retries=0)
+
+    def generate(self, req: ProviderRequest) -> ProviderResponse:
+        import anthropic
+
+        try:
+            r = self._client.messages.create(
+                model=req.model, max_tokens=req.max_output_tokens, system=req.system,
+                messages=[{"role": "user", "content": req.user}],
+                # Structured output; the SDK strips constraints the API doesn't take (Gateway re-validates).
+                output_config={"effort": req.thinking_level,
+                               "format": {"type": "json_schema", "schema": anthropic.transform_schema(req.json_schema)}},
+                timeout=req.timeout_s,
+            )
+        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as e:
+            raise KeyRejected(str(e)) from e
+        except anthropic.RateLimitError as e:
+            raise TransientError(ErrorClass.RATE_LIMITED, str(e)) from e
+        except anthropic.APITimeoutError as e:
+            raise TransientError(ErrorClass.TIMEOUT, str(e)) from e
+        except anthropic.InternalServerError as e:
+            raise TransientError(ErrorClass.PROVIDER, str(e)) from e
+        except anthropic.APIConnectionError as e:
+            raise TransientError(ErrorClass.PROVIDER, str(e)) from e
+        text = next((b.text for b in r.content if b.type == "text"), "")
+        return ProviderResponse(text=text, tokens_in=r.usage.input_tokens, tokens_out=r.usage.output_tokens,
+                                refused=r.stop_reason == "refusal")
+
+
+class OpenAIProvider:
+    """OpenAI Responses API via the official SDK, only for a user's own key. Non-strict schema (strict mode
+    rejects optional fields); Gateway validates and repairs. SDK retries are off: Gateway retries."""
+
+    def __init__(self, api_key: str):
+        import openai
+
+        self._client = openai.OpenAI(api_key=api_key, max_retries=0)
+
+    def generate(self, req: ProviderRequest) -> ProviderResponse:
+        import openai
+
+        try:
+            r = self._client.responses.create(
+                model=req.model, instructions=req.system, input=req.user, max_output_tokens=req.max_output_tokens,
+                reasoning={"effort": req.thinking_level},
+                text={"format": {"type": "json_schema", "name": "output", "schema": req.json_schema, "strict": False}},
+                timeout=req.timeout_s,
+            )
+        except (openai.AuthenticationError, openai.PermissionDeniedError) as e:
+            raise KeyRejected(str(e)) from e
+        except openai.RateLimitError as e:
+            raise TransientError(ErrorClass.RATE_LIMITED, str(e)) from e
+        except openai.APITimeoutError as e:
+            raise TransientError(ErrorClass.TIMEOUT, str(e)) from e
+        except openai.InternalServerError as e:
+            raise TransientError(ErrorClass.PROVIDER, str(e)) from e
+        except openai.APIConnectionError as e:
+            raise TransientError(ErrorClass.PROVIDER, str(e)) from e
+        usage = r.usage
+        # A refusal comes back as a refusal content item, so output_text is empty and Gateway treats it as refused.
+        return ProviderResponse(text=r.output_text or "", tokens_in=usage.input_tokens if usage else 0,
+                                tokens_out=usage.output_tokens if usage else 0)
 
 
 class FakeLLM:
@@ -227,6 +308,10 @@ class LLMSettings(BaseSettings):
     llm_model_fast: str
     llm_model_writer: str
     llm_model_verifier: str
+    # Models for users' own Claude / OpenAI keys: "fast,writer,verifier" (writer must differ from verifier).
+    # Same shape as the Gemini setup: a cheap fast + verifier, a stronger writer.
+    llm_models_anthropic: str = "claude-haiku-5-5,claude-sonnet-5-5,claude-haiku-5-5"
+    llm_models_openai: str = "gpt-6-luna,gpt-6.2-sol,gpt-6-luna"
 
 
 def datamark(text: str) -> str:
@@ -314,6 +399,9 @@ class Gateway:
             start = time.monotonic()
             try:
                 resp = self.provider.generate(req)
+            except KeyRejected as e:
+                record.error_class = ErrorClass.KEY_REJECTED
+                raise LLMError(ErrorClass.KEY_REJECTED, str(e), calls) from e
             except TransientError as e:
                 record.latency_ms = int((time.monotonic() - start) * 1000)
                 record.error_class = e.error_class
@@ -328,13 +416,64 @@ class Gateway:
         raise AssertionError("unreachable")
 
 
-def build_gateway(settings: LLMSettings | None = None) -> Gateway:
-    """Production gateway from env (GEMINI_API_KEY, LLM_MODEL_FAST/WRITER/VERIFIER)."""
+PROVIDERS = {"gemini": GeminiProvider, "anthropic": AnthropicProvider, "openai": OpenAIProvider}
+
+
+def _models(s: LLMSettings, provider: str = "gemini") -> dict[Tier, str]:
+    if provider == "gemini":
+        return {Tier.FAST: s.llm_model_fast, Tier.WRITER: s.llm_model_writer, Tier.VERIFIER: s.llm_model_verifier}
+    fast, writer, verifier = (m.strip() for m in getattr(s, f"llm_models_{provider}").split(","))
+    return {Tier.FAST: fast, Tier.WRITER: writer, Tier.VERIFIER: verifier}
+
+
+def build_gateway(settings: LLMSettings | None = None, api_key: str | None = None, provider: str = "gemini") -> Gateway:
+    """Production gateway from env (GEMINI_API_KEY, LLM_MODEL_FAST/WRITER/VERIFIER).
+    `api_key` is a user's own key for `provider`: that provider's models, no shared response cache."""
     s = settings or LLMSettings()
+    if api_key:
+        return Gateway(PROVIDERS[provider](api_key), _models(s, provider))
     if not s.gemini_api_key.get_secret_value():
         raise ValueError("GEMINI_API_KEY is not set")
     provider = GeminiProvider(s.gemini_api_key.get_secret_value())
-    models = {Tier.FAST: s.llm_model_fast, Tier.WRITER: s.llm_model_writer, Tier.VERIFIER: s.llm_model_verifier}
+    models = _models(s)
     # ponytail: in-process cache, so each worker pays once per distinct job text; swap in a
     # Postgres-backed MutableMapping when several workers run (TRD §10.1 response cache).
     return Gateway(provider, models, cache={})
+
+
+def check_key(api_key: str, provider: str = "gemini", settings: LLMSettings | None = None) -> str | None:
+    """None if the key can use every model RoleFold runs for `provider`, else a user-facing reason.
+    Model lookups only: no tokens are spent."""
+    rejected = "The provider rejected this key. Check that it's an API key for the provider you picked and that it's active."
+    busy = "The provider didn't answer just now, so the key wasn't checked. Try again in a minute."
+    models = set(_models(settings or LLMSettings(), provider).values())
+    if provider == "gemini":
+        from google import genai
+        from google.genai import errors
+
+        client = genai.Client(api_key=api_key)
+        for model in models:
+            try:
+                client.models.get(model=model)
+            except errors.APIError as e:
+                if _rejects_key(e):
+                    return rejected
+                if e.code == 404:
+                    return f"This key can't use {model}, which RoleFold needs."
+                if e.code == 429 or (e.code and e.code >= 500):
+                    return busy
+                raise
+        return None
+    sdk = __import__(provider)  # anthropic / openai: same error class names
+    client = sdk.Anthropic(api_key=api_key, max_retries=0) if provider == "anthropic" else sdk.OpenAI(api_key=api_key,
+                                                                                                         max_retries=0)
+    for model in models:
+        try:
+            client.models.retrieve(model)
+        except (sdk.AuthenticationError, sdk.PermissionDeniedError):
+            return rejected
+        except sdk.NotFoundError:
+            return f"This key can't use {model}, which RoleFold needs."
+        except (sdk.RateLimitError, sdk.InternalServerError, sdk.APIConnectionError):
+            return busy
+    return None

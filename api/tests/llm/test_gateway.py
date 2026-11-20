@@ -173,3 +173,85 @@ def test_prompts_sent_carry_the_quality_rules():
     assert "short normalized value" in job.json_schema["$defs"]["JobEligibilityDraft"]["properties"]["value"]["description"]
     assert {"achievements", "career_breaks"} <= extract.json_schema["properties"].keys()
     assert "`career_breaks`" in extract.system and "publication" in extract.system
+
+
+def _status_error(sdk, cls, code):
+    import httpx
+
+    return getattr(sdk, cls)("err", response=httpx.Response(code, request=httpx.Request("POST", "https://x")), body=None)
+
+
+def test_claude_provider_maps_reply_refusal_and_errors():
+    """Users' own Claude keys. No network: a fake client."""
+    from types import SimpleNamespace
+
+    import anthropic
+
+    from app.llm.gateway import AnthropicProvider, KeyRejected, ProviderRequest
+
+    sent = {}
+
+    def create(**kw):
+        sent.update(kw)
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text='{"candidate_id": "S-1"}')],
+                               usage=SimpleNamespace(input_tokens=10, output_tokens=5), stop_reason="end_turn")
+
+    provider = object.__new__(AnthropicProvider)
+    provider._client = SimpleNamespace(messages=SimpleNamespace(create=create))
+    schema = TASKS["taxonomy_pick"].schema.model_json_schema()
+    resp = provider.generate(ProviderRequest("claude-haiku-5-5", "sys", "user", schema, 5, 256))
+    assert (resp.text, resp.tokens_in, resp.tokens_out, resp.refused) == ('{"candidate_id": "S-1"}', 10, 5, False)
+    assert sent["output_config"]["effort"] == "low" and sent["output_config"]["format"]["type"] == "json_schema"
+
+    for cls, code, expected in [("AuthenticationError", 401, KeyRejected), ("RateLimitError", 429, TransientError),
+                                ("InternalServerError", 500, TransientError)]:
+        def boom(cls=cls, code=code, **kw):
+            raise _status_error(anthropic, cls, code)
+        provider._client = SimpleNamespace(messages=SimpleNamespace(create=boom))
+        with pytest.raises(expected):
+            provider.generate(ProviderRequest("m", "sys", "user", schema, 5, 256))
+
+
+def test_every_task_schema_converts_for_claude():
+    import anthropic
+
+    for task in TASKS.values():
+        anthropic.transform_schema(task.schema.model_json_schema())
+
+
+def test_openai_provider_maps_reply_and_errors():
+    from types import SimpleNamespace
+
+    import openai
+
+    from app.llm.gateway import KeyRejected, OpenAIProvider, ProviderRequest
+
+    reply = SimpleNamespace(output_text="", usage=SimpleNamespace(input_tokens=7, output_tokens=0))
+    provider = object.__new__(OpenAIProvider)
+    provider._client = SimpleNamespace(responses=SimpleNamespace(create=lambda **kw: reply))
+    assert provider.generate(ProviderRequest("m", "sys", "user", {}, 5, 256)).text == ""  # refusal -> empty -> refused
+
+    def boom(**kw):
+        raise _status_error(openai, "PermissionDeniedError", 403)
+    provider._client = SimpleNamespace(responses=SimpleNamespace(create=boom))
+    with pytest.raises(KeyRejected):
+        provider.generate(ProviderRequest("m", "sys", "user", {}, 5, 256))
+
+
+def test_key_rejected_is_not_retried():
+    from app.llm.gateway import KeyRejected
+
+    gw, fake, sleeps = gateway([KeyRejected("bad key"), GOOD_PICK])
+    with pytest.raises(LLMError) as e:
+        gw.run("taxonomy_pick", {"term": "psql"})
+    assert e.value.error_class == ErrorClass.KEY_REJECTED and len(fake.requests) == 1 and sleeps == []
+
+
+def test_each_provider_gets_its_own_models():
+    from app.llm.gateway import LLMSettings, _models
+
+    s = LLMSettings(gemini_api_key="x", llm_model_fast="gf", llm_model_writer="gw", llm_model_verifier="gv")
+    assert _models(s)[Tier.WRITER] == "gw"
+    for provider in ("anthropic", "openai"):
+        m = _models(s, provider)
+        assert all(m.values()) and m[Tier.WRITER] != m[Tier.VERIFIER]

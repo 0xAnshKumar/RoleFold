@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PageHeader from "@/components/app/PageHeader";
 import { ProgressBar } from "@/components/ui/Progress";
-import { getProfile, getUsage, isDemo } from "@/lib/data";
+import { getAiKey, getProfile, getUsage, isDemo } from "@/lib/data";
+import AiKey from "./AiKey";
 import DeleteAccount from "./DeleteAccount";
 import ExportData from "./ExportData";
 import ThemeSetting from "./ThemeSetting";
@@ -23,12 +24,12 @@ function Group({ id, title, children }: { id: string; title: string; children: R
 
 /** Settings (DESIGN.md 4.8): one narrow column of grouped rows, from the avatar menu. */
 export default async function SettingsPage() {
-  const [usage, demo, { profile }] = await Promise.all([getUsage(), isDemo(), getProfile()]);
+  const [usage, demo, { profile }, aiKey] = await Promise.all([getUsage(), isDemo(), getProfile(), getAiKey()]);
   const meters = [...(usage.tailored ? [{ label: "Tailored resumes", ...usage.tailored }] : []), { label: "Job checks", ...usage.matches }];
   const signOut = !demo && !!process.env.OIDC_ISSUER;
   return (
     <div className={s.page}>
-      <PageHeader title="Settings" sub="Your account, how Hunt looks, your plan and your data." />
+      <PageHeader title="Settings" sub="Your account, how RoleFold looks, your plan and your data." />
 
       <Group id="account" title="Account">
         <div className={s.row}>
@@ -83,6 +84,14 @@ export default async function SettingsPage() {
           </ul>
         </div>
       </Group>
+
+      {aiKey.available && (
+        <Group id="ai-key" title="AI key">
+          <div className={s.row}>
+            <AiKey state={aiKey} demo={demo} />
+          </div>
+        </Group>
+      )}
 
       <Group id="data" title="Your data">
         <div className={s.row}>

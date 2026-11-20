@@ -27,7 +27,8 @@ export function ProgressBar({ value, max, label, valueText }: { value: number; m
 
 export type StageState = "pending" | "current" | "done";
 
-/** Named stage list (upload "Reading" step): pending, current, done. Lives inside a polite live region. */
+/** Named stage list (upload "Reading" step) styled as a chain of thought: a line joins the steps, the current one
+ * spins and its label shimmers, done ones get a check. Lives inside a polite live region. */
 export function StageList({ stages, label }: { stages: { label: string; state: StageState }[]; label?: string }) {
   return (
     <ol className={s.stages} aria-label={label}>
@@ -36,8 +37,7 @@ export function StageList({ stages, label }: { stages: { label: string; state: S
           <span className={s.marker} aria-hidden>
             {st.state === "done" && <StatusIcon name="check" />}
           </span>
-          <span>{st.label}</span>
-          {st.state === "current" && <span className={s.dots} aria-hidden />}
+          <span className={s.text}>{st.label}</span>
           <span className="sr-only">{st.state === "done" ? ", done" : st.state === "current" ? ", in progress" : ", not started"}</span>
         </li>
       ))}

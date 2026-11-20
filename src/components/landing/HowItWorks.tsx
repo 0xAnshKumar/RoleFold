@@ -16,7 +16,7 @@ const STEPS = [
     value: "upload",
     label: "Upload",
     title: "Upload your resume",
-    body: "PDF, Word or plain text, or start from scratch and answer a few questions. Hunt reads it and pulls out your roles, facts, education and skills.",
+    body: "PDF, Word or plain text, or start from scratch and answer a few questions. RoleFold reads it and pulls out your roles, facts, education and skills.",
     picture: (
       <div className={s.pic}>
         <div className={s.file}>
@@ -39,7 +39,7 @@ const STEPS = [
     value: "confirm",
     label: "Confirm",
     title: "Confirm what’s yours",
-    body: "Check each fact Hunt found, fix the wording, and say how much of it was yours. Nothing reaches your resume until you confirm it.",
+    body: "Check each fact RoleFold found, fix the wording, and say how much of it was yours. Nothing reaches your resume until you confirm it.",
     picture: (
       <div className={s.pic}>
         <p className={s.picMeta}>Frontend Engineer · Northwind Commerce</p>
@@ -60,7 +60,7 @@ const STEPS = [
     value: "download",
     label: "Download",
     title: "Download PDF or Word",
-    body: "Pick one of six ATS-safe templates and edit any line. If an edit claims more than your facts show, Hunt says which part and why. Downloads are free.",
+    body: "Pick one of six ATS-safe templates and edit any line. If an edit claims more than your facts show, RoleFold says which part and why. Downloads are free.",
     picture: (
       <div className={s.pic}>
         {["Rohan-Iyer-Resume.pdf", "Rohan-Iyer-Resume.docx"].map((f) => (

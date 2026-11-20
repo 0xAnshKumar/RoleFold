@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -58,6 +58,10 @@ class Settings(BaseSettings):
 
     # LLM spend (TRD §10.1 budgets, I-12). Global cap per UTC day, summed from llm_calls.cost.
     llm_daily_spend_cap_usd: float = 5.0
+    # Bring-your-own Gemini key (Settings → AI key). Base64 of 32 random bytes; unset = the feature is off.
+    # Losing or changing it makes stored keys unreadable (users re-enter them). Generate:
+    # python -c "import os,base64;print(base64.b64encode(os.urandom(32)).decode())"
+    ai_key_encryption_key: SecretStr | None = None
     # USD per 1M tokens, per tier. Defaults: flash-lite class (fast) and writer class; verifier priced as writer.
     llm_price_fast_in: float = 0.30
     llm_price_fast_out: float = 2.50
@@ -82,7 +86,7 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
-    smtp_from: str = "Hunt <alerts@localhost>"
+    smtp_from: str = "RoleFold <alerts@localhost>"
 
 
 @lru_cache

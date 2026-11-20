@@ -46,11 +46,11 @@ export default function SignIn({ searchParams }: PageProps<"/signin">) {
   return (
     <main className={s.wrap}>
       <Link href="/" className={s.brand}>
-        Hunt
+        RoleFold
       </Link>
       <section className={`panel ${s.card}`} aria-labelledby="signin-title">
         <h1 id="signin-title" className={s.title}>
-          Sign in to Hunt
+          Sign in to RoleFold
         </h1>
         <p className={a.note}>Your facts, resumes and saved jobs stay private to your account.</p>
         <Suspense fallback={<Continue />}>

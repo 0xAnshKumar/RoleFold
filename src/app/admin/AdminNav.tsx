@@ -17,7 +17,7 @@ export default function AdminNav() {
   return (
     <header className={s.bar}>
       <Link href="/admin" className={s.brand}>
-        Hunt admin
+        RoleFold admin
       </Link>
       <nav aria-label="Admin" className={s.nav}>
         {ITEMS.map((i) => (

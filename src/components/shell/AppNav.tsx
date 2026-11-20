@@ -163,7 +163,7 @@ export function AppNav({ demo = false, queue = 0, signOut = false, user = null, 
           <span className={`${s.plate} rim`} style={{ height: plateH }} aria-hidden />
           <div className={s.row1}>
             <Link href="/jobs" className={s.wordmark}>
-              Hunt
+              RoleFold
             </Link>
             <nav aria-label="Main" className={s.items}>
               <span className={s.split} data-dim={dim("jobs")} onPointerEnter={(e) => hoverOpen("jobs", e)} onPointerLeave={hoverCancel}>
@@ -244,7 +244,7 @@ export function AppNav({ demo = false, queue = 0, signOut = false, user = null, 
       {/* phone and tablet */}
       <header className={s.top}>
         <Link href="/jobs" className={s.wordmark}>
-          Hunt
+          RoleFold
         </Link>
         <div className={s.right}>
           {sample}

@@ -639,6 +639,19 @@ class SkillAlias(Base):
 # ---------------------------------------------------------------- system
 
 
+class UserAiKey(Owned, Base):
+    """A user's own AI key (0010): provider + key. AES-GCM ciphertext bound to user_id (app/core/secretbox.py); only last4
+    is ever returned. Calls made with it skip the platform spend cap and are logged at cost 0."""
+
+    __tablename__ = "user_ai_keys"
+    __table_args__ = (UniqueConstraint("user_id"),)
+    id: Mapped[uuid.UUID] = uuid_pk()
+    provider: Mapped[str] = mapped_column(enum("ai_provider", "gemini", "anthropic", "openai"))
+    key_enc: Mapped[bytes] = mapped_column(LargeBinary)
+    last4: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = created()
+
+
 class UsageCounter(Owned, Base):
     __tablename__ = "usage_counters"
     __table_args__ = (

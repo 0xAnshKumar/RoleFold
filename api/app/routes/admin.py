@@ -50,7 +50,7 @@ def admin_ctx(
 ) -> Iterator[Admin]:
     subject, claims = resolve_identity(authorization, x_dev_user)
     if not is_admin(subject, claims):
-        raise ApiError(403, "FORBIDDEN", "This page is for Hunt admins.")
+        raise ApiError(403, "FORBIDDEN", "This page is for RoleFold admins.")
     url = get_settings().admin_database_url
     if not url:
         raise ApiError(503, "DEPENDENCY_UNAVAILABLE", "The admin console is off (ADMIN_DATABASE_URL is not set).")

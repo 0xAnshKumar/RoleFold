@@ -14,9 +14,9 @@ RoleFold turns your real experience into evidence-backed, ATS-friendly resumes, 
 job, including the skill gaps. What makes it different: a **writer / verifier LLM pipeline plus deterministic code checks**
 that withhold any claim not backed by a fact *you* confirmed. If a line can't cite its evidence, it doesn't ship.
 
-**🔗 Live demo:** [rolefold-green.vercel.app](https://rolefold-green.vercel.app) (demo mode on sample data: no sign-in, no AI calls).
+**🔗 Web app:** [rolefold-green.vercel.app](https://rolefold-green.vercel.app). The hosted backend (Northflank) is being set up; until it is live, app screens show a "couldn't load" state.
 
-> Status: a working pre-launch codebase. The live link runs the frontend in demo mode; the full stack (FastAPI, Postgres, worker, Gemini) runs locally. There are no users or metrics to report yet.
+> Status: a working pre-launch codebase. The full stack (FastAPI, Postgres, worker, Gemini) runs locally; hosting steps are in `docs/DEPLOY-NORTHFLANK.md`. There are no users or metrics to report yet.
 
 ## Why it exists
 
@@ -111,13 +111,6 @@ docs/           PRD v4, TRD v4, design notes, reviews
 Prereqs: Node 24 (`.nvmrc`), [uv](https://docs.astral.sh/uv/), PostgreSQL 16, and a Gemini API key for live mode.
 There is no docker-compose file; use any Postgres.
 
-**Frontend only (demo mode, sample data, no backend):**
-
-```bash
-npm install
-npx next dev -p 3100        # http://localhost:3100
-```
-
 **Full stack:**
 
 ```bash
@@ -177,7 +170,7 @@ Nothing below is shipped yet.
 - [ ] **Enable approved ATS boards** (Greenhouse, Lever, Ashby, Workable) with hourly ingest and a free daily job digest email
 - [ ] **Job-targeted tailoring rollout** with one-click tailored PDF
 - [ ] **LLM quality evals** and **end-to-end frontend tests**
-- [ ] Rename leftover "Hunt" identifiers in code to RoleFold
+- [ ] Rename internal identifiers (env vars, DB roles, storage keys, package and folder names) that still say "Hunt"; user-facing branding is already RoleFold
 
 ## Privacy and safety
 
@@ -190,4 +183,4 @@ Nothing below is shipped yet.
 
 ## Author
 
-Built by **Ansh Kumar**: [LinkedIn](https://www.linkedin.com/in/anshkumarak111) · [GitHub](https://github.com/0xAnshKumar) · [Live demo](https://rolefold-green.vercel.app)
+Built by **Ansh Kumar**: [LinkedIn](https://www.linkedin.com/in/anshkumarak111) · [GitHub](https://github.com/0xAnshKumar) · [Web app](https://rolefold-green.vercel.app)

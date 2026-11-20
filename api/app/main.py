@@ -1,4 +1,4 @@
-"""Hunt API: `uvicorn app.main:app`."""
+"""RoleFold API: `uvicorn app.main:app`."""
 
 import uuid
 
@@ -15,7 +15,7 @@ except ValidationError as e:
     missing = ", ".join(str(err["loc"][0]).upper() for err in e.errors())
     raise SystemExit(f"Invalid or missing configuration in api/.env: {missing}") from None
 
-app = FastAPI(title="Hunt API", version="0.1.0")
+app = FastAPI(title="RoleFold API", version="0.1.0")
 errors.install(app)
 
 

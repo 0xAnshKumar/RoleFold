@@ -1,4 +1,4 @@
-# Hunt — Handoff (2026-11-04, branch launch-readiness)
+# Hunt — Handoff (2026-11-13, branch main)
 
 Read this first in any new session. It replaces the lost chat history. Product specs: `docs/PRD v4 …md`,
 `docs/TRD v4 …md`, `docs/Side Questions …md`. Design rules: `docs/DESIGN.md` (mandatory for UI).
@@ -24,9 +24,11 @@ fetched). The job feed, alerts and skills-insight view are deferred (see `docs/r
 - Two volumes: loud expressive landing page, calm app. No eyebrow/kicker labels above headings, SVG icons
   not text glyphs, yellow highlighter only marks proof in the app, verdict seal not gauges/percentages.
 - Ask before departing from `docs/DESIGN.md`.
-- AI provider is **Gemini only** (owner has a Gemini key). Use AI only where it adds real value; keep costs low.
-- Don't commit unless asked. Commit `c252ba6` holds the project up to 2026-10-12; the 2026-11-04 work below is
-  uncommitted.
+- RoleFold's own AI runs on **Gemini** (owner's key). Users may bring their own Gemini, Claude or OpenAI key in
+  Settings (owner call, 2026-11-21); never fall back from a user's key to ours silently. Use AI only where it adds
+  real value; keep costs low.
+- Don't commit unless asked. Everything is committed on `main` (head `bcc5c97`, 2026-11-06); `launch-readiness`
+  is fully merged into it.
 - Never paste secrets in chat; keys live in `api/.env` (gitignored). Never print `api/.env`.
 - Owner does DB/infra setup themselves.
 
@@ -34,7 +36,8 @@ fetched). The job feed, alerts and skills-insight view are deferred (see `docs/r
 
 ```
 src/                     Next.js 16.4 App Router, React 19.3, TS, CSS Modules, Motion 14
-  app/page.tsx           landing (HeroDesk, Story, Sections, WhoFor, Receipt, FAQ)
+  app/page.tsx           landing v2 (LandingNav, Hero + HeroMockup, HowItWorks, Sections: Modules, ProofStandard,
+                         WhoFor, Pricing, Faq, Footer)
   app/(app)/             jobs (tabs: For you = feed, ?tab=saved = Saved & pasted), jobs/[id] (match), resumes,
                          resumes/[id] (editor + share panel),
                          profile, settings, onboarding
@@ -50,7 +53,7 @@ src/                     Next.js 16.4 App Router, React 19.3, TS, CSS Modules, M
                          (EmptyState/ErrorState), Progress (ProgressBar/StageList), Icon; index.tsx = v1 StatusIcon/Stamp
   components/shell/      AppNav (desktop bar + morphing plate, phone top bar + tab bar + account sheet), theme.ts,
                          BottomActionBar
-  components/            landing/* (v1, step 2 rebuilds it), resume/ResumePaper, app/PageHeader
+  components/            landing/* (v2), resume/ResumePaper, app/PageHeader
   lib/api.ts             typed fetch client (bearer or X-Dev-User, Idempotency-Key, ApiError, waitFor polling)
   lib/auth.ts, app/auth/ OIDC code+PKCE login/callback/logout; ID token cookie + AES-GCM refresh-token cookie
   proxy.ts               adds the bearer to /v1/*, refreshes expiring sessions, guards app + admin routes
@@ -64,7 +67,7 @@ api/                     Python 3.12+ uv project: FastAPI, SQLAlchemy 2, Alembic
   app/db/                models (~32 tables), session (sets app.user_id for RLS)
   app/routes/            me, profile (experiences/facts/education/achievements/languages/career gaps), imports,
                          jobs, resumes, share, insights, feed, admin, system
-  app/catalog/           job sources (Greenhouse/Lever/manual), ingest (dedupe/scam/expiry), feed ranking, alerts, cli
+  app/catalog/           job sources (Greenhouse/Lever/Ashby/Workable/manual), ingest (dedupe/scam/expiry), feed ranking, alerts, cli
   app/tasks/             queue (Postgres SKIP LOCKED + leases), worker HANDLERS: import, match, tailor,
                          render (exports), regenerate, delete_user, catalog_ingest, alert_digest; reapply_tombstones (restore runbook CLI); llm.py = spend cap
   app/llm/               gateway.py (only module that talks to Gemini), schemas.py, prompts/*.md
@@ -81,13 +84,13 @@ docs/                    PRD, TRD, Side Questions, DESIGN.md, HANDOFF.md, review
 ## 4. How to run
 
 ```bash
-# Frontend (demo mode = sample data, works with no backend)
+# Frontend (needs the API running; no sample-data mode)
 npm install && npx next dev -p 3100            # http://localhost:3100
 npm run build && npx eslint src && npx tsc --noEmit && npm test   # Node 24 (.nvmrc)
 
 # Backend
 cd api && uv sync
-uv run pytest -q          # 253 pass + 2 skipped (live tests); DB tests need Docker running
+uv run pytest -q          # 273 tests; without Docker the 77 DB/live tests skip (196 pass)
 uv run ruff check app tests
 RUN_LIVE_LLM=1 uv run pytest tests/live -s     # opt-in real Gemini smoke test (costs ~cents)
 ```
@@ -95,8 +98,8 @@ RUN_LIVE_LLM=1 uv run pytest tests/live -s     # opt-in real Gemini smoke test (
 **Live mode** (real API + DB): Postgres → run `api/alembic/bootstrap.sql` → set passwords in `api/.env` →
 `alembic upgrade head` as hunt_owner → `uvicorn app.main:app --port 8000` → worker (`python -m app.tasks.worker`,
 from `api/`) → frontend `.env.local` with `API_URL=http://127.0.0.1:8000` and
-`NEXT_PUBLIC_DEV_USER=<any id>` (the API needs `DEV_AUTH=1` in `api/.env` to accept it). Demo mode turns on when both `NEXT_PUBLIC_DEV_USER` and `OIDC_ISSUER` are unset,
-`HUNT_DEMO=1`, or `/readyz` fails.
+`NEXT_PUBLIC_DEV_USER=<any id>` (the API needs `DEV_AUTH=1` in `api/.env` to accept it). There is no sample-data
+mode any more (owner, 2026-11-21): if the API is unreachable, app screens show their error state.
 
 **Real login (OIDC, any provider):** frontend `.env.local`: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`,
 `APP_URL`; `api/.env`: the same `OIDC_ISSUER` and `OIDC_AUDIENCE=<client id>` (the API verifies the ID token).
@@ -141,9 +144,9 @@ before any model call (other people's names / nicknames / initials are NOT detec
 
 ## 7. Status
 
-Everything in PRD/TRD launch scope plus the formerly deferred features is built, on branch `launch-readiness`
-(not merged to `main`). Checks on 2026-11-04: backend 253 pass + 2 skipped (DB tests ran), ruff, eslint, tsc,
-`npm test`, `npm run build` clean; `npm audit --omit=dev` 0 vulnerabilities; Next.js 16.4.5.
+Everything in PRD/TRD launch scope plus the formerly deferred features is built and on `main`. Checks on
+2026-11-13: backend 196 pass + 77 skipped (Docker was off, so the DB tests did NOT run; last full DB run was
+2026-11-04), ruff, eslint, tsc, `npm test` clean. `npm run build` and `npm audit` not rerun since 2026-11-04.
 
 - Core: landing; all app screens with every state; demo mode; 6 ATS templates (now with a languages section)
   PDF + DOCX; import → paste job → match → tailor → edit → export; profile, goals, prefs; usage limits.
@@ -160,11 +163,30 @@ Everything in PRD/TRD launch scope plus the formerly deferred features is built,
 - QA: a live run with real Gemini and Postgres passed every flow after 8 fixes; a design pass removed non-proof
   yellow, pill shapes and mono eyebrow labels from the app and fixed 390px layouts.
 
-**Design system v2, step 1 (foundation) done 2026-11-06** (DESIGN.md 6.8): tokens + v1 aliases in globals.css,
-fonts, `public/brand/` (scripts in `scripts/brand/`), providers, primitives, app shell, `/kit`. Nav is Jobs / Resume /
-Profile (+ Settings under the avatar); `/feed` → `/jobs`, `/skills` → `/profile#skills` (next.config redirects). Old
-screens still use v1 CSS through the aliases until steps 3-7 rebuild them. Known: first-load JS on `/jobs` is ~197 KB
-gzip against a 150 KB budget; the Next 16 + React 19 runtime alone is ~151 KB.
+**Design system v2: steps 1-7 of DESIGN.md 6.8 are built (2026-11-06)**: foundation (tokens, fonts,
+`public/brand/`, primitives, app shell, `/kit`), landing, onboarding upload + one-at-a-time confirm, resume list +
+editor + preview + share drawer, jobs, job check, profile, settings. Nav is Jobs / Resume / Profile (+ Settings under
+the avatar); `/feed` → `/jobs`, `/skills` → `/profile#skills` (next.config redirects).
+
+Left on the redesign:
+- **Step 8, cleanup**: v1 token names (`--paper`, `--highlighter`) are still used in `globals.css` (aliases + v1
+  utility classes), `resumes.module.css`, `resumes/[id]/editor.module.css` and `landing.module.css`;
+  `components/ui/index.tsx` still holds v1 StatusIcon/Stamp. Remove them, then the retired fonts.
+- The "done when" checks of steps 2-7 (Lighthouse, axe, 360px, throttled Android, owner's real resume through each
+  journey) have no recorded result: treat them as not done.
+- Admin, signin and `/r/[token]` were not part of the v2 steps; they run on v2 tokens through the aliases.
+- First-load JS on `/jobs` was ~197 KB gzip against a 150 KB budget at step 1 (the Next 16 + React 19 runtime
+  alone is ~151 KB); not remeasured after the rebuild.
+
+**Bring your own AI key (2026-11-21, uncommitted):** Settings → "AI key": provider dropdown (Gemini / Claude /
+OpenAI) + key. Table `user_ai_keys` (migration 0010, RLS), AES-GCM with `AI_KEY_ENCRYPTION_KEY` (unset = feature
+off, section hidden). `tasks/llm.run` builds a per-run gateway on the user's key: skips the daily cap, logs cost 0,
+a rejected key fails once with a "fix it in Settings" message. Claude/OpenAI models: `LLM_MODELS_ANTHROPIC/OPENAI`.
+Monthly free limits still apply to own-key users. Not yet run: migration on a real DB, a live call with a real
+Claude or OpenAI key (unit tests use fakes); OpenAI model ids came from OpenAI's models page on 2026-11-21.
+
+**Hosting plan (2026-11-21):** web on Vercel; API + worker + Postgres on Northflank's free Sandbox plan (always on,
+no card). Step-by-step: `docs/DEPLOY-NORTHFLANK.md`. Not deployed yet.
 
 ## 8. Open items (owner)
 

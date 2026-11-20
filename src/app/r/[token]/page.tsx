@@ -10,7 +10,7 @@ import s from "./shared.module.css";
 
 // Outside the (app) group, so src/proxy.ts never sends viewers to sign in. Never indexed, and the token never
 // leaves in a Referer header.
-export const metadata: Metadata = { title: { absolute: "Resume — shared through Hunt" }, robots: { index: false, follow: false }, referrer: "no-referrer" };
+export const metadata: Metadata = { title: { absolute: "Resume — shared through RoleFold" }, robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 export default async function SharedResumePage({ params }: PageProps<"/r/[token]">) {
   const { token } = await params;
@@ -38,7 +38,7 @@ export default async function SharedResumePage({ params }: PageProps<"/r/[token]
         <ResumePaper resume={resume} template={template} extras={shared.extras} />
       </div>
       <p className={s.foot}>
-        A read-only copy, shared by its owner through <Link href="/">Hunt</Link>.
+        A read-only copy, shared by its owner through <Link href="/">RoleFold</Link>.
       </p>
     </main>
   );

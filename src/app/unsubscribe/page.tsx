@@ -20,7 +20,7 @@ export default function Unsubscribe({ searchParams }: Props) {
   return (
     <main className={s.wrap}>
       <Link href="/" className={s.brand}>
-        Hunt
+        RoleFold
       </Link>
       <section className={`panel ${s.card}`} aria-labelledby="unsub-title">
         <h1 id="unsub-title" className={s.title}>

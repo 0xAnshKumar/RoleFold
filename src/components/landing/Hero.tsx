@@ -30,7 +30,7 @@ export default function Hero() {
           </span>
         </h1>
         <p className={`t-lead ${s.heroLead} ${s.enter}`} style={{ "--i": 1 } as React.CSSProperties}>
-          Upload the resume you have and confirm what’s really yours. Hunt writes an ATS-safe resume from those facts
+          Upload the resume you have and confirm what’s really yours. RoleFold writes an ATS-safe resume from those facts
           alone, then finds real jobs and tells you plainly how you fit.
         </p>
         <div className={`${s.heroCtas} ${s.enter}`} style={{ "--i": 2 } as React.CSSProperties}>

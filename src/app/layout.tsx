@@ -4,7 +4,7 @@ import { fontVars } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Hunt — a resume where every line is true", template: "%s — Hunt" },
+  title: { default: "RoleFold — a resume where every line is true", template: "%s — RoleFold" },
   description:
     "Build a free, ATS-safe resume from facts you confirm, and see honestly how any job fits you. No fake scores.",
 };

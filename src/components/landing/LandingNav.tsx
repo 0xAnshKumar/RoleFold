@@ -44,7 +44,7 @@ export default function LandingNav() {
       <nav aria-label="Main" className={`${s.nav} rim`} data-open={open || undefined}>
         <div className={s.navBar}>
           <Link href="/" className={s.wordmark}>
-            Hunt
+            RoleFold
           </Link>
           <ul className={s.navLinks}>
             {SECTIONS.map(([href, label]) => (

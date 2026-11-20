@@ -99,7 +99,7 @@ tags, a yellow proof highlighter, and security-print linework (guilloche) on mar
 - No percentages, gauges or scores for job fit or resume quality.
 - No eyebrow/kicker labels above headings. Icons are authored SVG, not text glyphs or emoji.
 - Highlighter yellow is only the proof mark. Never a button, badge, background band or promotion.
-- No `backdrop-filter` on app pages. Landing may use it on the nav only, with a solid fallback.
+- `backdrop-filter` only on navs: the landing nav and the app's nav bar + phone tab bar (owner call, 2026-11-21), each with a solid `--surface` fallback (`@supports not` and `.save-data`) and solid while a panel is open.
 - Do not copy craft.do's identity: not their fonts, pastel palette, torn paper, clouds, halftone, giant
   outlined wordmark, pill-everything, copy or assets. We borrow techniques only (list in 8.2).
 
@@ -682,7 +682,7 @@ Theme (Light / Night / System, inline segmented) · Language (English / हि�
   no delay on close. Sibling items dim to opacity .55 (`.bar[data-open] .item:not([aria-expanded="true"])`).
 - Panel tiles: `--r-md`, padding 16, title `--t-label` `--text`, description `--t-sm` `--text-muted`;
   hover `--bg-sunken`; focus ring. Sibling dimming inside the panel on hover (`:has`).
-- Opaque surface, no `backdrop-filter` (app rule).
+- Glass: `color-mix(in srgb, var(--surface) 78%, transparent)` + `blur(10px) saturate(1.1)`, `--shadow-3`; the header strip behind it is transparent. Solid `--surface` while open, and as the fallback.
 
 #### Phone / tablet (<1024)
 
@@ -987,7 +987,7 @@ Grouped **Proven / Partly / Missing**, each group a section with a header and co
 | Idle | as above | — |
 | Drag over (desktop) | border solid `--accent`, fill `--accent-tint`, icon `translateY(-2px)` | "Drop to upload" |
 | Uploading | file row (icon, name, size) + 4px determinate bar (`--accent` on `--line`, `transform: scaleX`) | "Uploading… 1.2 of 2.0 MB" |
-| Reading | named stage list replaces the bar; each stage: pending (hollow 12px circle, muted), current (accent dot + static three-dot glyph), done (check, `--supported`) | "Reading your file" → "Finding your roles" → "Finding dates and numbers" → "Getting facts ready"; header "Step 2 of 4" |
+| Reading | named stage list replaces the bar, styled as a chain of thought (owner call, 2026-11-21): a 1.5px `--line` connector joins the markers; pending (hollow circle, muted), current (spinner ring with `--accent` top, label shimmers `--text-muted`→`--text`, 1.8s; both static under reduced motion), done (check, `--supported`, connector tinted) | "Reading your file" → "Finding your roles" → "Finding dates and numbers" → "Getting facts ready"; header "Step 2 of 4" |
 | Slow (> 10s) | add a muted line | "This can take up to a minute. You can leave this page; we'll keep going and show a badge when it's ready." |
 | Done | stage list all checked, then auto-route to Confirm after 600ms (instant under reduced motion) | "Found 31 facts to confirm" |
 | Error | zone border `--danger`, alert icon, file row kept, actions | Wrong type: "This file isn't a PDF, Word or text file." · Too long: "We read up to 10 pages. Upload a shorter version." · Network: "Upload stopped. Your file is still selected." + [Try again] [Choose another file] |
@@ -1584,7 +1584,7 @@ preloaded: Newsreader italic, Plex Mono, Noto Sans Devanagari.
 | Jobs feed, job check | ≤ 150 KB | ≤ 25 KB | shared | ≤ 2.5s | INP ≤ 200ms; no Motion on the feed |
 | Editor | ≤ 250 KB, preview lazy | ≤ 35 KB | + mono | ≤ 3.0s | — |
 
-- No `backdrop-filter` on app routes; landing nav only, with fallback. Blur filters only per 2.8.2.
+- `backdrop-filter` only on navs: the landing nav and the app's nav bar + phone tab bar (owner call, 2026-11-21), each with a solid `--surface` fallback (`@supports not` and `.save-data`) and solid while a panel is open. Blur filters only per 2.8.2.
 - Server Components by default; client islands are the nav, interactive cards, forms, dialogs.
 - Lists: `content-visibility: auto`. No prefetch of other routes under Save-Data.
 
@@ -1642,7 +1642,7 @@ Redesign one journey at a time (PRODUCT-PLAN rule); after each step, run the own
 **Don't**
 - Don't show scores, percentages, gauges, rings or stars for fit or quality.
 - Don't animate on scroll or reveal on scroll; don't add autoplay loops or marquees.
-- Don't set `cursor:`; don't use `transition: all`; don't use `backdrop-filter` in the app.
+- Don't set `cursor:`; don't use `transition: all`; don't use `backdrop-filter` in the app outside the nav bar and tab bar.
 - Don't use yellow anywhere except the proof mark; don't use manila except fact tags.
 - Don't nest cards; don't use eyebrow labels; don't use text glyphs or emoji as icons.
 - Don't use testimonials, user counts, company logos, or fake people.

@@ -22,9 +22,9 @@ export async function proxy(req: NextRequest) {
   // Browser API calls (/v1 is rewritten to API_URL in next.config.ts): attach the httpOnly session as a bearer token.
   if (pathname.startsWith("/v1/")) return next(apiHeaders(req.headers, token));
 
-  // App pages need a live session once OIDC is configured (dev users and forced demo mode skip it).
+  // App pages need a live session once OIDC is configured (dev users skip it).
   // Admin pages need one too; whether the user is an admin is checked by the API on every call.
-  if (!oidc() || process.env.NEXT_PUBLIC_DEV_USER || process.env.HUNT_DEMO === "1" || live(token)) return next(req.headers);
+  if (!oidc() || process.env.NEXT_PUBLIC_DEV_USER || live(token)) return next(req.headers);
   const res = NextResponse.redirect(new URL(`/signin?next=${encodeURIComponent(pathname + search)}`, req.url));
   if (token || sealed) clearSession(res); // expired, and no refresh token or the provider refused it
   return res;

@@ -15,20 +15,20 @@ const PAID_PRICE: string | null = null;
 
 const tagDate = (d: string) => d.split(" ").slice(0, 2).join(" ");
 
-/* ---------- Two things Hunt does ---------- */
+/* ---------- Two things RoleFold does ---------- */
 export function Modules() {
   const role = resumes[0].sections[0];
   return (
     <section id="modules" className={s.block} aria-labelledby="modules-title">
       <h2 id="modules-title" className={`t-d1 ${s.h2}`}>
-        Two things Hunt does, and does honestly.
+        Two things RoleFold does, and does honestly.
       </h2>
       <div className={s.modules}>
         <Card className={s.module}>
           <div className={s.moduleText}>
             <h3 className="t-d2">Build a resume you can prove</h3>
             <p className={s.body}>
-              Upload the resume you have, or start from scratch. Confirm each fact Hunt reads, then edit and download your
+              Upload the resume you have, or start from scratch. Confirm each fact RoleFold reads, then edit and download your
               resume as PDF or Word. Every line keeps a tag back to the fact it came from.
             </p>
             <Link href="/onboarding" className={s.textLink}>
@@ -52,7 +52,7 @@ export function Modules() {
         </Card>
         <Card className={s.module}>
           <div className={s.moduleText}>
-            <h3 className="t-d2">Hunt jobs that fit you</h3>
+            <h3 className="t-d2">Find jobs that fit you</h3>
             <p className={s.body}>
               See open roles ranked by the skills you confirmed. Check any job to see the posting’s own words, requirement
               by requirement, and a verdict in words. Then apply on the company’s own site.
@@ -102,7 +102,7 @@ function JobCard({ title, place, meta, fit, reason }: { title: string; place: st
 const PROMISES: [IconName, string, string][] = [
   ["resume", "Every line traces to a fact you confirmed", "Code checks every number and each claim of responsibility against your facts. A line that claims more is rewritten once, then held back."],
   ["check", "Verdicts in words, never scores", "No match percentages, rings or stars. A job check says Proven, Partly or Missing for each requirement, and quotes the posting."],
-  ["external", "Real jobs, on the company’s own site", "Hunt never applies for you and never guesses your chances. You decide, and you apply where the job is posted."],
+  ["external", "Real jobs, on the company’s own site", "RoleFold never applies for you and never guesses your chances. You decide, and you apply where the job is posted."],
   ["lock", "Your details stay yours", "Your name and contact details are removed before any AI model sees your text. Export or delete everything whenever you like."],
 ];
 
@@ -132,7 +132,7 @@ export function ProofStandard() {
 const PEOPLE = [
   {
     who: "Students and freshers",
-    body: "Projects, internships and coursework count. Hunt turns them into lines you can explain in an interview.",
+    body: "Projects, internships and coursework count. RoleFold turns them into lines you can explain in an interview.",
     id: "F-03",
     fact: "Built a library seat-booking app in Flutter with three classmates for our final-year project",
     date: "2 Nov",
@@ -231,20 +231,20 @@ const FAQ: [string, string][] = [
     "Yes. Building, editing and downloading your resume as PDF or Word is free, and stays free. The free plan also includes 30 job checks a month, and you always see your count before you reach it.",
   ],
   [
-    "Can Hunt add things I didn’t do?",
+    "Can RoleFold add things I didn’t do?",
     "No. Every line is written from facts you confirmed. Code checks every number and how much responsibility a line claims; a second model checks the meaning. A line that claims more than its facts is rewritten once, then held back, and you see why.",
   ],
   [
     "Will my resume pass every ATS?",
-    "Nobody can honestly promise that, so we don’t. Hunt’s six templates are single column, use real text rather than images, and are checked before you download.",
+    "Nobody can honestly promise that, so we don’t. RoleFold’s six templates are single column, use real text rather than images, and are checked before you download.",
   ],
   [
-    "Will Hunt tailor my resume to each job?",
+    "Will RoleFold tailor my resume to each job?",
     "Not yet. Rewriting a resume for one posting is where an overclaim is most likely to slip in, so it stays off until every changed line can be checked well enough. Today you get one honest master resume that you can edit.",
   ],
   [
     "Where do the jobs come from?",
-    "From companies’ own public job boards, and from any job description you paste in. Hunt never applies for you; you apply on the company’s site.",
+    "From companies’ own public job boards, and from any job description you paste in. RoleFold never applies for you; you apply on the company’s site.",
   ],
   [
     "What happens to my data?",
@@ -288,7 +288,7 @@ export function Footer() {
       </div>
       <div className={s.footRow}>
         <Link href="/" className={s.footMark}>
-          Hunt
+          RoleFold
         </Link>
         <nav aria-label="Footer" className={s.footLinks}>
           <a href="#modules">What it does</a>

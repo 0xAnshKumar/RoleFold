@@ -1,4 +1,4 @@
-// Typed fetch client for the Hunt API (TRD §11.2). Works on the server (calls API_URL directly)
+// Typed fetch client for the RoleFold API (TRD §11.2). Works on the server (calls API_URL directly)
 // and in the browser (calls /v1, which next.config rewrites to API_URL, so there's no CORS).
 import { redirect } from "next/navigation";
 
@@ -45,7 +45,7 @@ async function send(path: string, init: Init): Promise<Response> {
       body: init.body === undefined ? undefined : form ? (init.body as FormData) : JSON.stringify(init.body),
     });
   } catch {
-    throw new ApiError(0, "UNREACHABLE", "We couldn’t reach Hunt just now. Check your connection and try again.");
+    throw new ApiError(0, "UNREACHABLE", "We couldn’t reach RoleFold just now. Check your connection and try again.");
   }
 }
 
@@ -93,6 +93,11 @@ export async function waitFor(op: Operation, timeoutMs = 120_000): Promise<Opera
       throw new ApiError(0, op.error?.code ?? "INTERNAL_ERROR", op.error?.message ?? "This didn’t finish, so it wasn’t counted against your limit. Try again.");
     if (Date.now() > end) throw new ApiError(0, "TIMEOUT", "This is taking longer than usual. It will keep going; check back in a minute.");
     await new Promise((r) => setTimeout(r, delay));
-    op = await api<Operation>(`/tasks/${op.id}`);
+    try {
+      op = await api<Operation>(`/tasks/${op.id}`);
+    } catch (e) {
+      // A dropped status check (network blip, proxy 5xx) isn't a failed task: keep polling until the timeout.
+      if (!(e instanceof ApiError) || (e.status !== 0 && e.status < 500)) throw e;
+    }
   }
 }

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.llm.gateway import CallRecord, ErrorClass, FakeLLM, Gateway, ProviderResponse
+from app.llm.gateway import CallRecord, ErrorClass, FakeLLM, Gateway, KeyRejected, ProviderResponse
 from app.llm.schemas import DraftFact, JobEligibilityDraft, JobRequirementDraft, WrittenStatement
 from app.tasks import llm
 from app.tasks.imports import dates, header_name, numbers_in_source, suggested_level
@@ -133,8 +133,13 @@ def test_cost_per_tier_and_cache_hits_are_free():
 
 @pytest.fixture
 def runner(monkeypatch):
-    persisted = []
-    monkeypatch.setattr(llm, "_persist", lambda db, task, records: persisted.extend(records))
+    persisted, own_flags = [], []
+
+    def persist(db, task, records, own_key=False):
+        persisted.extend(records)
+        own_flags.append(own_key)
+
+    monkeypatch.setattr(llm, "_persist", persist)
     monkeypatch.setattr(llm, "spent_today", lambda db: 0.0)
 
     def use(replies):
@@ -142,7 +147,7 @@ def runner(monkeypatch):
         monkeypatch.setattr(llm, "GATEWAY", Gateway(fake, MODELS, sleep=lambda s: None))
         return fake
 
-    return SimpleNamespace(use=use, persisted=persisted)
+    return SimpleNamespace(use=use, persisted=persisted, own_flags=own_flags)
 
 
 def test_spend_cap_defers_without_calling_the_provider(runner, monkeypatch):
@@ -170,6 +175,39 @@ def test_success_persists_records(runner):
     runner.use([{"candidate_id": "S-1"}])
     assert llm.run(None, TASK, "taxonomy_pick", {"term": "x"}).output.candidate_id == "S-1"
     assert len(runner.persisted) == 1 and runner.persisted[0].error_class is None
+
+
+def test_own_key_skips_the_spend_cap_and_logs_as_own(runner, monkeypatch):
+    monkeypatch.setattr(llm, "spent_today", lambda db: 5.0)
+    fake = FakeLLM([{"candidate_id": "S-1"}])
+    monkeypatch.setattr(llm, "own_gateway", lambda db, uid: Gateway(fake, MODELS, sleep=lambda s: None))
+    assert llm.run(None, TASK, "taxonomy_pick", {"term": "x"}).output.candidate_id == "S-1"
+    assert len(fake.requests) == 1 and runner.own_flags == [True]
+
+
+def test_rejected_own_key_fails_once_and_points_to_settings(runner, monkeypatch):
+    fake = FakeLLM([KeyRejected("API key not valid")])
+    monkeypatch.setattr(llm, "own_gateway", lambda db, uid: Gateway(fake, MODELS, sleep=lambda s: None))
+    with pytest.raises(TaskError) as e:
+        llm.run(None, TASK, "taxonomy_pick", {"term": "x"})
+    assert not e.value.retry and "Settings" in str(e.value) and len(fake.requests) == 1
+    assert [r.error_class for r in runner.persisted] == [ErrorClass.KEY_REJECTED]
+
+
+def test_secretbox_binds_the_key_to_its_user(monkeypatch):
+    import base64
+
+    from app.core import secretbox
+
+    monkeypatch.setattr(secretbox, "get_settings", lambda: SimpleNamespace(ai_key_encryption_key=None))
+    assert not secretbox.enabled() and secretbox.open_(b"x" * 40, uuid.uuid4()) is None
+    secret = SimpleNamespace(get_secret_value=lambda: base64.b64encode(b"k" * 32).decode())
+    monkeypatch.setattr(secretbox, "get_settings", lambda: SimpleNamespace(ai_key_encryption_key=secret))
+    me, other = uuid.uuid4(), uuid.uuid4()
+    blob = secretbox.seal("AIzaDUMMYdummyDUMMYdummy1234", me)
+    assert b"AIza" not in blob
+    assert secretbox.open_(blob, me) == "AIzaDUMMYdummyDUMMYdummy1234"
+    assert secretbox.open_(blob, other) is None
 
 
 def test_year_only_dates_kept_for_education_only():

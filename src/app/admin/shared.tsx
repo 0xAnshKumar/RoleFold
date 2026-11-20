@@ -22,7 +22,7 @@ export function useLoad<T>(path: string) {
   return { data, error, reload };
 }
 
-/** Loading line, the API's message on failure (403 says "for Hunt admins"), else the content. */
+/** Loading line, the API's message on failure (403 says "for RoleFold admins"), else the content. */
 export function Loaded<T>({ state, children }: { state: { data: T | null; error: string | null }; children: (data: T) => React.ReactNode }) {
   if (state.error)
     return (
