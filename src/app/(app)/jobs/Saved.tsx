@@ -19,7 +19,7 @@ export default function Saved({ jobs, demo }: { jobs: SavedJob[]; demo: boolean 
           </ButtonLink>
         }
       >
-        Save jobs from For you, or paste one you found elsewhere. Its verdict and the gaps to close are kept here.
+        Found a job on LinkedIn, Naukri or a company site? Paste it here. Its verdict and the gaps to close are kept here.
       </EmptyState>
     );
   return (

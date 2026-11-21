@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import ResumePaper, { shownSections } from "@/components/resume/ResumePaper";
+import TemplateGallery from "@/components/resume/TemplateGallery";
 import { BottomActionBar } from "@/components/shell/BottomActionBar";
 import { StatusIcon } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
@@ -340,33 +341,7 @@ export default function Editor({ resume, facts, demo, share }: { resume: Resume;
           <Problem error={tpl.error} />
 
           {picking ? (
-            <div className={s.gallery}>
-              <div className={s.galleryGrid} role="radiogroup" aria-label="Resume templates">
-                {TEMPLATES.map((t) => (
-                  <button key={t.id} type="button" role="radio" aria-checked={t.id === templateId} className={s.tpl} disabled={!!tpl.busy} onClick={() => pickTemplate(t.id)}>
-                    <span className={s.tplThumb} aria-hidden>
-                      <span className={s.fit}>
-                        <ResumePaper resume={resume} template={t} lines={lines} extras={extras} />
-                      </span>
-                      {t.id === templateId && (
-                        <span className={s.tplCheck}>
-                          <Icon name="check" size={16} />
-                        </span>
-                      )}
-                    </span>
-                    <span className={s.tplName}>
-                      {t.name}
-                      {t.id === templateId && <span className="sr-only"> (selected)</span>}
-                    </span>
-                    <span className={s.tplFor}>{t.bestFor}</span>
-                    <span className={s.tplMeta}>Modelled on: {t.modelledOn}</span>
-                  </button>
-                ))}
-              </div>
-              <p className={s.note}>
-                Every template is single-column with standard headings and real text, so screening software reads them all the same way. Pick the one that suits your field.
-              </p>
-            </div>
+            <TemplateGallery resume={resume} extras={extras} lines={lines} selected={templateId} disabled={!!tpl.busy} onPick={pickTemplate} />
           ) : (
             <>
               <div className={s.stage}>

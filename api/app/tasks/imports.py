@@ -71,14 +71,28 @@ def norm(*parts: str | None) -> tuple[str, ...]:
     return tuple(" ".join(re.sub(r"[^\w]+", " ", (p or "").lower()).split()) for p in parts)
 
 
-def contact(mapping: dict[str, str], names: list[str]) -> dict:
-    """What redaction captured from the resume header, so onboarding can offer it to the user to confirm.
+_PLACE_RE = re.compile(r"[A-Z][A-Za-z.'-]*(?: [A-Za-z][A-Za-z.'-]*){0,2}(?:, [A-Z][A-Za-z.'-]*(?: [A-Za-z][A-Za-z.'-]*){0,2}){0,2}")
 
-    Returned in the task result only (owner-scoped); never sent to a model.
+
+def contact(mapping: dict[str, str], names: list[str], text: str = "") -> dict:
+    """What the resume header says about reaching the user, so onboarding can offer it to confirm: name, email,
+    phone, city and profile links. Plain code over the header (the first 3 non-empty lines); returned in the task
+    result only (owner-scoped), never sent to a model.
     """
     first = {kind: next((v for ph, v in mapping.items() if ph.startswith(f"⟦{kind}_")), None)
              for kind in ("EMAIL", "PHONE")}
-    return {"name": names[0] if names else None, "email": first["EMAIL"], "phone": first["PHONE"]}
+    head = [line.strip() for line in text.splitlines() if line.strip()][:3]
+    urls = [v for ph, v in mapping.items() if ph.startswith("⟦URL_")]
+    links = [u for u in urls if any(u in line for line in head)][:4]
+    # The city is the header segment ("… | github.com/x | Jaipur") that is only a place name: not the name,
+    # not a contact value, 1-3 capitalised words with an optional ", State".
+    # Only lines that also carry an email, phone or link: a headline ("Software Engineer") stands on its own line.
+    known = set(mapping.values()) | set(names)
+    lines = [line for line in head if any(v in line for ph, v in mapping.items() if not ph.startswith("⟦NAME"))]
+    segs = [x.strip(" .") for line in lines for x in re.split(r"\s*[|•·▪◦]\s*|\s{3,}", line)]
+    city = next((x for x in segs if x and x not in known and not any(v in x for v in known) and _PLACE_RE.fullmatch(x)), None)
+    return {"name": names[0] if names else None, "email": first["EMAIL"], "phone": first["PHONE"],
+            "location": city, "links": links}
 
 
 def numbers_in_source(fact: DraftFact, source: list[numbers.Quantity]) -> bool:
@@ -168,11 +182,14 @@ def import_resume(db: Session, task: Claimed) -> dict:
         dropped += _add_facts(db, uid, "experience_id", e.id, d.facts, source, imp.id)
     projects = existing(Project, lambda r: norm(r.name, str(r.start_month)))
     for d in out.projects:
-        start, end = dates(d.start, d.end)
-        p = projects.get(norm(d.title or d.employer, str(start)))
-        if p is None:
+        start, end = dates(d.start, d.end, year_ok=True)  # projects are often dated by year alone
+        p = projects.get(norm(d.title or d.employer, str(start))) or projects.get(norm(d.title or d.employer, "None"))
+        if p is not None:  # same project, read before it had a date or stack: fill the gaps, never overwrite
+            p.start_month, p.end_month = p.start_month or start, p.end_month or end
+            p.stack = p.stack or d.stack
+        else:
             p = projects[norm(d.title or d.employer, str(start))] = Project(
-                user_id=uid, origin="import", name=d.title or d.employer, start_month=start, end_month=end)
+                user_id=uid, origin="import", name=d.title or d.employer, stack=d.stack, start_month=start, end_month=end)
             add("project", p)
         dropped += _add_facts(db, uid, "project_id", p.id, d.facts, source, imp.id)
     schools = existing(Education, lambda r: norm(r.degree, r.institution))
@@ -218,4 +235,4 @@ def import_resume(db: Session, task: Claimed) -> dict:
     payload = {k: v for k, v in task.payload.items() if k != "text"}
     db.execute(update(Task).where(Task.id == task.id).values(payload=payload))
     return {"import_id": str(imp.id), "created": len(created), "dropped_facts": dropped,
-            "contact": contact(red.mapping, names)}
+            "contact": contact(red.mapping, names, text)}

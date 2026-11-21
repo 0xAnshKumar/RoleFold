@@ -70,23 +70,6 @@ class Settings(BaseSettings):
     llm_price_verifier_in: float = 0.75
     llm_price_verifier_out: float = 3.75
 
-    # Job catalog, feed and alerts (app/catalog). Empty = no source runs (PRD OQ-3 / TRD T-OQ-2 legal gate).
-    catalog_sources: str = ""  # greenhouse:<board>[=Name], lever:<site>[=Name], manual:<file.json|csv>
-    catalog_ingest_hours: int = 12
-    job_expire_grace_days: int = 3  # TRD §8.3
-    job_max_age_days: int = 60
-    # Jobs are re-checked on every ingest, so an old posting date alone does not mean closed; big boards keep
-    # roles open for months. Freshness still ranks newer jobs higher (TRD §9.1 said 30; widened 2026-11-06).
-    feed_max_age_days: int = 90
-    feed_size: int = 50
-    retrieve_k: int = 300
-    # Email alerts: log-only until SMTP_HOST is set. APP_URL builds the links inside emails.
-    app_url: str = "http://localhost:3100"
-    smtp_host: str | None = None
-    smtp_port: int = 587
-    smtp_user: str | None = None
-    smtp_password: str | None = None
-    smtp_from: str = "RoleFold <alerts@localhost>"
 
 
 @lru_cache

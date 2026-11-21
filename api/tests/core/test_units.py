@@ -87,3 +87,13 @@ def test_months_normalized_and_ordered():
     assert (e.start_month, e.end_month) == (date(2020, 3, 1), date(2021, 1, 1))
     with pytest.raises(ValidationError):
         ExperienceIn(start_month=date(2021, 1, 1), end_month=date(2020, 1, 1))
+
+
+def test_years_collapses_a_single_year():
+    from datetime import date
+
+    from app.core.display import years
+
+    assert years(date(2026, 1, 1), date(2026, 1, 1)) == "2026"
+    assert years(date(2021, 9, 1), date(2025, 6, 1)) == "2021 – 2025"
+    assert years(None, None) == ""

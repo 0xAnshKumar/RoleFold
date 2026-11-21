@@ -85,9 +85,10 @@ export async function exportResume(resumeId: string, format: "pdf" | "docx", tem
 }
 
 /** Poll GET /v1/tasks/{id} with backoff (0.5s → 4s) until it settles. Throws ApiError on failure or timeout. */
-export async function waitFor(op: Operation, timeoutMs = 120_000): Promise<Operation> {
+export async function waitFor(op: Operation, timeoutMs = 120_000, onUpdate?: (op: Operation) => void): Promise<Operation> {
   const end = Date.now() + timeoutMs;
   for (let delay = 500; ; delay = Math.min(delay * 1.5, 4000)) {
+    onUpdate?.(op);
     if (op.state === "succeeded") return op;
     if (op.state === "failed" || op.state === "canceled")
       throw new ApiError(0, op.error?.code ?? "INTERNAL_ERROR", op.error?.message ?? "This didn’t finish, so it wasn’t counted against your limit. Try again.");

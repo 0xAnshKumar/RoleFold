@@ -27,7 +27,8 @@ export const facts: Fact[] = [
 
 // `version` is the fact's optimistic-lock version, needed to confirm it (absent in sample data).
 export type Draft = { id: string; text: string; numbers: string[]; suggested: Fact["responsibility"]; version?: number };
-export type DraftGroup = { role: string; dates: string; drafts: Draft[] };
+/** `kind` and the owner id come from the live API (GET /v1/profile draftGroups); sample data has neither. */
+export type DraftGroup = { role: string; dates: string; drafts: Draft[]; kind?: "experience" | "project"; experienceId?: string; experienceVersion?: number; projectId?: string; status?: "draft" | "confirmed" };
 
 export const draftGroups: DraftGroup[] = [
   {
@@ -269,6 +270,8 @@ export const profile = {
   /** Contact lines for exports (PATCH /v1/me); never sent to a model. */
   email: "rohan.iyer@example.com",
   phone: "+91 98765 43210",
+  /** Profile links from the resume header (PATCH /v1/me): contact lines, never sent to a model. */
+  links: ["github.com/rohan-iyer"] as string[],
   headline: "Frontend Engineer · React, TypeScript, web performance",
   location: "Bengaluru",
   confirmed: 9,
@@ -288,7 +291,7 @@ export const profile = {
   ],
   education: [{ id: "edu-pes", degree: "B.Tech, Computer Science", org: "PES University, Bengaluru", dates: "2015 – 2019", status: "draft" }] as Education[],
   /** Projects to file a fact under (the match page's "Save as draft fact"). */
-  projects: [{ id: "proj-ledgerly", name: "Ledgerly", dates: "Jan 2023 – Present" }] as { id: string; name: string; dates: string; factIds?: string[] }[],
+  projects: [{ id: "proj-ledgerly", name: "Ledgerly", stack: "Next.js, TypeScript, Postgres", dates: "2023" }] as { id: string; name: string; stack?: string; dates: string; factIds?: string[] }[],
   gaps: [] as CareerBreak[],
   achievements: [
     { id: "ach-1", kind: "achievement", text: "Speaker, React Bangalore meetup, 2024" },
@@ -334,7 +337,7 @@ export const resumeExtras = {
     { area: "Design systems", proof: "Component library used by 4 teams (F-14)" },
     { area: "Web performance", proof: "Product-page LCP 4.2s → 2.1s (F-15)" },
   ],
-  projects: [{ name: "Ledgerly", stack: "Next.js, TypeScript, Postgres", line: "Open-source expense splitter; 1.2k GitHub stars." }],
+  projects: [{ name: "Ledgerly", stack: "Next.js, TypeScript, Postgres", dates: "2023", line: "Open-source expense splitter; 1.2k GitHub stars.", bullets: ["Open-source expense splitter; 1.2k GitHub stars."] }] as { name: string; stack: string; dates?: string; line: string; bullets?: string[] }[],
   education: [{ degree: "B.Tech, Computer Science", org: "PES University, Bengaluru", dates: "2015 – 2019", detail: "CGPA 8.4 / 10" }],
   skills: [
     { group: "Languages", items: "TypeScript, JavaScript, HTML, CSS" },
@@ -380,55 +383,4 @@ export const skillsInsight: SkillsInsight = {
   minJobs: 3,
   learn: [],
   record: [{ label: "GraphQL", jobs: 2, required: 1 }],
-};
-
-// ---- job feed and alerts (api/app/routes/feed.py, api/app/catalog/) ----
-
-/** Early read from the posting text against your confirmed skills. Never a verdict: that needs the full check. */
-export type PreliminaryFit = "strong" | "some" | "little";
-
-/** GET /v1/feed items. `check` is set once you've opened the full check (it then has a real verdict). */
-export type FeedItem = {
-  id: string;
-  title: string;
-  company: string;
-  location: string | null;
-  remote: boolean | null;
-  employmentType: string | null;
-  applyUrl: string | null;
-  source: string;
-  posted: string;
-  lastSeen: string;
-  saved: boolean;
-  fit: PreliminaryFit;
-  skills: string[];
-  goal: string | null;
-  check: { jobId: string; verdict: Verdict | null; gaps: number; state: string } | null;
-};
-
-export type AlertFrequency = "off" | "weekly" | "daily";
-export type Feed = {
-  items: FeedItem[];
-  /** What feedback taught the ranking; the user can reset it. */
-  learned: { kind: "company" | "title" | "location"; label: string; direction: "more" | "fewer" }[];
-  alerts: { frequency: AlertFrequency; hasEmail: boolean; dailyAllowed: boolean };
-  /** Active jobs in the catalog (0 = no source enabled yet). */
-  catalogSize: number;
-};
-
-const feedJob = (o: Partial<FeedItem> & Pick<FeedItem, "id" | "title" | "company" | "fit" | "skills">): FeedItem => ({
-  location: null, remote: null, employmentType: "Full-time", applyUrl: null, source: "Greenhouse job board",
-  posted: "2026-11-02", lastSeen: "2026-11-04", saved: false, goal: null, check: null, ...o,
-});
-
-export const feed: Feed = {
-  items: [
-    feedJob({ id: "f-tidepool", title: "Senior Frontend Engineer", company: "Tidepool Finance", location: "Bengaluru", fit: "strong", skills: ["React", "TypeScript", "Jest", "Next.js"], goal: "Matches your goal: Senior Frontend Engineer.", applyUrl: "https://example.com/jobs/tidepool" }),
-    feedJob({ id: "f-lumen", title: "Frontend Engineer II", company: "Lumen Health", location: "Remote, India", remote: true, fit: "strong", skills: ["React", "TypeScript", "Jest"], goal: "Partly matches your goal: Senior Frontend Engineer.", source: "Lever job board", check: { jobId: "lumen-frontend", verdict: "Strong fit", gaps: 0, state: "ready" } }),
-    feedJob({ id: "f-saffron", title: "UI Engineer, Design Systems", company: "Saffron Retail", location: "Bengaluru", fit: "some", skills: ["React", "Storybook"], saved: true }),
-    feedJob({ id: "f-quill", title: "Full-stack Developer", company: "Quill Labs", location: "Pune", fit: "little", skills: ["TypeScript"], employmentType: "Contract" }),
-  ],
-  learned: [{ kind: "company", label: "Orbit Logistics", direction: "fewer" }],
-  alerts: { frequency: "off", hasEmail: true, dailyAllowed: false },
-  catalogSize: 4,
 };

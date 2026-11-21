@@ -14,8 +14,6 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.catalog.alerts import alert_digest
-from app.catalog.ingest import catalog_ingest
 from app.core import usage
 from app.core.config import get_settings
 from app.db.session import engine_for, set_user
@@ -36,9 +34,6 @@ HANDLERS: dict[str, Callable[[Session, queue.Claimed], dict | None]] = {
     "regenerate": regenerate_resume,
     "render": render_export,
     "tailor": tailor_resume,
-    # Job catalog and alerts (app/catalog); queued by `python -m app.catalog.cli tick`.
-    "catalog_ingest": catalog_ingest,
-    "alert_digest": alert_digest,
 }
 
 

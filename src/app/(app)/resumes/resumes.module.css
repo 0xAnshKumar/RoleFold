@@ -183,3 +183,13 @@
   flex-direction: column;
   gap: 16px;
 }
+.templates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+.sectionTitle {
+  margin: 0;
+  font: var(--type-h);
+}

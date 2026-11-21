@@ -851,7 +851,7 @@ the stretched-link pattern: the title's `<a>` gets `::after { inset: 0 }`; other
 Sets of cards (persona cards, template picker, landing tiles) use sibling dimming on hover-capable
 devices: `.set:has(> :hover) > :not(:hover) { opacity: .55 }`.
 
-**Job card** (feed). Phone ~132-156px tall; desktop one row group in a 760 column.
+**Job card** (Saved & pasted; the feed it was drawn for was removed 2026-11-21: early-read, Save and Report no longer apply). Phone ~132-156px tall; desktop one row group in a 760 column.
 
 ```
  ┌────────────────────────────────────────────────────────────────────┐
@@ -1065,9 +1065,9 @@ optional secondary link. No illustrations, no hand-drawn art (retired).
 
 | Where | Title | Sentence | Action |
 |---|---|---|---|
-| Feed, no matches | No good matches today | New jobs arrive every hour. Adding a skill or widening your location finds more. | Add a skill · Change location |
-| Feed, no confirmed facts | Confirm your facts first | Jobs are ranked by what you've confirmed. It takes about five minutes. | Confirm facts |
-| Saved & pasted, empty | Nothing saved yet | Save jobs from For you, or paste one you found elsewhere. | Paste a job |
+| Find jobs, no profile yet | Start with your resume | Your job searches are built from it. It takes about five minutes. | Upload my resume |
+| Improve, nothing left | Nothing to fix | Your confirmed facts pass every check we run. | Pick a template · Find jobs |
+| Saved & pasted, empty | Nothing saved yet | Found a job on LinkedIn, Naukri or a company site? Paste it here. | Paste a job |
 | Resume list, empty | No resume yet | Your master resume is written from your confirmed facts. | Create my resume |
 | Job check failed | We couldn't finish this check | Nothing was charged against your checks. | Try again |
 | Offline | You're offline | Your edits are saved on this phone and will sync when you're back. | Retry |
@@ -1228,10 +1228,11 @@ wordmark + "Step 1 of 3" + Help)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Hunt                                   Step 1 of 3 · Upload      Help  │
+│ Hunt                                   Step 1 of 2 · Upload      Help  │
 ├────────────────────────────────────────────────────────────────────────┤
 │                 Start with the resume you have                         │ --t-d2
-│                 We read it, you confirm what's true, then we write.    │ muted
+│                 We read it and show it back as a resume. You check it  │ muted
+│                 once, then it's built.                                 │
 │   ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐     │
 │     (icon) Drop your resume here                                      │ dropzone 3.12
 │            PDF, Word or text, up to 10 pages   [ Choose file ]        │
@@ -1240,54 +1241,46 @@ wordmark + "Step 1 of 3" + Help)
 │   (lock) Free PDF and Word export. Read in a sealed sandbox, never shared. │ lock = SVG icon
 │                                                                        │
 │   What happens next                                                    │ 3 numbered rows,
-│   1 We find your roles, dates and numbers                              │ --t-sm, hairlines
-│   2 You confirm each fact (about 5 minutes)                            │
-│   3 Your resume is written from those facts only                       │
+│   1 We read your roles, dates and numbers, word for word               │ --t-sm, hairlines
+│   2 You see it as a resume and untick anything that's wrong            │
+│   3 One click builds it, then we suggest improvements                  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Phone:** same column at full width; dropzone becomes a card with the icon, "Choose your resume" primary
-full-width button (the drop text is hidden under 600px: phones don't drag), and the two lines below. During
-reading, the stage list replaces the card; bottom action bar is hidden until done.
+full-width button (the drop text is hidden under 600px: phones don't drag), and the two lines below. "Read my
+resume" moves straight to 4.3, which shows the reading stages beside the preview skeleton.
 
-### 4.3 Confirm facts (`/onboarding?step=confirm`)
+### 4.3 Check and build (`/onboarding?step=confirm`)
 
-**Desktop** (`--w-app`, two columns 7/5)
+Replaces the one-at-a-time confirm queue, the quick question and the separate About / Goals steps (owner,
+2026-11-21). Onboarding is two steps: Upload, then this.
+
+**Desktop** (`--w-app`, two columns 5/6; preview sticky at `top: 88px`)
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────────────┐
-│ Hunt                                Step 2 of 3 · Confirm facts                     Help  │
-├───────────────────────────────────────────────────────────────────────────────────────────┤
-│ Confirm what's really yours                        12 of 31 confirmed  ▬▬▬▬▬▬▬───────────  │ task count + thin bar
-│ ( Roles 3/8 ) ( Education ) ( Skills ) ( Achievements ) ( Languages ) ( Breaks )         │ section chips
-│ ┌──────────────────────────────────────────────────┐  ┌ Still to confirm in Roles ──────┐ │
-│ │ 8 facts left in Roles. [Confirm all 5 without    │  │ • Built the shared React …      │ │
-│ │ numbers]                                         │  │ • Cut checkout load … (numbers) │ │ list: click to
-│ ├──────────────────────────────────────────────────┤  │ • Mentored two junior …         │ │ jump; confirmed
-│ │            FACT CARD (3.11)                      │  │ ✓ Wrote Jest tests …            │ │ ones show the
-│ │                                                  │  │   Confirmed by you · today      │ │ signature line
-│ └──────────────────────────────────────────────────┘  └─────────────────────────────────┘ │
-│                                                     [ Continue to my resume → ] (disabled│ until ≥1 role
-│                                                       with reason "Confirm at least one   │ confirmed)
-│                                                       role first")                        │
+│ Step 2 of 2 · Check and build                                                             │
+│ Check what we read                          │ Preview · Compact Tech                      │
+│ Ticked lines go on your resume as written…  │ Recommended for Software Developer…         │
+│ ┌ Role · Org, City / dates ──────────────┐  │ ┌───────────────────────────────────────┐   │
+│ │ [x] Gave teams live visibility of 5,000+│  │ │  A4 ResumePaper, live: unticking a    │   │
+│ │     [I did it myself ▾]  Edit           │  │ │  line removes it, edits and contact   │   │
+│ │ [ ] Line that's wrong (struck through)  │  │ │  fields show at once                  │   │
+│ └─────────────────────────────────────────┘  │ └───────────────────────────────────────┘   │
+│ ┌ Education ┐ ┌ Top of your resume ┐ ┌ What you're aiming for ┐                            │
+│                       [ Build my resume with 8 lines ] (primary)                           │
 └───────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Phone**
-
-```
-┌────────────────────────────┐
-│ ← Step 2 of 3     12 of 31 │
-│ ( Roles 3/8 ) ( Educ… ) →  │  chips scroll
-│ 8 left · [Confirm all 5 …] │
-│ ┌────────────────────────┐ │
-│ │ FACT CARD (3.11)       │ │
-│ │ …                      │ │
-│ └────────────────────────┘ │
-├────────────────────────────┤
-│ [Not mine] [Edit] [Confirm]│  bottom action bar replaces tab bar
-└────────────────────────────┘
-```
+- **While reading** the left shows the file row, a StageList driven by the real task state (uploading → waiting
+  for a reader → finding roles, dates and numbers → laying out your preview) and three plain lines on what we do
+  with the file; the right shows a page-shaped skeleton. **While building**, a StageList (confirming N lines →
+  saving details → writing in <template>).
+- Numbers in lines: weight 600 with a dotted `--partial` underline (the only call-out; no per-number chips).
+- Level select labels speak plainly: I contributed / I did it myself / I led it / I managed people on it.
+- Unticked lines are marked "not mine" on build (kept, never deleted; said under the button).
+- **Phone:** one column, preview below the form; the build button sits in the bottom action bar.
 
 ### 4.4 Resume editor + preview (`/resumes/[id]`)
 
@@ -1337,56 +1330,42 @@ reading, the stage list replaces the card; bottom action bar is hidden until don
 └────────────────────────────┘
 ```
 
-### 4.5 Jobs feed (`/jobs`, tab For you)
+### 4.5 Find jobs (`/jobs`, default tab) and Improve (`/improve`)
 
-**Desktop** (`--w-feed` column centred in `--w-app`)
-
-```
-┌───────────────────────────────────────────────────────────────────────────────────────────┐
-│ ╭ nav bar (Jobs active) ──────────────────────────────────────────────────────────────╮   │
-├───────────────────────────────────────────────────────────────────────────────────────────┤
-│            Jobs                                       [ Paste a job ]  [Feed settings]    │ page header
-│            ( For you )  ( Saved & pasted · 3 )                                            │ tabs (links)
-│            Ranked to your 18 confirmed skills · 29 of 30 job checks left this month       │ quota once, muted
-│            (Location: Bengaluru ▾)(Remote/Hybrid ▾)(0-2 yrs ▾)(Salary ▾)(Posted: 7 days ▾)│ chips
-│            Sort: Best fit to your skills ▾                                                │
-│            ┌ JOB CARD (3.8) ─────────────────────────────────────────────────────┐        │
-│            └─────────────────────────────────────────────────────────────────────┘        │
-│            ┌ JOB CARD ───────────────────────────────────────────────────────────┐        │ 12px gap
-│            └─────────────────────────────────────────────────────────────────────┘        │
-│            …                                                                              │
-│                              [ Show more jobs ]                                           │ load more,
-│            Jobs come from company career sites. No genuine employer asks for money.       │ no infinite scroll
-└───────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-- "Feed settings" opens the drawer holding: email alerts (Off / Weekly / Daily), "What your feedback
-  changed" (learned rules, each removable, "Reset"), "Where these jobs come from" (sources list).
-- "Paste a job" opens a dialog: textarea for the posting text or a link field, "Check this job" primary.
-- `content-visibility: auto; contain-intrinsic-size: auto 156px` on cards. Back restores scroll and the
-  number of loaded pages (state in the URL: `?page=2`).
-
-**Phone**
+We don't list jobs (owner, 2026-11-21). Find jobs builds a search from the confirmed profile and opens it on the
+big job sites; the user pastes a job they like back for the check (4.6).
 
 ```
-┌────────────────────────────┐
-│ Hunt             (RI)      │
-│ Jobs          [Paste a job]│
-│ ( For you )( Saved · 3 )   │
-│ 29 of 30 checks left       │
-│ (All filters·2)(Bengaluru)(…│ chips scroll; All filters → bottom sheet
-│ ┌ JOB CARD ──────────────┐ │
-│ └────────────────────────┘ │
-│ ┌ JOB CARD ──────────────┐ │
-│ └────────────────────────┘ │
-│ [ Show more jobs ]         │
-├────────────────────────────┤
-│  Jobs    Resume   Profile  │
-└────────────────────────────┘
+│            Jobs                                                    [ Paste a job ]        │ page header
+│            ( Find jobs )  ( Saved & pasted · 3 )                                          │ tabs (links)
+│            Search the big job sites, then paste a job here… · 29 of 30 job checks left    │ quota once, muted
+│            ┌ Your search ─────────────────────────────────────────────────────────┐       │ base card
+│            │ Built from your confirmed profile · 7 years of experience.           │       │ --t-sm muted
+│            │ [Role                       ] [City              ]                   │       │ 3fr / 2fr ≥600px
+│            │ [ ] Remote jobs only                                                 │       │
+│            │ (✓ React)(✓ TypeScript)( Next.js )( Jest )                           │       │ filter chips (3.5)
+│            └──────────────────────────────────────────────────────────────────────┘       │
+│            ┌ LinkedIn                                   [Search ↗] ┐                       │ link card per site,
+│            │ Posted in the last week                               │                       │ stretched link,
+│            └───────────────────────────────────────────────────────┘                       │ new tab
+│            … Naukri · Indeed · Wellfound · Company career pages · Instahyre               │
+│            Found a job you like? Paste it here and we'll check how well you fit.          │ --t-sm muted
 ```
 
-**Saved & pasted** tab: same list, cards show their status (Saved / Applied / Not interested) as a small
-select on the card, plus the verdict mark if checked.
+- One `--w-feed` column. The site card is a base card (3.8) with the site name as the stretched link and a
+  decorative secondary "Search" button with the `external` icon; "(opens in a new tab)" is screen-reader text.
+- No profile yet: empty state "Start with your resume" → Upload my resume.
+
+**Improve** (`/improve`, after onboarding and from "Improve my resume" on the Resume page). One `--w-feed`
+column of base cards in two groups with `--type-h` headings: **Fix these first** and **Worth a look**. Each card:
+title (`--type-title`), one muted sentence of why, then the action. "Edit this line" shows the user's own fact in a
+`--bg-sunken` quote block, then a textarea ("Save my wording"); "Add a number" cards have a textarea and "I don't
+know"; link cards have one secondary button. "Leave it" is a ghost button. Done cards become a dashed note with a
+`--supported` check. Status marks (3.6) are not used here: they mean data states, not urgency. The page ends with
+"Pick a template" (primary, → `/resumes`) and "Find jobs".
+
+**Resume list** opens with **Pick a template**: the newest master resume rendered in all six templates (the
+editor's gallery, page-shaped A4 thumbnails, sibling dimming), one marked with a "Recommended for you" badge.
 
 ### 4.6 Job check (`/jobs/[id]`)
 
@@ -1672,6 +1651,8 @@ fallbacks for CLS 0.
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-11-21 | **Onboarding is Upload → Check and build** (4.3): one split screen with a live resume preview replaces the one-at-a-time confirm, quick questions, About and Goals steps; Improve adds Google's XYZ checks and asks for a rewrite of the same line instead of a separate "number" fact. | Owner: the post-upload questions and confirmations felt useless; wants to see the resume while it's read. |
+| 2026-11-21 | **Journey is upload → Improve → Pick a template → Find jobs.** The jobs feed (4.5 old), feed settings, job reporting and alert emails are removed; Find jobs links out to job sites; template gallery leads the Resume page; new Improve screen. | Owner: listing jobs ourselves is wasted effort; the value is the resume and searching the big sites with it. |
 | 2026-11-06 | **Design system v2 "Signed in blue" replaces v1 "Attested notebook".** New palette (bond paper, blue-black ink, ballpoint-blue accent, manila tags; yellow kept only as the proof mark), new type (Newsreader display with italic accent, Atkinson Hyperlegible Next UI, IBM Plex Mono for verbatim, Noto Sans Devanagari), security-print texture on marketing only, layered soft shadows + gradient rims instead of hard offsets, rounded-rect buttons, morphing nav plate, 3-item nav (Jobs / Resume / Profile; Settings under the avatar). | Owner asked for a complete redesign at the craft.do quality bar and approved replacing the look. v1's notebook/line-art/stamp language read as hand-made rather than trustworthy; "an original document" carries the truth promise better and is ours (Indian blue-ink originals, stamp paper security print). Borrowed craft techniques, not identity (section 8). |
 | 2026-11-06 | Kalam, Archivo, JetBrains Mono retired; hand-drawn art, tilted cards and stamp lettering retired | One display voice (Newsreader italic) replaces three expressive devices; saves two font families on slow networks. |
 | 2026-11-06 | No in-view reveals; the only load-time motion is the landing seal press (once, skipped under reduced motion/Save-Data) | Owner rule; craft.do itself uses none. |

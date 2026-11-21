@@ -15,7 +15,8 @@ def span(start: date | None, end: date | None) -> str:
 
 def years(start: date | None, end: date | None) -> str:
     """Education dates: year precision ("2015 – 2019"), since resumes often give only the year."""
-    return " – ".join(str(d.year) for d in (start, end) if d)
+    ys = list(dict.fromkeys(str(d.year) for d in (start, end) if d))  # "2026 – 2026" reads as "2026"
+    return " – ".join(ys)
 
 
 def day(d: date | datetime | None) -> str:

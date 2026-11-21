@@ -130,13 +130,13 @@ def get_profile(ctx: CtxDep):
                  "suggested": RESPONSIBILITY_LEVELS.get(v.responsibility_level), "version": f.version}
                 for f, v in rows if f.status == "draft" and getattr(f, col) == owner_id]
 
-    tools = [t.get("raw", "").lower() for _, v in confirmed for t in v.tools]
     edus = db.scalars(select(Education).where(Education.status != "rejected")
                       .order_by(Education.start_month.desc().nulls_last(), Education.created_at)).all()
     return {
         "name": ctx.user.name or "",
         "email": ctx.user.email or "",
         "phone": ctx.user.phone or "",
+        "links": list(ctx.user.links or []),
         "headline": prof.headline or "",
         "location": ctx.user.location or (prefs["locations"] or [next((e.location for e in exps if e.location), "")])[0],
         "confirmed": len(confirmed),
@@ -144,12 +144,12 @@ def get_profile(ctx: CtxDep):
         "roles": [{"id": str(e.id), "title": e.title or "", "org": ", ".join(x for x in (e.employer, e.location) if x),
                    "dates": display.span(e.start_month, e.end_month), "status": e.status, "version": e.version,
                    "factIds": [str(f.id) for f, _ in confirmed if f.experience_id == e.id]} for e in exps],
-        "skills": [{"name": s.raw_label, "evidence": tools.count(s.raw_label.lower())}
+        "skills": [{"name": s.raw_label, "evidence": skill_evidence(s.raw_label, [v for _, v in confirmed])}
                    for s in db.scalars(select(UserSkill).order_by(UserSkill.created_at))],
         "education": [{"id": str(e.id), "degree": ", ".join(x for x in (e.degree, e.field_of_study) if x),
                        "org": e.institution or "", "dates": display.years(e.start_month, e.end_month),
                        "status": e.status, "version": e.version} for e in edus],
-        "projects": [{"id": str(p.id), "name": p.name or "Project", "dates": display.span(p.start_month, p.end_month),
+        "projects": [{"id": str(p.id), "name": p.name or "Project", "stack": p.stack or "", "dates": display.years(p.start_month, p.end_month),
                       "factIds": [str(f.id) for f, _ in confirmed if f.project_id == p.id]} for p in projs],
         # Every break the user recorded; only showOnResume ones go on resumes. The reason never feeds matching (D25).
         "gaps": [{"id": str(g.id), "dates": display.span(g.start_month, g.end_month),
@@ -176,7 +176,7 @@ def get_profile(ctx: CtxDep):
              "experienceVersion": e.version, "status": e.status, "drafts": d}
             for e in exps if (d := drafts_of("experience_id", e.id))
         ] + [
-            {"kind": "project", "role": p.name or "Project", "dates": display.span(p.start_month, p.end_month),
+            {"kind": "project", "role": p.name or "Project", "dates": display.years(p.start_month, p.end_month),
              "projectId": str(p.id), "projectVersion": p.version, "status": p.status, "drafts": d}
             for p in projs if (d := drafts_of("project_id", p.id))
         ],
@@ -185,6 +185,13 @@ def get_profile(ctx: CtxDep):
 
 
 _NUM_RE = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def skill_evidence(label: str, versions) -> int:
+    """Confirmed lines that list the skill as a tool or name it in the text (imports leave `tools` empty)."""
+    word = re.compile(rf"(?<![\w+#.]){re.escape(label.lower())}(?![\w+#])")
+    return sum(any(t.get("raw", "").lower() == label.lower() for t in v.tools) or bool(word.search(v.description.lower()))
+               for v in versions)
 
 
 # ---------------------------------------------------------------- preferences and goals (versioned, TRD §9.5)

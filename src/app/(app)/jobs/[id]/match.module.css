@@ -141,11 +141,6 @@
 .statusRow [aria-pressed="true"] {
   color: var(--accent);
 }
-.reported {
-  padding: 0 12px;
-  font: var(--type-sm);
-  color: var(--text-muted);
-}
 .money {
   display: flex;
   align-items: flex-start;

@@ -5,11 +5,11 @@ import json
 import logging
 import zipfile
 from datetime import UTC, datetime, timedelta
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Response
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import event, func, select
 
 from app import render
@@ -51,6 +51,8 @@ class MePatch(BaseModel):
     # Contact lines for exports only; never sent to a model (I-10).
     email: str | None = Field(None, max_length=254, pattern=r"^$|^[^@\s]+@[^@\s]+\.[^@\s]+$")
     phone: str | None = Field(None, max_length=40, pattern=r"^$|^[+\d][\d\s().-]{6,38}$")
+    # Profile links (GitHub, LinkedIn, portfolio) as written: contact lines for exports, never sent to a model.
+    links: list[Annotated[str, StringConstraints(strip_whitespace=True, max_length=200, pattern=r"^[^\s<>\"']+\.[^\s<>\"']+$")]] | None = Field(None, max_length=4)
 
 
 def _profile(ctx) -> Profile:
@@ -72,6 +74,8 @@ def patch_me(body: MePatch, ctx: WriteCtxDep):
     changes = {k: v.strip() if isinstance(v, str) else v for k, v in body.model_dump(exclude_unset=True).items()}
     if "headline" in changes:
         _profile(ctx).headline = changes.pop("headline") or None
+    if "links" in changes:
+        ctx.user.links = list(dict.fromkeys(changes.pop("links") or []))
     for k, v in changes.items():
         setattr(ctx.user, k, v or None)
     ctx.db.flush()

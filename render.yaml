@@ -27,8 +27,6 @@ services:
         value: gemini-3.5-flash-lite
       - key: OIDC_ISSUER
         value: https://accounts.google.com
-      - key: APP_URL
-        value: https://rolefold-green.vercel.app
       # Pasted once in the Render dashboard when the Blueprint is created:
       - key: GEMINI_API_KEY
         sync: false

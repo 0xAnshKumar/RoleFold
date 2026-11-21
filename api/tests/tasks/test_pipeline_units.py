@@ -282,3 +282,19 @@ def test_only_generic_experience_is_counted_from_role_dates():
         assert not generic_experience(specific), specific
     assert generic_experience("3+ years of frontend experience", ("Frontend Engineer",))  # the user's own job family
     assert not generic_experience("1+ years in an FDE role", ("Founding Software Developer", "Data Analyst"))
+
+
+def test_contact_reads_city_and_links_from_the_header():
+    from app.tasks.imports import contact
+    from app.truth.redact import redact
+
+    text = ("Riya Sharma\n+91 98765 43210 | riya@example.com | github.com/riya | linkedin.com/in/riya-s | Jaipur\n\n"
+            "Summary\nBackend developer. See https://blog.example.com/post\n")
+    red = redact(text, ["Riya Sharma"], header=True)
+    c = contact(red.mapping, ["Riya Sharma"], text)
+    assert c["location"] == "Jaipur"
+    assert c["links"] == ["github.com/riya", "linkedin.com/in/riya-s"]  # header only: the body's URL is not a profile link
+    assert c["email"] == "riya@example.com"
+    other = "Riya Sharma\nSoftware Engineer\nriya@example.com • Pune, Maharashtra\n"
+    r2 = redact(other, ["Riya Sharma"], header=True)
+    assert contact(r2.mapping, ["Riya Sharma"], other)["location"] == "Pune, Maharashtra"  # not the headline line

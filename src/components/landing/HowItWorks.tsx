@@ -78,7 +78,7 @@ const STEPS = [
     value: "jobs",
     label: "Find jobs",
     title: "See jobs that fit, honestly",
-    body: "Your feed ranks open roles by your confirmed skills, goal, level and location. A full check quotes the posting for every requirement and gives a verdict in words.",
+    body: "Search LinkedIn, Naukri and more with your confirmed profile in one click. Paste a job you like: the check quotes the posting for every requirement and gives a verdict in words.",
     picture: (
       <div className={s.pic}>
         {[

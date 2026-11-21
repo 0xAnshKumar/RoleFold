@@ -41,7 +41,7 @@ export default async function ProfilePage() {
   const [{ profile, facts }, demo] = await Promise.all([getProfile(), isDemo()]);
   return (
     <>
-      <ProfileHeader initial={{ name: profile.name, headline: profile.headline, location: profile.location, email: profile.email, phone: profile.phone }} demo={demo} />
+      <ProfileHeader initial={{ name: profile.name, headline: profile.headline, location: profile.location, email: profile.email, phone: profile.phone, links: profile.links }} demo={demo} />
 
       {profile.drafts > 0 && (
         <div className={s.queue} role="status">

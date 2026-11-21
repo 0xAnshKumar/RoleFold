@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.core import errors
 from app.core.config import get_settings
-from app.routes import admin, feed, imports, insights, jobs, me, profile, resumes, share, system
+from app.routes import admin, imports, insights, jobs, me, profile, resumes, share, system
 
 try:
     get_settings()
@@ -32,5 +32,4 @@ for r in (me.router, profile.router, imports.router, jobs.router, resumes.router
     app.include_router(r, prefix="/v1")
 for r in (share.router, insights.router):
     app.include_router(r, prefix="/v1")
-app.include_router(feed.router, prefix="/v1")  # catalog feed + alerts (app/catalog)
 app.include_router(admin.router, prefix="/v1")  # admin console (app/routes/admin.py)

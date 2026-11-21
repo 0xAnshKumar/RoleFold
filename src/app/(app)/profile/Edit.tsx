@@ -15,7 +15,7 @@ import s from "./profile.module.css";
 
 // Demo mode: every edit here applies locally (sample data, nothing sent). Live: saved, then the page re-reads.
 
-export type About = { name: string; headline: string; location: string; email: string; phone: string };
+export type About = { name: string; headline: string; location: string; email: string; phone: string; links?: string[] };
 
 export const OPTIONS = {
   seniority: ["Entry", "Mid", "Senior", "Lead", "Manager", "Director"],
@@ -75,6 +75,9 @@ export function ModeChips({ value, onChange }: { value: string[]; onChange: (v: 
 }
 
 /** Name, headline, location: PATCH /v1/me. Shared with onboarding. */
+/** "a, b c" -> up to 4 links (the API's limit), split on commas or spaces. */
+export const splitLinks = (v: string) => [...new Set(v.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean))].slice(0, 4);
+
 export function AboutForm({
   initial,
   demo,
@@ -93,6 +96,7 @@ export function AboutForm({
 }) {
   const router = useRouter();
   const [v, setV] = useState(initial);
+  const [links, setLinks] = useState((initial.links ?? []).join(", "));
   const { busy, error, run } = useAction();
   const set = (k: keyof About) => (e: React.ChangeEvent<HTMLInputElement>) => setV({ ...v, [k]: e.target.value });
   const read = (k: keyof About) => (fromResume.includes(k) ? <span className={a.hint}>Read from your resume. Check it before saving.</span> : null);
@@ -102,7 +106,7 @@ export function AboutForm({
       className={a.form}
       onSubmit={(e) => {
         e.preventDefault();
-        const next = { name: v.name.trim(), headline: v.headline.trim(), location: v.location.trim(), email: v.email.trim(), phone: v.phone.trim() };
+        const next = { name: v.name.trim(), headline: v.headline.trim(), location: v.location.trim(), email: v.email.trim(), phone: v.phone.trim(), links: splitLinks(links) };
         run("save", async () => {
           if (!demo) {
             await api("/me", { method: "PATCH", body: next });
@@ -134,6 +138,11 @@ export function AboutForm({
         <span>Phone for your resume</span>
         <input type="tel" value={v.phone} onChange={set("phone")} autoComplete="tel" maxLength={40} placeholder="e.g. +91 98765 43210" />
         {read("phone")}
+      </label>
+      <label className={a.field}>
+        <span>Links</span>
+        <input value={links} onChange={(e) => setLinks(e.target.value)} maxLength={820} placeholder="e.g. github.com/you, linkedin.com/in/you" />
+        <span className={a.hint}>GitHub, LinkedIn or portfolio, separated by commas (up to 4). Shown on your resume’s contact line.</span>
       </label>
       <Problem error={error} />
       <div className={a.formActions}>

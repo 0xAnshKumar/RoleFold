@@ -62,15 +62,6 @@ export default async function SettingsPage() {
         </div>
       </Group>
 
-      <Group id="alerts" title="Job alerts">
-        <div className={s.row}>
-          <span className={s.key}>Email me new matches</span>
-          <Link href="/jobs?settings=1" className={s.edit}>
-            Feed settings
-          </Link>
-        </div>
-      </Group>
-
       <Group id="plan" title="Free plan">
         <div className={s.stack}>
           {meters.map((m) => (

@@ -77,7 +77,8 @@ def test_import_creates_drafts_without_sending_contact_details(pg, alice, monkey
     assert status == "succeeded" and "text" not in payload
     assert result["dropped_facts"] == 1
     # What redaction captured is offered back to the user (onboarding pre-fills it to confirm).
-    assert result["contact"] == {"name": "Rohan Iyer", "email": "rohan.iyer@example.com", "phone": "+91 98765 43210"}
+    assert result["contact"] == {"name": "Rohan Iyer", "email": "rohan.iyer@example.com", "phone": "+91 98765 43210",
+                                 "location": None, "links": []}
     sent = llm_fake.requests[0].user
     for secret in ("rohan.iyer@example.com", "98765", "Rohan", "Iyer"):
         assert secret not in sent  # I-10

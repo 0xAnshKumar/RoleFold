@@ -32,5 +32,5 @@ export async function proxy(req: NextRequest) {
 
 // The routes in src/app/(app)/ and src/app/admin/ plus the API proxy. Keep in step when adding an app section.
 export const config = {
-  matcher: ["/v1/:path*", "/jobs/:path*", "/feed/:path*", "/skills/:path*", "/resumes/:path*", "/profile/:path*", "/settings/:path*", "/onboarding/:path*", "/admin/:path*"],
+  matcher: ["/v1/:path*", "/jobs/:path*", "/feed/:path*", "/skills/:path*", "/resumes/:path*", "/improve/:path*", "/profile/:path*", "/settings/:path*", "/onboarding/:path*", "/admin/:path*"],
 };

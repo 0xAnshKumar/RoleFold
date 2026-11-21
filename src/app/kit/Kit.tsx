@@ -321,7 +321,7 @@ function Body({ theme }: { theme: "light" | "night" }) {
         <TabLinks
           label={`Jobs sections (${theme} demo)`}
           items={[
-            { href: "#", label: "For you", current: true },
+            { href: "#", label: "Find jobs", current: true },
             { href: "#", label: "Saved & pasted · 3", current: false },
           ]}
         />
@@ -434,7 +434,7 @@ function Body({ theme }: { theme: "light" | "night" }) {
               action={<Button variant="primary">Paste a job</Button>}
               secondary={<a href="#">See jobs for you</a>}
             >
-              Save jobs from For you, or paste one you found elsewhere.
+              Found a job on LinkedIn, Naukri or a company site? Paste it here.
             </EmptyState>
           </Card>
           <Card>

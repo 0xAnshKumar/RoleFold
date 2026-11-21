@@ -112,6 +112,14 @@ def test_me_contact_details_saved_and_used_in_exports(pg, alice):
         doc = resume_doc(db, db.get(User, alice.id), SimpleNamespace(statements=[]))
     assert doc["contact"] == ["Pune", "rohan@example.com", "+91 98765 43210"]
 
+    # Profile links from the resume header go on the contact line too, de-duplicated; junk is refused.
+    assert alice.write("PATCH", "/v1/me", {"links": ["github.com/rohan", "github.com/rohan", "linkedin.com/in/rohan"]}).status_code == 200
+    assert alice.get("/v1/profile").json()["links"] == ["github.com/rohan", "linkedin.com/in/rohan"]
+    assert alice.write("PATCH", "/v1/me", {"links": ["<script>"]}).status_code == 422
+    with as_user(pg.app, alice.id) as db:
+        doc = resume_doc(db, db.get(User, alice.id), SimpleNamespace(statements=[]))
+    assert doc["contact"][-2:] == ["github.com/rohan", "linkedin.com/in/rohan"]
+
 
 def test_paste_reserves_quota_and_enqueues_match(alice):
     r = alice.write("POST", "/v1/jobs/paste", {"text": JD})

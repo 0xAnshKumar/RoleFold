@@ -11,7 +11,6 @@ import { ProofMark } from "@/components/ui/Proof";
 import { api } from "@/lib/api";
 import type { Fact, JobStatus, Match, Requirement, SavedJob, Status } from "@/lib/mock";
 import { useAction } from "@/lib/useAction";
-import { ReportDialog, reportReason } from "../Report";
 import { useCloseGap } from "./Gap";
 import s from "./match.module.css";
 
@@ -201,12 +200,10 @@ const STATUS_BUTTONS: { status: JobStatus; idle: string; on: string }[] = [
   { status: "not_interested", idle: "Not for me", on: "Not interested" },
 ];
 
-/** PATCH /v1/jobs/{id} {status}, plus "Report this job". "Applied" is only what you marked: we never apply for you. */
+/** PATCH /v1/jobs/{id} {status}. "Applied" is only what you marked: we never apply for you. */
 export function JobStatusButtons({ jobId, initial, demo }: { jobId: string; initial: SavedJob["status"] | null; demo: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState(initial);
-  const [reporting, setReporting] = useState(false);
-  const [reported, setReported] = useState(false);
   const { busy, error, run } = useAction();
 
   const set = (next: JobStatus) =>
@@ -217,12 +214,6 @@ export function JobStatusButtons({ jobId, initial, demo }: { jobId: string; init
         router.refresh();
       } else setStatus(next);
     });
-  const report = (reason: string) =>
-    run("report", async () => {
-      if (!demo) await api(`/jobs/${jobId}/feedback`, { method: "POST", body: { action: "dismiss", reasons: [reportReason(reason)] } });
-      setReported(true);
-      if (!demo) router.refresh();
-    });
 
   return (
     <>
@@ -232,20 +223,12 @@ export function JobStatusButtons({ jobId, initial, demo }: { jobId: string; init
             {status === b.status ? b.on : b.idle}
           </Button>
         ))}
-        {reported ? (
-          <span className={s.reported}>Reported. It’s hidden from your feed.</span>
-        ) : (
-          <Button variant="ghost" size="sm" onClick={() => setReporting(true)}>
-            Report this job
-          </Button>
-        )}
       </div>
       {error && (
         <p role="alert" className={a.problem}>
           {error}
         </p>
       )}
-      {reporting && <ReportDialog open onClose={() => setReporting(false)} onReport={report} />}
     </>
   );
 }

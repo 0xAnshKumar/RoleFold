@@ -87,9 +87,12 @@ export default function ResumePaper({
               </>
             )}
           </span>
+          {p.dates && <span>{p.dates}</span>}
         </p>
         <ul className={s.list}>
-          <li>{p.line}</li>
+          {(p.bullets ?? [p.line]).map((b, i) => (
+            <li key={i}>{b}</li>
+          ))}
         </ul>
       </div>
     )),

@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Input, Select } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
+import TemplateGallery from "@/components/resume/TemplateGallery";
 import { api, exportResume, waitFor, type Operation } from "@/lib/api";
+import { resumeExtras, type Resume } from "@/lib/mock";
 import { TEMPLATES } from "@/lib/templates";
 import { useAction } from "@/lib/useAction";
 import s from "./resumes.module.css";
@@ -148,6 +150,31 @@ export function UpdateResume({ resumeId, demo }: { resumeId: string; demo: boole
         </p>
       )}
       <Problem error={error} className={s.full} />
+    </>
+  );
+}
+
+/** The Resume page's gallery: pick a template for this resume (PATCH, as the editor does), then open it in the editor. */
+export function PickTemplate({ resume, href, recommended, demo }: { resume: Resume; href: string; recommended: string; demo: boolean }) {
+  const router = useRouter();
+  const current = resume.templateId ?? TEMPLATES.find((t) => t.name === resume.template)?.id ?? "classic";
+  const { busy, error, run } = useAction();
+  return (
+    <>
+      <TemplateGallery
+        resume={resume}
+        extras={demo ? resumeExtras : (resume.extras ?? null)}
+        selected={current}
+        recommended={recommended}
+        disabled={!!busy}
+        onPick={(id) =>
+          run("pick", async () => {
+            if (!demo && id !== current) await api(`/resumes/${resume.id}`, { method: "PATCH", body: { templateId: id } });
+            router.push(href);
+          })
+        }
+      />
+      <Problem error={error} />
     </>
   );
 }

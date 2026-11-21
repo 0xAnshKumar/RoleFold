@@ -185,8 +185,8 @@ export function AppNav({ demo = false, queue = 0, signOut = false, user = null, 
                 <div ref={jobsPanel} id="nav-panel-jobs" className={s.panel} data-active={open === "jobs" || undefined}>
                   <div className={s.tiles}>
                     <Link href="/jobs" className={s.tile} onClick={() => show(null)}>
-                      <span className={s.tileTitle}>For you</span>
-                      <span className={s.tileText}>Real jobs ranked to the skills you confirmed</span>
+                      <span className={s.tileTitle}>Find jobs</span>
+                      <span className={s.tileText}>Search LinkedIn, Naukri and more with your confirmed profile</span>
                     </Link>
                     <Link href="/jobs?tab=saved" className={s.tile} onClick={() => show(null)}>
                       <span className={s.tileTitle}>Saved &amp; pasted</span>
@@ -196,10 +196,6 @@ export function AppNav({ demo = false, queue = 0, signOut = false, user = null, 
                   <div className={s.links}>
                     <Link href="/jobs?tab=saved&paste=1" className={s.row} onClick={() => show(null)}>
                       Paste a job
-                      <Icon name="arrowRight" size={16} />
-                    </Link>
-                    <Link href="/jobs?settings=1" className={s.row} onClick={() => show(null)}>
-                      Feed settings
                       <Icon name="arrowRight" size={16} />
                     </Link>
                   </div>

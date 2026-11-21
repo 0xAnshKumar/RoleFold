@@ -7,17 +7,21 @@ import { Card, cardLink, cardRaised } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/Progress";
 import { EmptyState } from "@/components/ui/State";
 import { Badge } from "@/components/ui/Status";
-import { getResumes, getUsage, isDemo } from "@/lib/data";
-import { Downloads, NewResume, UpdateResume } from "./Actions";
+import { getProfile, getResume, getResumes, getUsage, isDemo } from "@/lib/data";
+import { recommendTemplate } from "@/lib/recommend";
+import { Downloads, NewResume, PickTemplate, UpdateResume } from "./Actions";
 import s from "./resumes.module.css";
 
 export const metadata: Metadata = { title: "Resumes" };
 
 export default async function ResumesPage() {
-  const [resumeList, usage, demo] = await Promise.all([getResumes(), getUsage(), isDemo()]);
+  const [resumeList, usage, demo, { profile }] = await Promise.all([getResumes(), getUsage(), isDemo(), getProfile()]);
   const masters = resumeList.filter((r) => r.kind === "master");
   // Sample data only has one full resume to open.
   const href = (id: string) => (demo ? "/resumes/frontend-engineer" : `/resumes/${id}`);
+  // The gallery shows the newest master in every template; it is left out if that resume can't load.
+  const first = masters[0];
+  const full = first ? await getResume(demo ? "frontend-engineer" : first.id).catch(() => null) : null;
   // Tailored from a job page (no master behind it): listed on their own, never hidden.
   const loose = resumeList.filter((r) => r.kind !== "master" && !masters.some((m) => m.id === r.parent));
   const tailoredRow = (c: (typeof resumeList)[number]) => (
@@ -38,8 +42,26 @@ export default async function ResumesPage() {
             : "One master resume for each direction you’re heading, made from the facts you confirmed."
         }
       >
+        <ButtonLink href="/improve">Improve my resume</ButtonLink>
         <NewResume demo={demo} />
       </PageHeader>
+
+      {first && full && (
+        <section aria-labelledby="templates-h" className={s.templates}>
+          <h2 id="templates-h" className={s.sectionTitle}>
+            Pick a template
+          </h2>
+          <p className={s.note}>
+            Your {first.name} resume in each template. Pick one to open it in the editor and download it.
+          </p>
+          <PickTemplate
+            resume={{ ...full, name: full.name || profile.name || "Your name" }}
+            href={href(first.id)}
+            recommended={recommendTemplate(first.target, full.sections.some((sec) => sec.org !== undefined && sec.org !== ""))}
+            demo={demo}
+          />
+        </section>
+      )}
 
       <div className={s.layout}>
         <div className={s.list}>

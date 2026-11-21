@@ -179,7 +179,7 @@ export function WhoFor() {
 }
 
 /* ---------- Pricing promise ---------- */
-const FREE = ["Upload a resume, or start from scratch", "Confirm your facts", "Your master resume, with edits", "PDF and Word downloads", "Jobs feed and 30 job checks a month"];
+const FREE = ["Upload a resume, or start from scratch", "Confirm your facts", "Your master resume, with edits", "PDF and Word downloads", "Job search on the big sites, and 30 job checks a month"];
 
 export function Pricing() {
   return (

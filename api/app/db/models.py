@@ -108,6 +108,7 @@ class User(Base):
     name: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)
     phone: Mapped[str | None] = mapped_column(Text)
+    links: Mapped[list] = mapped_column(JSONB, server_default="[]")  # GitHub, LinkedIn, portfolio: contact lines
     plan: Mapped[str] = mapped_column(enum("user_plan", "free"), server_default="free")
     created_at: Mapped[datetime] = created()
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -140,6 +141,7 @@ class Project(Entry, Base):
     name: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str | None] = mapped_column(Text)
+    stack: Mapped[str | None] = mapped_column(Text)  # tech stack as written on the resume
     start_month: Mapped[date | None] = mapped_column(Date)
     end_month: Mapped[date | None] = mapped_column(Date)
 
@@ -533,6 +535,8 @@ class ShareLink(Owned, Base):
 
 
 # ---------------------------------------------------------------- catalog, feed and alerts (0007)
+# Unused since 2026-11-21: we no longer list jobs (Find jobs links out instead). Kept so no data is lost and
+# jobs.catalog_job_id still resolves; drop these tables in a later migration.
 
 
 class CatalogJob(Base):

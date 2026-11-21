@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Month = str  # "YYYY-MM"
+Month = str  # "YYYY-MM", or "YYYY" when only a year is written (kept for projects and education only)
 
 
 class DraftFact(BaseModel):
@@ -27,6 +27,7 @@ class DraftExperience(BaseModel):
     start: Month | None = None
     end: Month | None = None
     location: str | None = None
+    stack: str | None = Field(None, description="Projects only: the tech stack exactly as written, e.g. 'Python, FastAPI, Docker'")
     facts: list[DraftFact] = []
     source_span: str
 

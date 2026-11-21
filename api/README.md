@@ -83,7 +83,6 @@ uv run python -m app.tasks.worker                       # all types
 uv run python -m app.tasks.worker --types import,match  # an "interactive" pool
 uv run python -m app.tasks.worker --types render        # exports
 uv run python -m app.tasks.worker --types delete_user,regenerate,tailor
-uv run python -m app.tasks.worker --types catalog_ingest,alert_digest   # job feed + alerts (if enabled)
 ```
 
 Pools share the one Postgres queue (SKIP LOCKED); run as many processes per pool as you like. Every pool requeues
@@ -97,22 +96,8 @@ Beta runs on one Postgres primary, these worker pools, and Postgres-backed rate 
 |---|---|
 | Queue wait p95 for a type stays above its target (match/tailor/import: ~1 min) | More processes in that type's pool, then a dedicated pool |
 | API p95 latency up while DB CPU is fine | More API instances (stateless) |
-| DB CPU high or reads dominate | Read replicas for analytics and the future catalog/feed; RLS-scoped user reads stay on the primary |
-| Feed launch (catalog, per-user feeds) | Redis cache for feeds, job cards and taxonomy lookups; embedding service, GPU only when CPU throughput is the limit |
-| `tasks` table or catalog grows past what vacuum keeps up with | Partition (tasks by created month, catalog by source/time) |
-
-## Job catalog sources
-
-`CATALOG_SOURCES` (empty = feed off) lists boards as `kind:token[=Company name]`, comma-separated. Kinds:
-`greenhouse:<board>`, `lever:<site>`, `ashby:<job board name>`, `workable:<account subdomain>` (each the public JSON
-job-board API the ATS publishes for showing jobs elsewhere; one GET per board per run, no HTML pages) and
-`manual:<file.json|csv>`. `api/.env.example` has a probed list of India boards with entry-to-mid engineering roles;
-each still needs its terms decision (TRD T-OQ-2) before production. Try one board now:
-
-```bash
-uv run python -m app.catalog.cli sources                 # what CATALOG_SOURCES enables
-uv run python -m app.catalog.cli ingest ashby:sarvam     # fetch one now; prints new/updated/rejected counts
-```
+| DB CPU high or reads dominate | Read replicas for analytics; RLS-scoped user reads stay on the primary |
+| `tasks` table grows past what vacuum keeps up with | Partition (tasks by created month) |
 
 ## Docker
 

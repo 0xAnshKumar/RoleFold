@@ -1,0 +1,105 @@
+/* /improve: one calm column of suggestion cards, grouped "Fix these first" / "Worth a look". */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: var(--w-feed);
+}
+.count {
+  margin: -8px 0 0;
+  font: var(--type-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.groupTitle {
+  margin: 0;
+  font: var(--type-h);
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.title {
+  margin: 0;
+  font: var(--type-title);
+  text-wrap: pretty;
+}
+.why {
+  margin: 0;
+  font: var(--type-sm);
+  color: var(--text-muted);
+  max-width: var(--w-prose);
+}
+.quote {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  font: var(--type-body);
+  overflow-wrap: anywhere;
+}
+.role {
+  font: var(--type-xs);
+  color: var(--text-muted);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 20px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  font: var(--type-sm);
+  color: var(--text-muted);
+}
+.done svg {
+  color: var(--supported);
+}
+.problem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: flex-start;
+  margin: 0;
+  font: var(--type-sm);
+  color: var(--danger);
+}
+.problem svg {
+  flex: none;
+  margin-top: 2px;
+}
+.foot {
+  margin: 0;
+  font: var(--type-sm);
+  color: var(--text-muted);
+}
+.next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

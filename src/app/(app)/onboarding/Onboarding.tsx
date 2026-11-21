@@ -3,30 +3,32 @@
 import { useRouter } from "next/navigation";
 import { AnimatePresence, useReducedMotion } from "motion/react";
 import * as m from "motion/react-m";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useState, useTransition } from "react";
+import ResumePaper from "@/components/resume/ResumePaper";
 import { BottomActionBar } from "@/components/shell/BottomActionBar";
-import { Button, ButtonLink, buttonClass } from "@/components/ui/Button";
+import { Button, buttonClass } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Choice";
 import { ChipRow, FilterChip } from "@/components/ui/Chip";
-import { Dialog } from "@/components/ui/Dialog";
-import { Input, Textarea } from "@/components/ui/Field";
+import { Input, Select, Textarea } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
-import { ProgressBar, StageList } from "@/components/ui/Progress";
-import { SignatureLine } from "@/components/ui/Proof";
-import { Segmented } from "@/components/ui/Segmented";
-import { useToast } from "@/components/ui/Toast";
+import { StageList, type StageState } from "@/components/ui/Progress";
+import { Skeleton, SkeletonRegion, SkeletonText } from "@/components/ui/Skeleton";
 import { ApiError, api, waitFor, type Operation } from "@/lib/api";
 import { fade } from "@/lib/motion";
 import { naturalName } from "@/lib/names";
-import { LEVELS, type Draft, type DraftGroup, type Education, type Fact, type Goals, type Prefs, type Profile, type Question } from "@/lib/mock";
-import { useAction } from "@/lib/useAction";
-import { AboutForm, EducationRow, Experience, useEducation, type About } from "../profile/Edit";
+import { LEVELS, type Achievement, type Draft, type DraftGroup, type Education, type Fact, type Goals, type Prefs, type Profile } from "@/lib/mock";
+import { buildPreview } from "@/lib/preview";
+import { recommendTemplate } from "@/lib/recommend";
+import { TEMPLATES } from "@/lib/templates";
+import { Experience, splitLinks, type About } from "../profile/Edit";
 import s from "./onboarding.module.css";
 
-const STEPS = ["Upload", "Confirm facts", "About you", "Goals"] as const;
+const STEPS = ["Upload", "Check and build"] as const;
 const EXTENSIONS = [".pdf", ".docx", ".txt", ".md"];
 const FORMAT_MSG = "That file type isn’t supported. Upload a PDF, Word (.docx), .txt or .md file.";
+const MODES = ["Onsite", "Hybrid", "Remote"] as const;
+type Level = Fact["responsibility"];
 
 /** Plain-language upload errors (api/app/routes/imports.py). */
 function uploadError(err: unknown) {
@@ -38,161 +40,129 @@ function uploadError(err: unknown) {
   if (err.code === "NO_EXTRACTABLE_TEXT") return "We couldn’t find any text in that file. It may be a scan or a photo. Try a PDF exported from Word or Google Docs, or start from scratch.";
   return err.message;
 }
-const MODES = ["Onsite", "Hybrid", "Remote"] as const;
 
-/** Keep what's on screen while refreshed props arrive: confirmed drafts leave the server's queue but stay listed here. */
+/** Keep what's on screen while refreshed props arrive: confirmed drafts leave the server's queue but stay listed here.
+ * Groups match by their role or project id, so a re-import that adds a project's year updates the group in place. */
 function merge(old: DraftGroup[], next: DraftGroup[]) {
   const seen = new Set(old.flatMap((g) => g.drafts.map((d) => d.id)));
-  const same = (a: DraftGroup, b: DraftGroup) => a.role === b.role && a.dates === b.dates;
-  const out = old.map((g) => ({ ...g, drafts: [...g.drafts, ...(next.find((n) => same(n, g))?.drafts.filter((d) => !seen.has(d.id)) ?? [])] }));
-  return [...out, ...next.filter((n) => !old.some((g) => same(n, g)))];
+  const key = (g: DraftGroup) => g.experienceId ?? g.projectId ?? `${g.role}|${g.dates}`;
+  const out = old.map((g) => {
+    const n = next.find((x) => key(x) === key(g));
+    return n ? { ...g, ...n, drafts: [...g.drafts, ...n.drafts.filter((d) => !seen.has(d.id))] } : g;
+  });
+  const fresh = next.filter((n) => !old.some((g) => key(g) === key(n))).map((n) => ({ ...n, drafts: n.drafts.filter((d) => !seen.has(d.id)) }));
+  return [...out, ...fresh.filter((n) => n.drafts.length)];
 }
 
-type Found = { name?: string | null; email?: string | null; phone?: string | null };
+type Found = { name?: string | null; email?: string | null; phone?: string | null; location?: string | null; links?: string[] };
 const NUM_RE = /\d+(?:[.,]\d+)*/g; // the numbers the API marks (api/app/routes/profile.py _NUM_RE)
-const short = (t: string) => (t.length > 60 ? `${t.slice(0, 60)}…` : t);
-const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 const size = (f: File) => (f.size < 1024 * 1024 ? `${Math.max(1, Math.round(f.size / 1024))} KB` : `${(f.size / 1024 / 1024).toFixed(1)} MB`);
+const split = (v: string) => v.split(",").map((x) => x.trim()).filter(Boolean);
 
-// Numbers are what users most often confirm without reading, so they get called out.
-function markNumbers(text: string, numbers: string[]) {
+// Numbers are what people most often confirm without reading, so they're highlighted.
+function markNumbers(text: string) {
+  const numbers: string[] = text.match(NUM_RE) ?? [];
   if (!numbers.length) return text;
   const re = new RegExp(`(${numbers.map((n) => n.replace(/\W/g, "\\$&")).join("|")})`, "g");
-  return text.split(re).map((part, i) =>
-    numbers.includes(part) ? (
-      <strong key={i} className={s.num}>
-        {part}
-      </strong>
-    ) : (
-      <Fragment key={i}>{part}</Fragment>
-    ),
-  );
+  return text.split(re).map((part, i) => (numbers.includes(part) ? <strong key={i} className={s.num}>{part}</strong> : <Fragment key={i}>{part}</Fragment>));
 }
 
 export default function Onboarding({
   groups: liveGroups,
   education,
+  achievements,
   demo,
   about: initialAbout,
   goals,
   prefs,
-  questions,
   experience,
+  hasResume,
   initialStep = 0,
 }: {
   groups: DraftGroup[];
   education: Education[];
+  /** Imported achievements and publications: drafts are offered here, confirmed ones show in the preview. */
+  achievements: Achievement[];
   demo: boolean;
   about: About;
   goals: Goals;
   prefs: Prefs;
-  /** Guided enrichment (GET /v1/enrichment-questions): each answer becomes a draft fact. */
-  questions: Question[];
-  /** Roles and confirmed facts: with nothing to confirm (started from scratch), step 1 is where they're written. */
+  /** Roles, projects and confirmed facts: the preview shows these too, and "start from scratch" writes them here. */
   experience: { roles: Profile["roles"]; projects: Profile["projects"]; facts: Fact[]; confirmed: number };
-  /** 1 opens the confirm queue (links that say "to confirm" use ?step=confirm). */
+  /** With a resume already made, building again would add a second one: the button confirms and opens Resumes instead. */
+  hasResume: boolean;
+  /** 1 opens the review (links that say "to confirm" use ?step=confirm). */
   initialStep?: number;
 }) {
   const reduce = useReducedMotion();
   const router = useRouter();
-  const toast = useToast();
+  const [refreshing, startRefresh] = useTransition();
   const [step, setStep] = useState(initialStep);
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
-  const [rejected, setRejected] = useState<Record<string, boolean>>({});
-  const [skipped, setSkipped] = useState<string[]>([]); // "Skip for now": these go to the back of the queue
-  const [picked, setPicked] = useState<string | null>(null); // chosen from the list beside the card
-  const [levels, setLevels] = useState<Record<string, Fact["responsibility"]>>({});
-  const [busy, setBusy] = useState<string | null>(null); // what's in flight: "upload", "read", "goals", "build" or a draft id
+  // What's in flight: "upload", "queued", "running" (the reader's task state), "build", or "edit:<id>".
+  const [busy, setBusy] = useState<string | null>(null);
+  const [buildStage, setBuildStage] = useState(0); // 0 confirming, 1 saving details, 2 writing
   const [error, setError] = useState<string | null>(null);
-  const [confirmAll, setConfirmAll] = useState(false);
-  const [section, setSection] = useState<"facts" | "education">("facts");
-  const [modes, setModes] = useState<string[]>(prefs.modes);
+  // Review state: every draft is in unless unticked; the level shown is what gets confirmed.
+  const [off, setOff] = useState<Set<string>>(new Set());
+  const [levels, setLevels] = useState<Record<string, Level>>({});
+  const [done, setDone] = useState<Set<string>>(new Set()); // confirmed or left out on this screen (a retry skips them)
+  const [pending, setPending] = useState<Operation | null>(null); // the resume build in flight
+  // A task back in the queue with an error is retrying (Gemini busy or rate-limited): say so instead of "waiting".
+  const [retrying, setRetrying] = useState(false);
+  const watch = (o: Operation) => setRetrying(o.state === "queued" && !!o.error);
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [edits, setEdits] = useState<Record<string, { text: string; version?: number }>>({});
+  const [about, setAbout] = useState(initialAbout);
+  const [found, setFound] = useState<(keyof About)[]>([]);
+  const [links, setLinks] = useState((initialAbout.links ?? []).join(", "));
   const [role, setRole] = useState(goals.roles.join(", "));
   const [where, setWhere] = useState(prefs.locations.join(", "));
+  const [modes, setModes] = useState<string[]>(prefs.modes);
   const [visa, setVisa] = useState(prefs.visa === "Need sponsorship");
-  // Each confirm refreshes the server data (so the nav's "entries to confirm" count is current);
-  // what's listed here only grows, so a confirmed entry doesn't vanish mid-review.
+
   const [groups, setGroups] = useState(liveGroups);
   const [prevGroups, setPrevGroups] = useState(liveGroups);
   if (liveGroups !== prevGroups) {
     setPrevGroups(liveGroups);
     setGroups(merge(groups, liveGroups));
   }
-  const [eduShown, setEduShown] = useState(() => education.filter((e) => e.status === "draft"));
+  const [edu, setEdu] = useState(() => education.filter((e) => e.status === "draft"));
   const [prevEdu, setPrevEdu] = useState(education);
   if (education !== prevEdu) {
     setPrevEdu(education);
-    setEduShown([...eduShown, ...education.filter((e) => e.status === "draft" && !eduShown.some((x) => x.id === e.id))]);
-  }
-  const edu = useEducation(eduShown, demo);
-  const [about, setAbout] = useState(initialAbout);
-  const [found, setFound] = useState<(keyof About)[]>([]);
-  const [editing, setEditing] = useState<{ id: string; text: string; select?: string } | null>(null);
-  const [asked, setAsked] = useState<string[]>([]); // answered or skipped on this screen
-  const question = questions.find((q) => !asked.includes(q.id));
-  const [answer, setAnswer] = useState("");
-  const [answerNote, setAnswerNote] = useState("");
-  const ask = useAction();
-
-  // The queue: every draft fact in reading order, minus the ones marked "not mine".
-  const queue = groups.flatMap((g) => g.drafts.map((d) => ({ g, d }))).filter(({ d }) => !rejected[d.id]);
-  const open = queue.filter(({ d }) => !confirmed[d.id]).sort((x, y) => skipped.indexOf(x.d.id) - skipped.indexOf(y.d.id));
-  const cur = open.find(({ d }) => d.id === picked) ?? open[0];
-  const factsDone = queue.length - open.length;
-  const eduDone = edu.list.filter((e) => edu.status(e) === "confirmed").length;
-  const total = queue.length + edu.list.length;
-  const done = factsDone + eduDone;
-  const level = (d: Draft) => levels[d.id] ?? d.suggested;
-  // "Confirm all" takes only the facts a glance can check: no numbers, and a level already chosen.
-  const easy = open.filter(({ d }) => !d.numbers.length && level(d)).map(({ d }) => d);
-  const showEdu = section === "education" || !queue.length;
-
-  // After a confirm, skip or "not mine", focus moves to the next card's heading (keyboard and screen readers follow).
-  const heading = useRef<HTMLHeadingElement>(null);
-  const moveFocus = useRef(false);
-  useEffect(() => {
-    if (moveFocus.current) heading.current?.focus();
-    moveFocus.current = false;
-  }, [cur?.d.id]);
-  const next = () => {
-    moveFocus.current = true;
-    setPicked(null);
-  };
-
-  // PATCH /v1/facts/{id} appends a new version of the draft; the confirm below then uses its new version.
-  async function saveEdit(d: Draft) {
-    const text = editing?.text.trim();
-    if (!text || busy) return;
-    setError(null);
-    let version = d.version;
-    if (!demo) {
-      setBusy(`edit:${d.id}`);
-      try {
-        version = (await api<{ version: number }>(`/facts/${d.id}`, { method: "PATCH", body: { version: d.version, description: text } })).version;
-      } catch (err) {
-        setError((err as Error).message);
-        return;
-      } finally {
-        setBusy(null);
-      }
-    }
-    setGroups((gs) => gs.map((g) => ({ ...g, drafts: g.drafts.map((x) => (x.id === d.id ? { ...x, text, numbers: text.match(NUM_RE) ?? [], version } : x)) })));
-    setEditing(null);
+    setEdu([...edu, ...education.filter((e) => e.status === "draft" && !edu.some((x) => x.id === e.id))]);
   }
 
-  // POST /v1/enrichment-questions/{id}/answer saves the answer as a draft fact under the same role; it then arrives in the queue.
-  const reply = (q: Question, skip: boolean) =>
-    ask.run(skip ? "skip" : "answer", async () => {
-      if (!demo) {
-        await api(`/enrichment-questions/${q.id}/${skip ? "skip" : "answer"}`, { method: "POST", body: skip ? undefined : { answer: answer.trim() } });
-        if (!skip) router.refresh();
-      }
-      setAsked((x) => [...x, q.id]);
-      setAnswer("");
-      setAnswerNote(skip ? "" : demo ? "Sample data: nothing was sent. In your account your answer is saved as a draft fact to confirm." : "Saved as a draft fact. It joins the queue above; confirm it like the others.");
-    });
+  const reading = busy === "upload" || busy === "queued" || busy === "running" || (refreshing && !groups.length);
+  const drafts = groups.flatMap((g) => g.drafts);
+  // The reader suggests a level from the line's own verb; a verb that claims no level (Shipped, Gave…) reads as your own work.
+  const level = (d: Draft): Level => levels[d.id] ?? d.suggested ?? "Owned";
+  const ticked = drafts.filter((d) => !off.has(d.id));
+  const eduTicked = edu.filter((e) => e.id && !off.has(e.id));
+  const [wins] = useState(() => achievements.filter((x) => x.status === "draft")); // what's listed doesn't shrink on refresh
+  const winsTicked = wins.filter((x) => !off.has(x.id));
+  const target = split(role)[0] || about.headline || "Master resume";
+  // No goal yet: recommend from the latest job title, which says as much about the field.
+  const latest = experience.roles[0]?.title || groups.find((g) => g.kind !== "project")?.role.split(" · ")[0] || "";
+  const templateId = recommendTemplate(target === "Master resume" ? latest : target, experience.roles.length > 0 || groups.some((g) => g.kind !== "project"));
+  const template = TEMPLATES.find((t) => t.id === templateId) ?? TEMPLATES[0];
+
+  const preview = buildPreview({
+    about: { ...about, links: splitLinks(links) },
+    target,
+    roles: experience.roles,
+    projects: experience.projects,
+    facts: experience.facts,
+    groups,
+    off,
+    edits: Object.fromEntries(Object.entries(edits).map(([id, e]) => [id, e.text])),
+    education: [...education.filter((e) => e.status !== "draft"), ...eduTicked],
+    achievements: [...achievements.filter((x) => x.status !== "draft" && !wins.some((w) => w.id === x.id)), ...winsTicked].filter((x) => x.kind === "achievement").map((x) => x.text),
+  });
+
+  const toggle = (id: string) => setOff((o) => (o.has(id) ? new Set([...o].filter((x) => x !== id)) : new Set([...o, id])));
 
   function pick(f: File | null | undefined) {
     if (busy || !f) return;
@@ -200,107 +170,53 @@ export default function Onboarding({
     setFile(f);
   }
 
-  // POST /v1/imports (multipart) stores the file and queues the reader; the drafts it makes arrive via refresh.
-  // Demo: sample drafts, nothing uploaded.
+  // POST /v1/imports stores the file and queues the reader; the drafts it makes arrive with the refresh.
   async function readResume() {
     if (demo || !file) return setStep(1);
     if (busy) return;
     setBusy("upload");
     setError(null);
+    setStep(1);
+    window.scrollTo({ top: 0 });
     try {
       const body = new FormData();
       body.append("file", file);
       const r = await api<{ operation: Operation }>("/imports", { method: "POST", body });
-      setBusy("read");
-      const op = await waitFor(r.operation);
-      // Contact details the redaction step found (never sent to a model): offered on the "About you" step, empty fields only.
+      const op = await waitFor(r.operation, 300_000, (o) => {
+        watch(o);
+        setBusy(o.state === "queued" && !o.error ? "queued" : "running");
+      });
+      setRetrying(false);
+      // Contact details the redaction step found (never sent to a model): fill the empty fields only.
       const c = (op.result?.contact ?? {}) as Found;
+      // Empty fields only; the city also replaces the profile's guess from the latest job's location, since the
+      // file says where the person is.
       const fill = (["name", "email", "phone"] as const).filter((k) => c[k] && !about[k]);
-      setAbout({ ...about, ...Object.fromEntries(fill.map((k) => [k, k === "name" ? naturalName(c[k]!) : c[k]])) });
-      setFound(fill);
-      router.refresh();
-      setStep(1);
+      const city = c.location && c.location !== about.location ? c.location : null;
+      const newLinks = (c.links ?? []).filter((l) => !splitLinks(links).includes(l));
+      setAbout({ ...about, ...Object.fromEntries(fill.map((k) => [k, k === "name" ? naturalName(c[k]!) : c[k]])), ...(city ? { location: city } : {}) });
+      if (newLinks.length) setLinks(splitLinks([links, ...newLinks].join(", ")).join(", "));
+      setFound([...fill, ...(city ? (["location"] as const) : []), ...(newLinks.length ? (["links"] as const) : [])]);
+      setBusy(null);
+      startRefresh(() => router.refresh());
     } catch (err) {
       setError(uploadError(err));
-    } finally {
+      setRetrying(false);
       setBusy(null);
+      setStep(0);
     }
   }
 
-  // PUT /v1/goals and /v1/preferences replace the whole record: untouched fields keep their current values.
-  // Then the first master resume: POST /v1/resumes {template, target} -> wait -> open it. Demo opens the sample.
-  async function saveGoals(e: React.FormEvent) {
-    e.preventDefault();
-    if (busy) return;
-    if (demo) return router.push("/resumes/frontend-engineer");
-    setBusy("goals");
+  // PATCH /v1/facts/{id}: a new version of the draft, in the user's words; it's confirmed with that version.
+  async function saveEdit(d: Draft) {
+    const text = editing?.text.trim();
+    if (!text || busy) return;
     setError(null);
-    const split = (v: string) => v.split(",").map((x) => x.trim()).filter(Boolean);
-    try {
-      await api("/goals", { method: "PUT", body: { ...goals, roles: split(role) } satisfies Goals });
-      await api("/preferences", {
-        method: "PUT",
-        body: { ...prefs, locations: split(where), modes, visa: visa ? "Need sponsorship" : prefs.visa === "Need sponsorship" ? "Not needed" : prefs.visa } satisfies Prefs,
-      });
-      setBusy("build");
-      const target = split(role)[0] || about.headline || "Master resume";
-      const r = await api<{ resume_id: string; operation: Operation }>("/resumes", { method: "POST", body: { template: "classic", target } });
-      const op = await waitFor(r.operation);
-      router.push(`/resumes/${(op.result?.resume_id as string | undefined) ?? r.resume_id}`);
-    } catch (err) {
-      setError(
-        err instanceof ApiError && err.code === "UNCONFIRMED_ENTRY"
-          ? "Your goals are saved. To build a resume, confirm at least one entry first: go back a step, or confirm them from your profile."
-          : (err as Error).message,
-      );
-      setBusy(null);
-    }
-  }
-
-  // Live confirms are one-way: undoing a confirmed fact is a reject, done from the profile. Sample data can undo.
-  async function confirm(ds: Draft[]) {
-    if (busy) return;
-    setError(null);
-    const ok: string[] = [];
-    for (const d of ds) {
-      if (confirmed[d.id]) continue;
-      // The reader doesn't always suggest a level; the API requires one (RESPONSIBILITY_LEVEL_REQUIRED).
-      if (!level(d)) {
-        setError(`Choose how much of “${short(d.text)}” was yours (Contributed, Owned, Led or Managed), then confirm it.`);
-        break;
-      }
-      if (!demo) {
-        setBusy(d.id);
-        try {
-          await api(`/facts/${d.id}/confirm`, { method: "POST", body: { version: d.version, responsibility_level: LEVELS.indexOf(level(d)) + 1 } });
-        } catch (err) {
-          setError((err as Error).message);
-          break;
-        }
-      }
-      ok.push(d.id);
-      setConfirmed((c) => ({ ...c, [d.id]: true }));
-    }
-    setBusy(null);
-    if (!ok.length) return;
-    next();
-    const what = ok.length === 1 ? "Fact confirmed" : `${ok.length} facts confirmed`;
-    toast(
-      demo
-        ? { message: what, action: { label: "Undo", onClick: () => setConfirmed((c) => ({ ...c, ...Object.fromEntries(ok.map((id) => [id, false])) })) } }
-        : { message: `${what}. To take one back, reject it from your profile.` },
-    );
-    if (!demo) router.refresh(); // the nav's "entries to confirm" count
-  }
-
-  // "Not mine": POST /v1/facts/{id}/reject marks the draft rejected (kept, never silently deleted).
-  async function reject(d: Draft) {
-    if (busy) return;
-    setError(null);
+    let version = edits[d.id]?.version ?? d.version;
     if (!demo) {
-      setBusy(`reject:${d.id}`);
+      setBusy(`edit:${d.id}`);
       try {
-        await api(`/facts/${d.id}/reject`, { method: "POST", body: { version: d.version } });
+        version = (await api<{ version: number }>(`/facts/${d.id}`, { method: "PATCH", body: { version, description: text } })).version;
       } catch (err) {
         setError((err as Error).message);
         return;
@@ -308,20 +224,74 @@ export default function Onboarding({
         setBusy(null);
       }
     }
-    setRejected((r) => ({ ...r, [d.id]: true }));
-    next();
-    toast(demo ? { message: "Marked as not yours", action: { label: "Undo", onClick: () => setRejected((r) => ({ ...r, [d.id]: false })) } } : { message: "Marked as not yours. It stays out of your resumes." });
-    if (!demo) router.refresh();
+    setEdits((e) => ({ ...e, [d.id]: { text, version } }));
+    setEditing(null);
   }
 
-  const onCardKey = (e: React.KeyboardEvent, d: Draft) => {
-    if (editing || (e.target as HTMLElement).closest("button, input, textarea, select, a, label")) return;
-    if (e.key === "Enter") confirm([d]);
-    else if (e.key === "e" || e.key === "E") setEditing({ id: d.id, text: d.text });
-    else if (e.key === "n" || e.key === "N") reject(d);
-    else return;
-    e.preventDefault();
-  };
+  // One button does what four steps used to: confirm the ticked lines (each at the level shown) and the roles they sit
+  // under, mark unticked lines "not mine" (kept, never deleted; reversible from the profile by adding the line again),
+  // save details and goals, then build the first master in the recommended template and open Improve.
+  async function build() {
+    if (busy) return;
+    setError(null);
+    if (!ticked.length && !experience.confirmed) return setError("Tick at least one line to build your resume.");
+    if (demo) return router.push("/improve");
+    setBusy("build");
+    window.scrollTo({ top: 0 });
+    try {
+      setBuildStage(0);
+      const now = new Set(done);
+      const once = async (id: string, path: string, body: object) => {
+        if (now.has(id)) return;
+        await api(path, { method: "POST", body });
+        now.add(id);
+        setDone(new Set(now));
+      };
+      for (const d of drafts) {
+        const version = edits[d.id]?.version ?? d.version;
+        if (off.has(d.id)) await once(d.id, `/facts/${d.id}/reject`, { version });
+        else await once(d.id, `/facts/${d.id}/confirm`, { version, responsibility_level: LEVELS.indexOf(level(d)) + 1 });
+      }
+      // Job checks count years and titles from confirmed roles only (api/app/tasks/match.py).
+      for (const g of groups)
+        if (g.kind === "experience" && g.status === "draft" && g.experienceId && g.drafts.some((d) => !off.has(d.id)))
+          await once(g.experienceId, `/experiences/${g.experienceId}/confirm`, { version: g.experienceVersion });
+      for (const e of edu) await once(e.id!, `/education/${e.id}/${off.has(e.id!) ? "reject" : "confirm"}`, { version: e.version });
+      for (const x of wins) if (!off.has(x.id)) await once(x.id, `/achievements/${x.id}/confirm`, { version: x.version });
+
+      setBuildStage(1);
+      const next = { name: about.name.trim(), headline: about.headline.trim(), location: about.location.trim(), email: about.email.trim(), phone: about.phone.trim(), links: splitLinks(links) };
+      if (JSON.stringify(next) !== JSON.stringify(initialAbout)) await api("/me", { method: "PATCH", body: next });
+      await api("/goals", { method: "PUT", body: { ...goals, roles: split(role) } satisfies Goals });
+      await api("/preferences", {
+        method: "PUT",
+        body: { ...prefs, locations: split(where), modes, visa: visa ? "Need sponsorship" : prefs.visa === "Need sponsorship" ? "Not needed" : prefs.visa } satisfies Prefs,
+      });
+      if (hasResume) return router.push("/resumes");
+
+      setBuildStage(2);
+      // A retry after a timeout waits on the same build instead of starting a second resume.
+      let op = pending;
+      if (!op) {
+        op = (await api<{ resume_id: string; operation: Operation }>("/resumes", { method: "POST", body: { template: templateId, target } })).operation;
+        setPending(op);
+      } else op = await api<Operation>(`/tasks/${op.id}`);
+      try {
+        await waitFor(op, 300_000, watch);
+      } catch (err) {
+        if (!(err instanceof ApiError && err.code === "TIMEOUT")) setPending(null); // failed: the next click starts afresh
+        throw err instanceof ApiError && err.code === "TIMEOUT"
+          ? new Error("Your resume is still being written: the AI service is slow right now. Keep this page open and click the button again to keep waiting.")
+          : err;
+      }
+      router.push("/improve");
+    } catch (err) {
+      setRetrying(false);
+      setError(err instanceof ApiError && err.status === 409 ? "Something changed in another tab. Reload the page and try again; what you confirmed is saved." : (err as Error).message);
+      setBusy(null);
+      router.refresh();
+    }
+  }
 
   const problem = (msg: string | null) =>
     msg && (
@@ -331,8 +301,25 @@ export default function Onboarding({
       </p>
     );
 
+  const count = ticked.length + eduTicked.length + winsTicked.length;
+  const stage = (on: boolean, past: boolean): StageState => (past ? "done" : on ? "current" : "pending");
+  const readStages = [
+    { label: "Uploading your file", state: stage(busy === "upload", busy !== "upload") },
+    { label: "Waiting for a free reader", state: stage(busy === "queued", busy === "running" || refreshing) },
+    { label: retrying ? "The AI service is busy. Retrying on its own…" : "Finding your roles, dates and numbers", state: stage(busy === "running", refreshing) },
+    { label: "Laying out your preview", state: stage(refreshing, false) },
+  ];
+  const buildStages = [
+    { label: `Confirming ${count} line${count === 1 ? "" : "s"}`, state: stage(buildStage === 0, buildStage > 0) },
+    { label: "Saving your details and goals", state: stage(buildStage === 1, buildStage > 1) },
+    ...(hasResume ? [] : [{ label: retrying ? "The AI service is busy. Retrying on its own…" : `Writing your resume in ${template.name}, then checking every line`, state: stage(buildStage === 2, false) }]),
+  ];
+
+  const nothing = !drafts.length && !edu.length && !wins.length;
+  const label = hasResume ? `Confirm ${count} and update my resume` : count ? `Build my resume with ${count} line${count === 1 ? "" : "s"}` : "Build my resume";
+
   return (
-    <div className={`${s.wrap} ${step === 1 && total > 0 ? s.wide : ""}`}>
+    <div className={`${s.wrap} ${step === 1 ? s.wide : ""}`}>
       <div className={s.strip}>
         <ol className={s.ticks} aria-hidden>
           {STEPS.map((st, i) => (
@@ -350,89 +337,66 @@ export default function Onboarding({
             <div className={s.narrow}>
               <header className={s.head}>
                 <h1 className={s.h1}>Start with the resume you have</h1>
-                <p className={s.sub}>We read it, you confirm what’s true, then we write.</p>
+                <p className={s.sub}>We read it and show it back as a resume. You check it once, then it’s built.</p>
               </header>
 
-              {busy === "upload" || busy === "read" ? (
-                <Card className={s.reading} aria-live="polite">
-                  <div className={s.fileRow}>
-                    <Icon name="doc" size={24} />
-                    <span className={s.fileName}>{file?.name}</span>
-                    <span className={s.fileSize}>{file && size(file)}</span>
-                  </div>
-                  <StageList
-                    label="Reading your resume"
-                    stages={[
-                      { label: "Uploading your file", state: busy === "upload" ? "current" : "done" },
-                      { label: "Finding your roles, dates and numbers", state: busy === "read" ? "current" : "pending" },
-                      { label: "Getting facts ready to confirm", state: "pending" },
-                    ]}
-                  />
-                  <p className={s.fine}>This can take up to a minute.</p>
-                </Card>
-              ) : (
-                <>
-                  <label
-                    className={s.drop}
-                    data-state={dragging ? "over" : error ? "error" : file ? "chosen" : undefined}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragging(true);
-                    }}
-                    onDragLeave={() => setDragging(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragging(false);
-                      pick(e.dataTransfer.files[0]);
-                    }}
-                  >
-                    <input
-                      type="file"
-                      accept={`${EXTENSIONS.join(",")},application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown`}
-                      className="sr-only"
-                      onChange={(e) => pick(e.target.files?.[0])}
-                    />
-                    <Icon name={error ? "alert" : "doc"} size={40} className={s.dropIcon} />
-                    {file && !dragging ? (
-                      <span className={s.fileRow}>
-                        <span className={s.fileName}>{file.name}</span>
-                        <span className={s.fileSize}>{size(file)}</span>
-                      </span>
+              <label
+                className={s.drop}
+                data-state={dragging ? "over" : error ? "error" : file ? "chosen" : undefined}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  pick(e.dataTransfer.files[0]);
+                }}
+              >
+                <input
+                  type="file"
+                  accept={`${EXTENSIONS.join(",")},application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown`}
+                  className="sr-only"
+                  onChange={(e) => pick(e.target.files?.[0])}
+                />
+                <Icon name={error ? "alert" : "doc"} size={40} className={s.dropIcon} />
+                {file && !dragging ? (
+                  <span className={s.fileRow}>
+                    <span className={s.fileName}>{file.name}</span>
+                    <span className={s.fileSize}>{size(file)}</span>
+                  </span>
+                ) : (
+                  <span className={s.dropTitle}>
+                    {dragging ? (
+                      "Drop to upload"
                     ) : (
-                      <span className={s.dropTitle}>
-                        {dragging ? (
-                          "Drop to upload"
-                        ) : (
-                          <>
-                            <span className={s.desk}>Drop your resume here</span>
-                            <span className={s.phone}>Choose your resume</span>
-                          </>
-                        )}
-                      </span>
+                      <>
+                        <span className={s.desk}>Drop your resume here</span>
+                        <span className={s.phone}>Choose your resume</span>
+                      </>
                     )}
-                    <span className={s.fine}>PDF, Word or text, up to 10 pages. Scanned PDFs aren’t supported yet.</span>
-                    <span className={buttonClass(file ? "secondary" : "primary", "md", s.chooseBtn)} aria-hidden>
-                      {file ? "Choose another file" : "Choose file"}
-                    </span>
-                  </label>
-                  {problem(error)}
-                  {file && (
-                    <div className={s.actions}>
-                      <Button variant="primary" disabled={!!busy || error === FORMAT_MSG} onClick={readResume}>
-                        Read my resume
-                      </Button>
-                      {demo && <span className={s.fine}>Sample data: nothing is uploaded; you’ll see example facts.</span>}
-                    </div>
-                  )}
-                </>
+                  </span>
+                )}
+                <span className={s.fine}>PDF, Word or text, up to 10 pages. Scanned PDFs aren’t supported yet.</span>
+                <span className={buttonClass(file ? "secondary" : "primary", "md", s.chooseBtn)} aria-hidden>
+                  {file ? "Choose another file" : "Choose file"}
+                </span>
+              </label>
+              {problem(error)}
+              {file && (
+                <div className={s.actions}>
+                  <Button variant="primary" disabled={!!busy || error === FORMAT_MSG} onClick={readResume}>
+                    Read my resume
+                  </Button>
+                  {demo && <span className={s.fine}>Sample data: nothing is uploaded; you’ll see example lines.</span>}
+                </div>
               )}
 
-              {!busy && (
-                <button type="button" className={s.textLink} onClick={() => setStep(1)}>
-                  No resume? Start from scratch
-                  <Icon name="arrowRight" size={18} />
-                </button>
-              )}
+              <button type="button" className={s.textLink} onClick={() => setStep(1)}>
+                No resume? Start from scratch
+                <Icon name="arrowRight" size={18} />
+              </button>
               <p className={s.lock}>
                 <Icon name="lock" size={16} />
                 Free PDF and Word export. Your file is read in a sealed sandbox and never shared.
@@ -443,398 +407,234 @@ export default function Onboarding({
                   What happens next
                 </h2>
                 <ol>
-                  <li>We find your roles, dates and numbers</li>
-                  <li>You confirm each fact (about 5 minutes)</li>
-                  <li>Your resume is written from those facts only</li>
+                  <li>We read your roles, dates and numbers, word for word</li>
+                  <li>You see it as a resume and untick anything that’s wrong</li>
+                  <li>One click builds it, then we suggest improvements</li>
                 </ol>
               </section>
             </div>
           )}
 
-          {step === 1 && total === 0 && (
-            <div className={s.narrow}>
-              <header className={s.head}>
-                <h1 className={s.h1}>Add your experience</h1>
-                <p className={s.sub}>Add each role, then write what you did there, with real numbers. Your resume is made only from what you write here.</p>
-              </header>
-              <Experience roles={experience.roles} projects={experience.projects} facts={experience.facts} confirmed={experience.confirmed} demo={demo} />
-            </div>
-          )}
+          {step === 1 && (
+            <div className={s.split}>
+              <div className={s.left}>
+                {reading ? (
+                  <>
+                    <header className={s.head}>
+                      <h1 className={s.h1}>Reading your resume</h1>
+                      <p className={s.sub}>Usually under a minute. Your preview fills in on the right when it’s done.</p>
+                    </header>
+                    <Card className={s.reading} aria-live="polite">
+                      {file && (
+                        <div className={s.fileRow}>
+                          <Icon name="doc" size={24} />
+                          <span className={s.fileName}>{file.name}</span>
+                          <span className={s.fileSize}>{size(file)}</span>
+                        </div>
+                      )}
+                      <StageList label="Reading your resume" stages={readStages} />
+                    </Card>
+                    <section className={s.next} aria-labelledby="how-h">
+                      <h2 id="how-h" className={s.h3}>
+                        What we’re doing with it
+                      </h2>
+                      <ol>
+                        <li>Removing your contact details before any AI reads the text</li>
+                        <li>Copying every line as you wrote it. Nothing is reworded.</li>
+                        <li>Checking every number against your file</li>
+                      </ol>
+                    </section>
+                  </>
+                ) : busy === "build" ? (
+                  <>
+                    <header className={s.head}>
+                      <h1 className={s.h1}>{hasResume ? "Saving" : "Building your resume"}</h1>
+                      <p className={s.sub}>Every line is checked against what you confirmed. This can take a minute.</p>
+                    </header>
+                    <Card className={s.reading} aria-live="polite">
+                      <StageList label="Building your resume" stages={buildStages} />
+                    </Card>
+                  </>
+                ) : (
+                  <>
+                    <header className={s.head}>
+                      <h1 className={s.h1}>{nothing ? "Add your experience" : "Check what we read"}</h1>
+                      <p className={s.sub}>
+                        {nothing
+                          ? "Add each role, then what you did there, with real numbers. The preview fills in as you go."
+                          : "Ticked lines go on your resume exactly as written. Untick anything that’s wrong; numbers are highlighted so you can check them."}
+                      </p>
+                    </header>
 
-          {step === 1 && total > 0 && (
-            <>
-              <header className={s.confirmHead}>
-                <div className={s.headText}>
-                  <h1 className={s.h1}>Confirm what’s really yours</h1>
-                  <p className={s.sub}>Only confirmed facts go into your resume. Check the numbers and how much of each one was yours.</p>
-                </div>
-                <div className={s.count}>
-                  <ProgressBar value={done} max={total} label={`${done} of ${total} confirmed`} />
-                </div>
-              </header>
-
-              {queue.length > 0 && edu.list.length > 0 && (
-                <ChipRow label="Sections" className={s.chips}>
-                  <FilterChip pressed={section === "facts"} onClick={() => setSection("facts")}>
-                    Roles {factsDone}/{queue.length}
-                  </FilterChip>
-                  <FilterChip pressed={section === "education"} onClick={() => setSection("education")}>
-                    Education {eduDone}/{edu.list.length}
-                  </FilterChip>
-                </ChipRow>
-              )}
-
-              {showEdu ? (
-                <div className={s.eduCol}>
-                  <Card flush>
-                    <div className={s.eduHead}>
-                      <h2 className={s.h3}>Education</h2>
-                      <p className={s.fine}>Confirm a degree so jobs that ask for it can count it.</p>
-                    </div>
-                    <ul className={s.eduList}>
-                      {edu.list.map((e) => (
-                        <li key={e.id}>
-                          <EducationRow bare e={e} status={edu.status(e)} busy={edu.busy} onSet={(to) => edu.set(e, to)} />
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                  {problem(edu.error)}
-                </div>
-              ) : (
-                <div className={s.queue}>
-                  <div className={s.main}>
-                    {open.length > 0 && (
-                      <div className={s.allBar}>
-                        <p>
-                          {open.length} fact{open.length === 1 ? "" : "s"} left.
-                          {!easy.length ? " Facts with numbers are checked one by one." : easy.length < open.length ? ` ${open.length - easy.length} with numbers stay for one-by-one review.` : ""}
-                        </p>
-                        {easy.length > 0 && (
-                          <Button size="sm" disabled={!!busy} onClick={() => setConfirmAll(true)}>
-                            Confirm all {easy.length} without numbers
-                          </Button>
-                        )}
-                      </div>
+                    {nothing ? (
+                      <Experience roles={experience.roles} projects={experience.projects} facts={experience.facts} confirmed={experience.confirmed} demo={demo} />
+                    ) : (
+                      groups.map((g) => (
+                        <Card key={`${g.role}-${g.dates}`} flush className={s.group}>
+                          <h2 className={s.groupHead}>
+                            {g.role}
+                            {g.dates && <span className={s.dates}>{g.dates}</span>}
+                          </h2>
+                          <ul className={s.lines}>
+                            {g.drafts.map((d) => {
+                              const text = edits[d.id]?.text ?? d.text;
+                              const isOn = !off.has(d.id);
+                              return (
+                                <li key={d.id} className={s.line} data-off={!isOn || undefined}>
+                                  {editing?.id === d.id ? (
+                                    <form
+                                      className={s.editForm}
+                                      onSubmit={(e) => {
+                                        e.preventDefault();
+                                        saveEdit(d);
+                                      }}
+                                    >
+                                      <Textarea label="Fix what we read" rows={3} maxLength={2000} required autoFocus value={editing.text} onChange={(e) => setEditing({ id: d.id, text: e.target.value })} />
+                                      <div className={s.row}>
+                                        <Button type="submit" size="sm" variant="primary" loading={busy === `edit:${d.id}`} disabled={!editing.text.trim()}>
+                                          Save
+                                        </Button>
+                                        <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => setEditing(null)}>
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    </form>
+                                  ) : (
+                                    <>
+                                      <Checkbox label={<span className={s.lineText}>{markNumbers(text)}</span>} checked={isOn} disabled={done.has(d.id)} onChange={() => toggle(d.id)} />
+                                      {isOn && (
+                                        <div className={s.lineTools}>
+                                          <Select label="Your part" hideLabel className={s.level} value={level(d)} disabled={done.has(d.id)} onChange={(e) => setLevels({ ...levels, [d.id]: e.target.value as Level })}>
+                                            {LEVELS.map((l) => (
+                                              <option key={l} value={l}>
+                                                {l === "Contributed" ? "I contributed" : l === "Owned" ? "I did it myself" : l === "Led" ? "I led it" : "I managed people on it"}
+                                              </option>
+                                            ))}
+                                          </Select>
+                                          {!done.has(d.id) && (
+                                            <Button size="sm" variant="ghost" onClick={() => setEditing({ id: d.id, text })}>
+                                              Edit
+                                            </Button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </Card>
+                      ))
                     )}
 
-                    <AnimatePresence mode="wait" initial={false}>
-                      {cur ? (
-                        <m.div
-                          key={cur.d.id}
-                          initial={{ opacity: 0, x: 24 }}
-                          animate={{ opacity: 1, x: 0, transition: reduce ? { duration: 0 } : { duration: 0.25, ease: [0.23, 1, 0.32, 1] } }}
-                          exit={{ opacity: 0, x: -24, transition: reduce ? { duration: 0 } : { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
-                        >
-                          <Card className={s.fact} onKeyDown={(e: React.KeyboardEvent) => onCardKey(e, cur.d)}>
-                            <div className={s.factTop}>
-                              <span>
-                                Fact {queue.indexOf(cur) + 1} of {queue.length}
-                              </span>
-                              {open.length > 1 && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  disabled={!!busy}
-                                  onClick={() => {
-                                    setSkipped((x) => [...x.filter((id) => id !== cur.d.id), cur.d.id]);
-                                    setEditing(null);
-                                    next();
-                                  }}
-                                >
-                                  Skip for now
-                                </Button>
-                              )}
-                            </div>
-                            <h2 ref={heading} tabIndex={-1} className={s.role}>
-                              {cur.g.role}
-                              <span className={s.dates}>{cur.g.dates}</span>
-                            </h2>
-
-                            {editing?.id === cur.d.id ? (
-                              <form
-                                id="fact-edit"
-                                onSubmit={(e) => {
-                                  e.preventDefault();
-                                  saveEdit(cur.d);
-                                }}
-                              >
-                                <Textarea
-                                  label="Fix what we read"
-                                  rows={3}
-                                  maxLength={2000}
-                                  required
-                                  autoFocus
-                                  value={editing.text}
-                                  onChange={(e) => setEditing({ id: cur.d.id, text: e.target.value })}
-                                  onFocus={(e) => {
-                                    const i = editing.select ? e.target.value.indexOf(editing.select) : -1;
-                                    if (i >= 0) e.target.setSelectionRange(i, i + editing.select!.length);
-                                  }}
-                                />
-                              </form>
-                            ) : (
-                              <p className={s.factText}>{markNumbers(cur.d.text, cur.d.numbers)}</p>
-                            )}
-
-                            {cur.d.numbers.length > 0 && editing?.id !== cur.d.id && (
-                              <div className={s.numbers}>
-                                <Icon name="alert" size={18} />
-                                <span>Check these numbers:</span>
-                                {cur.d.numbers.map((n) => (
-                                  <button key={n} type="button" className={s.numChip} onClick={() => setEditing({ id: cur.d.id, text: cur.d.text, select: n })}>
-                                    {n}
-                                    <span className="sr-only">: edit this number</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-
-                            <Segmented
-                              label="Your part"
-                              size="sm"
-                              options={LEVELS.map((l) => ({ value: l, label: l }))}
-                              value={level(cur.d)}
-                              onChange={(l) => setLevels({ ...levels, [cur.d.id]: l })}
-                              className={s.levels}
-                            />
-
-                            {problem(error)}
-
-                            <div className={s.factActions}>
-                              {editing?.id === cur.d.id ? (
-                                <>
-                                  <Button variant="ghost" disabled={!!busy} onClick={() => setEditing(null)}>
-                                    Cancel
-                                  </Button>
-                                  <Button variant="primary" type="submit" form="fact-edit" loading={busy === `edit:${cur.d.id}`} disabled={!editing.text.trim()}>
-                                    Save
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <Button variant="ghost" loading={busy === `reject:${cur.d.id}`} disabled={!!busy} onClick={() => reject(cur.d)}>
-                                    Not mine
-                                  </Button>
-                                  <span className={s.grow} />
-                                  <Button disabled={!!busy} onClick={() => setEditing({ id: cur.d.id, text: cur.d.text })}>
-                                    Edit
-                                  </Button>
-                                  <Button variant="primary" loading={busy === cur.d.id} disabled={!!busy} onClick={() => confirm([cur.d])}>
-                                    Confirm
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </Card>
-                        </m.div>
-                      ) : (
-                        <m.div key="done" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={fade}>
-                          <Card className={s.allDone}>
-                            <Icon name="check" size={40} />
-                            <h2 className={s.h2}>All facts confirmed</h2>
-                            <p className={s.sub}>Your resume is written only from these. Continue when you’re ready.</p>
-                          </Card>
-                        </m.div>
-                      )}
-                    </AnimatePresence>
-
-                    {question && (
-                      <Card
-                        as="form"
-                        className={s.question}
-                        aria-labelledby="quick-q"
-                        onSubmit={(e: React.FormEvent) => {
-                          e.preventDefault();
-                          reply(question, false);
-                        }}
-                      >
-                        <h2 id="quick-q" className={s.h3}>
-                          One quick question
-                        </h2>
-                        <p className={s.questionText}>{question.question}</p>
-                        <Textarea
-                          label="Your answer"
-                          hideLabel
-                          rows={2}
-                          maxLength={2000}
-                          value={answer}
-                          onChange={(e) => setAnswer(e.target.value)}
-                          helper="Your answer becomes a draft fact you confirm, e.g. Checkout conversion rose from 2.1% to 2.6%"
-                        />
-                        <div className={s.row}>
-                          <Button type="submit" size="sm" variant="secondary" loading={ask.busy === "answer"} disabled={!answer.trim() || !!ask.busy}>
-                            Save as draft fact
-                          </Button>
-                          <Button size="sm" variant="ghost" loading={ask.busy === "skip"} disabled={!!ask.busy} onClick={() => reply(question, true)}>
-                            Skip
-                          </Button>
-                        </div>
-                        {problem(ask.error)}
+                    {edu.length > 0 && (
+                      <Card flush className={s.group}>
+                        <h2 className={s.groupHead}>Education</h2>
+                        <ul className={s.lines}>
+                          {edu.map((e) => (
+                            <li key={e.id} className={s.line} data-off={off.has(e.id!) || undefined}>
+                              <Checkbox
+                                label={<span className={s.lineText}>{[e.degree || "Degree not read", e.org, e.dates].filter(Boolean).join(" · ")}</span>}
+                                checked={!off.has(e.id!)}
+                                disabled={done.has(e.id!)}
+                                onChange={() => toggle(e.id!)}
+                              />
+                            </li>
+                          ))}
+                        </ul>
                       </Card>
                     )}
-                    {answerNote && (
-                      <p role="status" className={s.fine}>
-                        {answerNote}
-                      </p>
+
+                    {wins.length > 0 && (
+                      <Card flush className={s.group}>
+                        <h2 className={s.groupHead}>Achievements</h2>
+                        <ul className={s.lines}>
+                          {wins.map((x) => (
+                            <li key={x.id} className={s.line} data-off={off.has(x.id) || undefined}>
+                              <Checkbox label={<span className={s.lineText}>{markNumbers(x.text)}</span>} checked={!off.has(x.id)} disabled={done.has(x.id)} onChange={() => toggle(x.id)} />
+                            </li>
+                          ))}
+                        </ul>
+                      </Card>
                     )}
-                  </div>
 
-                  <aside className={s.side} aria-labelledby="list-h">
-                    <h2 id="list-h" className={s.h3}>
-                      Your facts
-                    </h2>
-                    <ul className={s.list}>
-                      {queue.map((x) => {
-                        const on = !!confirmed[x.d.id];
-                        return (
-                          <li key={x.d.id} data-current={x === cur || undefined} data-done={on || undefined}>
-                            {on ? (
-                              <div className={s.item}>
-                                <span className={s.itemText}>{x.d.text}</span>
-                                <SignatureLine date={today()} reveal={!reduce} />
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                className={s.item}
-                                aria-current={x === cur ? "true" : undefined}
-                                onClick={() => {
-                                  setPicked(x.d.id);
-                                  setEditing(null);
-                                }}
-                              >
-                                <span className={s.itemText}>{x.d.text}</span>
-                                {x.d.numbers.length > 0 && <span className={s.itemNote}>Has numbers to check</span>}
-                              </button>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </aside>
-                </div>
-              )}
-            </>
-          )}
+                    <Card className={s.form}>
+                      <h2 className={s.h3}>Top of your resume</h2>
+                      {found.length > 0 && <p className={s.fine}>We filled in {found.map((k) => (k === "location" ? "city" : k)).join(", ")} from your file. Check before you build.</p>}
+                      <div className={s.pair}>
+                        <Input label="Name" value={about.name} onChange={(e) => setAbout({ ...about, name: e.target.value })} autoComplete="name" />
+                        <Input label="City" value={about.location} onChange={(e) => setAbout({ ...about, location: e.target.value })} autoComplete="address-level2" />
+                        <Input label="Email" type="email" value={about.email} onChange={(e) => setAbout({ ...about, email: e.target.value })} autoComplete="email" />
+                        <Input label="Phone" type="tel" value={about.phone} onChange={(e) => setAbout({ ...about, phone: e.target.value })} autoComplete="tel" />
+                      </div>
+                      <Input label="Links" value={links} onChange={(e) => setLinks(e.target.value)} placeholder="e.g. github.com/you, linkedin.com/in/you" helper="GitHub, LinkedIn or portfolio, separated by commas (up to 4)." />
+                      <p className={s.fine}>Contact details are never sent to an AI model.</p>
+                    </Card>
 
-          {step === 1 && (
-            <div className={total > 0 ? s.footer : `${s.footer} ${s.narrow}`}>
-              <p id="continue-note" className={s.fine}>
-                {total > 0 && !done ? "Confirm at least one fact first." : total === 0 ? "You can add more later from your profile." : "You can confirm the rest later from your profile."}
-              </p>
-              <BottomActionBar label="Next step">
-                <Button
-                  variant={open.length || total === 0 ? "secondary" : "primary"}
-                  disabled={!done && total > 0}
-                  aria-describedby="continue-note"
-                  onClick={() => setStep(2)}
-                 
-                >
-                  {total === 0 ? "Continue" : `Continue with ${done} confirmed`}
-                </Button>
-              </BottomActionBar>
-            </div>
-          )}
+                    <Card className={s.form}>
+                      <h2 className={s.h3}>What you’re aiming for</h2>
+                      <Input label="Target role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Senior Frontend Engineer" helper="Picks your template and builds your job searches. Separate more than one with commas." />
+                      <Input label="Where can you work?" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="e.g. Bengaluru, Pune" />
+                      <fieldset className={s.fieldset}>
+                        <legend>Work mode</legend>
+                        <ChipRow>
+                          {MODES.map((mode) => {
+                            const on = modes.includes(mode);
+                            return (
+                              <FilterChip key={mode} pressed={on} onClick={() => setModes(on ? modes.filter((x) => x !== mode) : [...modes, mode])}>
+                                {mode}
+                              </FilterChip>
+                            );
+                          })}
+                        </ChipRow>
+                      </fieldset>
+                      <Checkbox label="I need visa sponsorship" checked={visa} onChange={(e) => setVisa(e.target.checked)} />
+                    </Card>
 
-          {step === 2 && (
-            <div className={s.narrow}>
-              <header className={s.head}>
-                <h1 className={s.h1}>How should your resume introduce you?</h1>
-                <p className={s.sub}>This is the top of every resume you make. You can change it later from your profile.</p>
-              </header>
-              <Card>
-                <AboutForm
-                  initial={about}
-                  fromResume={found}
-                  demo={demo}
-                  onSaved={(v) => {
-                    setAbout(v);
-                    setStep(3);
-                  }}
-                  submitLabel="Save and continue"
-                />
-              </Card>
-              <div className={s.actions}>
-                <Button variant="ghost" onClick={() => setStep(3)}>
-                  Skip for now
-                </Button>
+                    <div className={s.footer}>
+                      {problem(error)}
+                      <p id="build-note" className={s.fine}>
+                        {off.size ? "Unticked lines are marked “not mine” and left out. You can add a line again from your profile." : "You can change any line later from your profile."}
+                      </p>
+                      <BottomActionBar label="Build">
+                        <Button variant="primary" aria-describedby="build-note" disabled={!!busy} onClick={build}>
+                          {label}
+                        </Button>
+                      </BottomActionBar>
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          )}
 
-          {step === 3 && (
-            <div className={s.narrow}>
-              <header className={s.head}>
-                <h1 className={s.h1}>What are you aiming for?</h1>
-                <p className={s.sub}>These decide which jobs are a real fit. Skip anything; we mark it unknown, never guess.</p>
-              </header>
-              <Card as="form" className={s.form} onSubmit={saveGoals}>
-                <Input label="Target role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Senior Frontend Engineer" helper="Separate more than one with commas." />
-                <Input label="Where can you work?" value={where} onChange={(e) => setWhere(e.target.value)} placeholder="e.g. Bengaluru, Pune" autoComplete="address-level2" />
-                <fieldset className={s.fieldset}>
-                  <legend>Work mode</legend>
-                  <ChipRow>
-                    {MODES.map((mode) => {
-                      const on = modes.includes(mode);
-                      return (
-                        <FilterChip key={mode} pressed={on} onClick={() => setModes(on ? modes.filter((x) => x !== mode) : [...modes, mode])}>
-                          {mode}
-                        </FilterChip>
-                      );
-                    })}
-                  </ChipRow>
-                </fieldset>
-                <Checkbox label="I need visa sponsorship" checked={visa} onChange={(e) => setVisa(e.target.checked)} />
-                {problem(error)}
-                <div className={s.actions}>
-                  <Button type="submit" variant="primary" loading={busy === "goals" || busy === "build"}>
-                    {busy === "build" ? "Building your resume…" : "Save and build my resume"}
-                  </Button>
-                  <ButtonLink href={demo ? "/resumes/frontend-engineer" : "/resumes"} variant="ghost">
-                    Skip for now
-                  </ButtonLink>
-                </div>
-                <p className={s.fine} role="status">
-                  {busy === "build" ? "Choosing and wording your confirmed facts, then checking every line. This can take a minute." : ""}
+              <aside className={s.right} aria-label="Resume preview">
+                <p className={s.previewHead}>
+                  {reading ? "Your resume" : `Preview · ${template.name}`}
+                  {!reading && <span className={s.fine}>Recommended for {target === "Master resume" ? latest || "your experience" : target}. You can switch later.</span>}
                 </p>
-              </Card>
+                <div className={s.sheet}>
+                  {reading ? (
+                    <SkeletonRegion label="Your preview is on its way" className={s.skeleton}>
+                      <Skeleton width="45%" height={22} />
+                      <Skeleton width="70%" height={10} />
+                      {[0, 1].map((i) => (
+                        <div key={i} className={s.skelBlock}>
+                          <Skeleton width="35%" height={12} />
+                          <SkeletonText lines={4} lineHeight={16} />
+                        </div>
+                      ))}
+                    </SkeletonRegion>
+                  ) : (
+                    <div className={s.fit}>
+                      <ResumePaper resume={{ ...preview.resume, template: template.name, templateId: template.id }} template={template} extras={preview.extras} />
+                    </div>
+                  )}
+                </div>
+              </aside>
             </div>
           )}
         </m.section>
       </AnimatePresence>
-
-      <Dialog
-        open={confirmAll}
-        onClose={() => setConfirmAll(false)}
-        title={`Confirm ${easy.length} fact${easy.length === 1 ? "" : "s"}?`}
-        description="These have no numbers to check. Each keeps the level shown."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setConfirmAll(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                setConfirmAll(false);
-                confirm(easy);
-              }}
-            >
-              Confirm {easy.length}
-            </Button>
-          </>
-        }
-      >
-        <ul className={s.dialogList}>
-          {easy.map((d) => (
-            <li key={d.id}>
-              <span>{d.text}</span>
-              <span className={s.itemNote}>{level(d)}</span>
-            </li>
-          ))}
-        </ul>
-      </Dialog>
     </div>
   );
 }

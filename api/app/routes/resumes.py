@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app import render
 from app.core import storage
 from app.core.auth import CtxDep
-from app.core.display import day, span
+from app.core.display import day, span, years
 from app.core.errors import ApiError
 from app.core.idempotency import WriteCtxDep
 from app.db.models import (
@@ -150,7 +150,7 @@ def preview_extras(db: Session, r: Resume, draft: ResumeDraft) -> dict:
     return {
         "contact": " · ".join(doc["contact"]), "summary": "",  # the summary is the Summary section's lines
         "skillsSummary": [{"area": "Skills", "proof": x} for x in skills],
-        "projects": [{"name": e["title"], "stack": "", "line": " ".join(e["bullets"])}
+        "projects": [{"name": e["title"], "stack": e["org"], "dates": e["dates"], "line": " ".join(e["bullets"]), "bullets": e["bullets"]}
                      for e in secs["projects"]["entries"]],
         "education": [{"degree": e["title"], "org": e["org"], "dates": e["dates"], "detail": ""}
                       for e in secs["education"]["entries"]],
@@ -170,7 +170,7 @@ def _section(db: Session, key: str) -> tuple[dict, date | None]:
                 "dates": span(e.start_month, e.end_month), "lines": [],
                 "owner": {"type": "experience", "id": key}}, e.start_month
     if p := db.get(Project, owner_id):
-        return {"title": p.name or "Project", "dates": span(p.start_month, p.end_month), "lines": [],
+        return {"title": p.name or "Project", "dates": years(p.start_month, p.end_month), "lines": [],
                 "owner": {"type": "project", "id": key}}, p.start_month
     return {"title": "", "lines": []}, None
 

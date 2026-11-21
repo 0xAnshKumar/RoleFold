@@ -56,8 +56,7 @@ def paste_job(body: PasteIn, ctx: WriteCtxDep):
 
 
 def start_match(db: Session, job: Job, text: str) -> dict:
-    """Store the job and its text, reserve one deep_match (402 PLAN_LIMIT_REACHED) and queue the match task.
-    Also used for a feed job the user opens (routes/feed.py)."""
+    """Store the job and its text, reserve one deep_match (402 PLAN_LIMIT_REACHED) and queue the match task."""
     uid = job.owner_user_id
     db.add(job)
     db.flush()

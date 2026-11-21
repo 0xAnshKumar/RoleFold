@@ -5,7 +5,7 @@ import { cache } from "react";
 import { ApiError, api as send } from "./api";
 import { SESSION_COOKIE } from "./auth";
 import type { DraftGroup, Fact, Match, Profile, Resume, ResumeListItem, SavedJob, Usage } from "./mock";
-import type { Feed, Question, ShareState, SharedResume, SkillsInsight } from "./mock";
+import type { ShareState, SharedResume, SkillsInsight } from "./mock";
 
 // shortcut: demo mode is gone, so this is always false and every `demo` prop below is dead; delete them when next
 // touching those screens.
@@ -56,21 +56,7 @@ export const getProfile = cache(() =>
 
 export const getShare = (resumeId: string) => api<ShareState>(`/resumes/${resumeId}/share`);
 export const getSkillsInsight = () => api<SkillsInsight>("/insights/skills");
-export const getQuestions = () => api<{ items: Question[] }>("/enrichment-questions").then((r) => r.items);
 
 /** Public, no session. The viewer's address goes along for the API's per-client rate limit. */
 export const getShared = (token: string, forwardedFor: string) =>
   orNull(send<SharedResume>(`/shared/${encodeURIComponent(token)}`, { headers: forwardedFor ? { "X-Forwarded-For": forwardedFor } : {} }));
-
-// ---- job feed (api/app/routes/feed.py)
-
-export type FeedQuery = { q?: string; remote?: boolean; days?: number; saved?: boolean };
-
-export const getFeed = (q: FeedQuery = {}) => {
-  const params = new URLSearchParams();
-  if (q.q) params.set("q", q.q);
-  if (q.remote) params.set("remote", "true");
-  if (q.days) params.set("days", String(q.days));
-  if (q.saved) params.set("saved", "true");
-  return api<Feed>(`/feed${params.size ? `?${params}` : ""}`);
-};

@@ -60,7 +60,7 @@ def resume_doc(db: Session, user: User, rv: ResumeVersion) -> dict:
                                                            span(e.start_month, e.end_month))
                 starts[id(entries[oid])] = e.start_month
             elif p := db.get(Project, owner):
-                group, entries[oid] = "projects", _entry(p.name or "Project", None, span(p.start_month, p.end_month))
+                group, entries[oid] = "projects", _entry(p.name or "Project", p.stack, years(p.start_month, p.end_month))
             elif ed := db.get(Education, owner):
                 group, entries[oid] = "education", _education(ed)
             else:
@@ -86,7 +86,7 @@ def resume_doc(db: Session, user: User, rv: ResumeVersion) -> dict:
     headline = db.scalar(select(Profile.headline).where(Profile.user_id == user.id))
     return {
         "name": user.name or "", "headline": headline or "",
-        "contact": [x for x in (user.location, user.email, user.phone) if x],
+        "contact": [x for x in (user.location, user.email, user.phone, *(user.links or [])) if x],
         "sections": {
             "summary": {"lines": summary},
             "skillsSummary": {"lines": ([f"Skills: {skills}"] if skills else []) + summary},

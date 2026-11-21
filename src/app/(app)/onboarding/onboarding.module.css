@@ -1,4 +1,4 @@
-/* Onboarding (DESIGN.md 4.2, 4.3, 3.11, 3.12): upload, confirm queue, about you, goals. Calm app volume. */
+/* Onboarding (DESIGN.md 4.2, 4.3, 3.12): upload, then one check-and-build screen beside a live preview. Calm app volume. */
 
 .wrap {
   padding-top: 16px;
@@ -256,87 +256,130 @@
   color: var(--accent);
 }
 
-/* ---------- confirm (4.3, 3.11) ---------- */
-.confirmHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px 32px;
-  margin-bottom: 20px;
-}
-.headText {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.count {
-  width: min(100%, 280px);
-}
-.chips {
-  margin-bottom: 20px;
-}
-.queue {
+/* ---------- check and build (4.3): the review on the left, the live resume on the right ---------- */
+.split {
   display: grid;
-  gap: 24px;
+  gap: 32px;
   align-items: start;
 }
 @media (min-width: 1024px) {
-  .queue {
-    grid-template-columns: 7fr 5fr;
-    gap: 32px;
+  .split {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 40px;
   }
 }
-.main {
+.left {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
 }
-.allBar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  font: var(--type-sm);
-  color: var(--text-muted);
+.left > .head {
+  margin-bottom: 8px;
 }
-
-.fact {
+.right {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-.factTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  min-height: 36px;
-  font: var(--type-sm);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  min-width: 0;
 }
-.role {
+@media (min-width: 1024px) {
+  .right {
+    position: sticky;
+    top: 88px;
+  }
+}
+.previewHead {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font: var(--type-title);
+  font: var(--type-label);
+}
+.sheet {
+  container-type: inline-size;
   border-radius: var(--r-xs);
+  overflow: hidden;
+  background: var(--paper-white);
+  box-shadow: var(--shadow-object);
 }
-.role:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 4px;
+/* the resume is sized in em: tie its type to the sheet width so it scales like a page (as in the editor) */
+.fit {
+  display: block;
+  font-size: 2.88cqi;
 }
-.dates {
-  font: var(--type-sm);
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  aspect-ratio: 1 / 1.414;
+  padding: 7% 8%;
+}
+.skelBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.group {
+  overflow: hidden;
+}
+.groupHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--line);
+  font: var(--type-title);
+}
+.lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.line {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 20px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.line:last-child {
+  border-bottom: 0;
+}
+.line[data-off] .lineText {
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  text-decoration: line-through;
 }
-.factText {
-  font: var(--type-lead);
+.lineText {
+  font: var(--type-body);
   text-wrap: pretty;
+}
+.lineTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-left: 32px; /* under the text, past the checkbox */
+}
+.level {
+  width: auto;
+  min-width: 200px;
+}
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+}
+.pair {
+  display: grid;
+  gap: 16px;
+}
+@media (min-width: 600px) {
+  .pair {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 .num {
   font-weight: 600;
@@ -345,204 +388,32 @@
   text-decoration-thickness: 2px;
   text-underline-offset: 0.22em;
 }
-.numbers {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: var(--r-md);
-  background: var(--partial-bg);
+.dates {
   font: var(--type-sm);
-}
-.numbers > svg {
-  color: var(--partial);
-}
-.numChip {
-  position: relative;
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
-  background: var(--surface);
-  color: var(--text);
-  font: var(--type-id);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
-  transition: background-color var(--dur-fast) var(--ease-standard);
-}
-.numChip::before {
-  content: "";
-  position: absolute;
-  inset: -8px -2px;
-}
-@media (hover: hover) {
-  .numChip:hover {
-    background: var(--bg-sunken);
-  }
-}
-.levels {
-  max-width: 460px;
-}
-.factActions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-.grow {
-  flex: 1;
-}
-@media (max-width: 599px) {
-  .factActions > :not(.grow) {
-    flex: 1 1 auto;
-  }
-  .grow {
-    display: none;
-  }
-}
-.allDone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding-block: 40px;
-  text-align: center;
-}
-.allDone > svg {
-  color: var(--supported);
 }
 
-.question {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.questionText {
-  font: var(--type-body);
-}
-
-/* list beside the card */
-.side {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-@media (min-width: 1024px) {
-  .side {
-    position: sticky;
-    top: 88px;
-    max-height: calc(100dvh - 112px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-}
-.list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--line);
-}
-.list li {
-  position: relative;
-  border-bottom: 1px solid var(--line);
-}
-.list li[data-current]::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--accent);
-}
-.item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  padding: 12px 12px 12px 14px;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: var(--type-sm);
-  text-align: left;
-  border-radius: var(--r-sm);
-  transition: background-color var(--dur-fast) var(--ease-standard);
-}
-button.item:focus-visible {
-  outline-offset: -2px;
-}
-@media (hover: hover) {
-  button.item:hover {
-    background: var(--bg-sunken);
-  }
-}
-.itemText {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-li[data-done] .itemText {
-  color: var(--text-muted);
-}
-.itemNote {
-  font: var(--type-xs);
-  color: var(--text-muted);
-}
-
-/* education */
-.eduCol {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 760px;
-}
-.eduHead {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--line);
-}
-.eduList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.eduList li {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--line);
-}
-.eduList li:last-child {
-  border-bottom: 0;
-}
-
-/* continue: in flow on desktop, the bottom action bar below 1024 */
+/* build: in flow on desktop, the bottom action bar below 1024 */
 .footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 12px 16px;
-  margin-top: 32px;
+  margin-top: 8px;
   padding-top: 20px;
   border-top: 1px solid var(--line);
 }
+.footer .problem {
+  flex-basis: 100%;
+}
 
-/* goals */
+/* details and goals cards */
 .form {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-.form .actions {
-  margin-top: 4px;
 }
 .fieldset {
   display: flex;
@@ -556,20 +427,4 @@ li[data-done] .itemText {
   margin-bottom: 6px;
   padding: 0;
   font: var(--type-label);
-}
-
-.dialogList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  max-height: 50dvh;
-  overflow-y: auto;
-}
-.dialogList li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-  font: var(--type-sm);
 }

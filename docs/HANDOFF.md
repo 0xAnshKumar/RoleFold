@@ -1,4 +1,4 @@
-# Hunt — Handoff (2026-11-13, branch main)
+# RoleFold — Handoff (2026-11-21, branch main)
 
 Read this first in any new session. It replaces the lost chat history. Product specs: `docs/PRD v4 …md`,
 `docs/TRD v4 …md`, `docs/Side Questions …md`. Design rules: `docs/DESIGN.md` (mandatory for UI).
@@ -8,8 +8,9 @@ Past reviews and deferred work: `docs/reviews/` (CEO review, eng review, test pl
 
 A truthful, ATS-safe resume builder plus honest job-fit matching (India-first, global-ready).
 Every resume line must trace to a fact the user confirmed; matches show a verdict seal, never a
-percentage. **Launch is paste-first**: the user pastes a job description (no scraping, links are never
-fetched). The job feed, alerts and skills-insight view are deferred (see `docs/reviews/TODOS.md`).
+percentage. **Journey (owner, 2026-11-21):** upload → Improve (suggestions) → pick a template → Find jobs, which
+opens searches on LinkedIn/Naukri/Indeed/etc. built from the profile; the user pastes a job back for the check (no
+scraping, links are never fetched). **We don't list jobs**: the feed, alerts and job sources were removed.
 "Hunt" is a working name; Stampd was rejected (all domains taken, existing brands).
 
 ## 2. Owner's standing rules (always honour)
@@ -38,11 +39,11 @@ fetched). The job feed, alerts and skills-insight view are deferred (see `docs/r
 src/                     Next.js 16.4 App Router, React 19.3, TS, CSS Modules, Motion 14
   app/page.tsx           landing v2 (LandingNav, Hero + HeroMockup, HowItWorks, Sections: Modules, ProofStandard,
                          WhoFor, Pricing, Faq, Footer)
-  app/(app)/             jobs (tabs: For you = feed, ?tab=saved = Saved & pasted), jobs/[id] (match), resumes,
+  app/(app)/             jobs (tabs: Find jobs, ?tab=saved = Saved & pasted), jobs/[id] (match), improve, resumes,
                          resumes/[id] (editor + share panel),
                          profile, settings, onboarding
   app/admin/             admin console (ops, support access, skill terms, audit log)
-  app/r/[token]/         public shared resume; app/signin, app/unsubscribe
+  app/r/[token]/         public shared resume; app/signin
   app/kit/               design-system v2 kit: every primitive in every state, light + night (dev only; HUNT_KIT=1 in prod)
   app/fonts.ts, providers.tsx (MotionConfig + LazyMotion), BootScript.tsx (pre-paint theme + Save-Data)
   components/ui/         v2 primitives, one file each (import from the file, no barrel): Button (+ButtonLink,
@@ -66,16 +67,15 @@ api/                     Python 3.12+ uv project: FastAPI, SQLAlchemy 2, Alembic
                          (+ write-once tombstones), parsing (sandboxed PDF/DOCX extraction subprocess), display
   app/db/                models (~32 tables), session (sets app.user_id for RLS)
   app/routes/            me, profile (experiences/facts/education/achievements/languages/career gaps), imports,
-                         jobs, resumes, share, insights, feed, admin, system
-  app/catalog/           job sources (Greenhouse/Lever/Ashby/Workable/manual), ingest (dedupe/scam/expiry), feed ranking, alerts, cli
+                         jobs, resumes, share, insights, admin, system
   app/tasks/             queue (Postgres SKIP LOCKED + leases), worker HANDLERS: import, match, tailor,
-                         render (exports), regenerate, delete_user, catalog_ingest, alert_digest; reapply_tombstones (restore runbook CLI); llm.py = spend cap
+                         render (exports), regenerate, delete_user; reapply_tombstones (restore runbook CLI); llm.py = spend cap
   app/llm/               gateway.py (only module that talks to Gemini), schemas.py, prompts/*.md
   app/truth/             redact, numbers, checks (statement truth checks), verb_classes.yaml, verdict, url_paste,
                          aliases (curator-approved skill aliases)
   app/render.py          PDF via Typst (vendored fonts in api/fonts) + DOCX via python-docx
   alembic/               bootstrap.sql (roles), versions 0001–0009 (0005 achievements/languages, 0006 share links,
-                         0007 catalog, 0008 admin role + skill_aliases, 0009 career_gaps.status)
+                         0007 catalog (unused since 2026-11-21), 0008 admin role + skill_aliases, 0009 career_gaps.status)
   tests/                 unit + DB (testcontainers) + live (opt-in)
   Dockerfile             one image for API, workers, migrations (build from repo root)
 docs/                    PRD, TRD, Side Questions, DESIGN.md, HANDOFF.md, reviews/
@@ -107,8 +107,7 @@ Register redirect `{APP_URL}/auth/callback`, post-logout `{APP_URL}/`, scopes `o
 and audience must match on both sides or users bounce between sign-in and 401. Set `SESSION_SECRET` (32+ chars) in the
 frontend to keep users signed in via refresh tokens (provider must offer `offline_access`). Admins:
 `ADMIN_SUBJECTS` or `ADMIN_ROLE_CLAIM`/`ADMIN_ROLE`, plus `ADMIN_DATABASE_URL` (hunt_admin, BYPASSRLS; created in
-`bootstrap.sql`). Job feed: `CATALOG_SOURCES` (empty = off) + hourly cron `uv run python -m app.catalog.cli tick`;
-alerts need `SMTP_*` (log-only otherwise). Worker pools: `python -m app.tasks.worker --types import,match`.
+`bootstrap.sql`). Worker pools: `python -m app.tasks.worker --types import,match`.
 All of this is documented in `api/README.md` and the `.env.example` files. Tombstones: `TOMBSTONE_DIR` (WORM bucket in prod); restore runbook in
 `api/README.md` (`python -m app.tasks.reapply_tombstones`, needs `RESTORE_DATABASE_URL` with BYPASSRLS). Frontend proxies `/v1/*` to `API_URL` (no CORS).
 
@@ -158,13 +157,13 @@ Everything in PRD/TRD launch scope plus the formerly deferred features is built 
 - Uploads: sandboxed parser (subprocess, rlimits, seccomp no-network on Linux), PDFium fallback, page/char limits.
 - Profile: projects, career breaks, achievements, publications, languages (imported as drafts to confirm),
   enrichment questions, "Update with new facts".
-- New features: job feed (code-only preliminary fit, learned ranking, weekly alerts; no source enabled),
-  skills insight, revocable shareable resume links.
+- New features: skills insight, revocable shareable resume links. (The job feed and alerts built then were removed
+  on 2026-11-21.)
 - QA: a live run with real Gemini and Postgres passed every flow after 8 fixes; a design pass removed non-proof
   yellow, pill shapes and mono eyebrow labels from the app and fixed 390px layouts.
 
 **Design system v2: steps 1-7 of DESIGN.md 6.8 are built (2026-11-06)**: foundation (tokens, fonts,
-`public/brand/`, primitives, app shell, `/kit`), landing, onboarding upload + one-at-a-time confirm, resume list +
+`public/brand/`, primitives, app shell, `/kit`), landing, onboarding upload + check-and-build with live preview, resume list +
 editor + preview + share drawer, jobs, job check, profile, settings. Nav is Jobs / Resume / Profile (+ Settings under
 the avatar); `/feed` → `/jobs`, `/skills` → `/profile#skills` (next.config redirects).
 
@@ -185,9 +184,46 @@ a rejected key fails once with a "fix it in Settings" message. Claude/OpenAI mod
 Monthly free limits still apply to own-key users. Not yet run: migration on a real DB, a live call with a real
 Claude or OpenAI key (unit tests use fakes); OpenAI model ids came from OpenAI's models page on 2026-11-21.
 
+**New journey (owner, 2026-11-21; built, uncommitted):** upload → Improve → Pick a template → Find jobs.
+- Onboarding is 2 steps (owner, 2026-11-21: the one-at-a-time confirm, quick questions and separate About/Goals
+  steps were "useless"): Upload → **Check and build**, a split screen. Left: reading stages (real task states via
+  `waitFor`'s `onUpdate`), then every imported line ticked by default with numbers highlighted, a "your part" level
+  (reader's suggestion, else "Owned" for verbs that claim no level), Edit, education, contact and goals. Right: a live
+  `ResumePaper` preview (`lib/preview.ts`) in the recommended template. One button confirms the ticked lines, saves
+  details/goals, builds the first master and opens `/improve`. With a
+  resume already made, the button confirms and opens `/resumes` instead. Unticked lines are rejected ("not mine",
+  kept); the roles under ticked lines and ticked achievements are confirmed too. A build that outlives the 5-minute
+  wait keeps its operation, so pressing the button again waits on it instead of starting a second resume.
+- Import reads the header in plain code (`tasks/imports.py contact()`): name, email, phone, **city** (a place-only
+  segment on a line that also holds a contact value) and up to 4 **profile links** (header URLs). They're offered on
+  the review screen and saved with PATCH /me (`users.links`, migration 0011); exports print links on the contact
+  line. Projects keep their **tech stack** (`projects.stack`, read by the extractor) and **year-only dates**; project
+  dates show at year precision everywhere; re-importing fills a project's missing year/stack instead of duplicating it.
+  A task back in the queue with an error shows "The AI service is busy. Retrying on its own…".
+- `/improve` ("Improve my resume" on the Resume page): plain-code suggestions from `lib/suggestions.ts` (no model call):
+  drafts to confirm, roles with no lines, weak openers (after Resume Matcher's Apache-2.0 rules), "I/my", lines over
+  40 words, same opener on 3+ lines, 6+ month gaps no career break covers, no proven skills/education/contact, and
+  Google's XYZ test: "Can you measure it?" (no number, no result word) and "Add a number" (result word, no number); long lines at 40+ words. One
+  card per line, worst first; users rewrite their own line (PATCH /facts, a new version of the same fact). The
+  enrichment-question endpoints still exist but the UI no longer uses them (their answers became separate facts,
+  which broke XYZ). "Leave it" is per browser (localStorage).
+- `/resumes` opens with "Pick a template": the newest master in all 6 templates (`components/resume/TemplateGallery.tsx`,
+  shared with the editor), one "Recommended for you". Picking saves the template and opens the editor.
+- `/jobs` default tab **Find jobs** (`jobs/FindJobs.tsx` + `lib/jobSearch.ts`): editable search (role, city, remote,
+  proven-skill chips; a skill is "proven" by each confirmed line that names it or lists it as a tool) → LinkedIn, Naukri, Indeed, Wellfound, Google over Greenhouse/Lever/Ashby/Workable, Instahyre
+  (via Google). New accounts see "Start with your resume". Checked live: Naukri `experience` applies; LinkedIn
+  `f_TPR` and (signed in) `f_WT` remote apply, `f_E` experience is dropped by its AI search so it isn't sent;
+  Wellfound slugs resolve; Indeed unverified (blocks bots).
+- Removed: `app/catalog/`, `routes/feed.py`, `catalog_ingest`/`alert_digest` worker steps, catalog/SMTP settings and
+  tests; web feed components, feed settings, "Report this job", `/unsubscribe`. Catalog tables/models kept (unused).
+- Checks: frontend tsc/eslint/16 tests/build clean; backend 183 pass + 68 DB skipped (no Docker). UI checked with a
+  mock API (headless Chrome, then the whole journey in Claude in Chrome on 2026-11-21); not yet against the real API/DB.
+
 **Hosting plan (2026-11-21, no card anywhere):** web on Vercel; API + worker in one Render free web service
 (`render.yaml`, `api/scripts/start-all.sh`); Postgres on Neon free (project `rolefold`, already bootstrapped and
-migrated to 0010). Northflank was dropped (needs a card). Status and steps: `docs/DEPLOY-FREE.md`.
+migrated to 0010). Northflank was dropped (needs a card). **Live since 2026-11-21**: API
+`https://rolefold-api.onrender.com`, web `https://rolefold-green.vercel.app`, Google sign-in in Testing mode (owner
+only until privacy/terms pages exist). Details: `docs/DEPLOY-FREE.md`.
 
 ## 8. Open items (owner)
 
@@ -197,15 +233,14 @@ migrated to 0010). Northflank was dropped (needs a card). Status and steps: `doc
    model's new no-employer-suffix rule and the verifier haven't been live-checked.
 3. Production: `TOMBSTONE_DIR` on an object-locked bucket; build `api/Dockerfile`; confirm seccomp parser on a real
    x86_64 host (tested on arm64 only).
-4. Job feed: approve sources per market (T-OQ-2) before setting `CATALOG_SOURCES`; untested against real
-   Greenhouse/Lever responses and real SMTP.
+4. Find jobs: Indeed links unverified (blocks bots); open one in a browser. Later: a migration dropping the
+   unused catalog tables (catalog_jobs, catalog_source_runs, catalog_feedback, feed_settings, jobs.catalog_job_id).
 5. Confirm: an outdated master now also shows "Update with new facts" when the confirmed profile has moved on
    (beyond TRD §16.2 wording; QA change).
 6. Spec questions (PRD OQ-1..9, TRD T-OQ-1..7): launch professions, beta size, pricing, legal review, LinkedIn,
    ESCO licence (no taxonomy exists; skill ids come only from curator aliases), data residency.
 7. Known limits (`shortcut:` comments mark most): other people's names/nicknames aren't redacted (accepted, D12);
-   share-link rate limit is per process; refresh de-dup is per Next instance; digest email can resend if the commit
-   fails after sending; "5+ years of React" is judged on total role years; feed has no full-text index; partition/
+   share-link rate limit is per process; refresh de-dup is per Next instance; "5+ years of React" is judged on total role years; partition/
    replicas/Redis not built (triggers in `api/README.md`); dev-only npm advisory (minimatch) needs a breaking
    upgrade. A rare flaky DB test (a worker task ends `failed` instead of `succeeded`; ~1 in 10+ full runs, not
    reproduced in 40 reruns) is unexplained.
